@@ -1,14 +1,20 @@
-// src/vistas/VistaStockBajo.tsx
 import { useEstadoInventario } from "../estado/estadoInventario";
+import { useEstadoNavegacion } from "../estado/estadoNavegacion";
+import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { AlertTriangle, PackageOpen, ArrowRight } from "lucide-react";
 import { cn } from "../utilidades/utils";
-import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { tieneAlertaStock } from "../utilidades/stock";
 
 export default function VistaStockBajo() {
   const { productos } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
+  const { trabajadorActivo } = useEstadoTrabajadores();
+
+  // Permisos
+  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
+  const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
   // Filtramos SOLO los que controlan stock y están en o por debajo del mínimo
   const productosBajos = productos.filter(tieneAlertaStock);
@@ -39,7 +45,7 @@ export default function VistaStockBajo() {
       </div>
 
       <div className="efecto-cristal rounded-2xl overflow-hidden flex-1 flex flex-col border border-slate-200/50 dark:border-white/10">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200/50 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/50 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -48,7 +54,7 @@ export default function VistaStockBajo() {
                 <th className="p-4">Nivel Actual</th>
                 <th className="p-4">Mínimo Requerido</th>
                 <th className="p-4 text-center">Estado</th>
-                <th className="p-4 text-center">Acción</th>
+                {(puedeEditar || puedeAjustarStock) && <th className="p-4 text-center">Acción</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/10">
@@ -66,10 +72,10 @@ export default function VistaStockBajo() {
                   return (
                     <tr key={producto.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100">
                       <td className="p-4 font-medium">
-                        <button onClick={() => setSeccionActual("nuevo-producto", producto.id)} className="flex items-center gap-3 text-left hover:text-emerald-600">
+                        <div className="flex items-center gap-3 text-left">
                           <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-10 w-10 shrink-0 rounded-lg object-cover text-sm" />
                           <span>{producto.nombre}</span>
-                        </button>
+                        </div>
                       </td>
                       <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">{producto.categoria || "Sin categoría"}</td>
                       <td className="p-4 font-bold text-lg">{producto.stock_actual} <span className="text-xs font-normal text-slate-400">{producto.unidad.toLowerCase()}</span></td>
@@ -84,14 +90,16 @@ export default function VistaStockBajo() {
                           {esCritico ? "Crítico" : "Bajo"}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
-                        <button 
-                          onClick={() => setSeccionActual("nuevo-producto", producto.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors"
-                        >
-                          Actualizar <ArrowRight size={14} />
-                        </button>
-                      </td>
+                      {(puedeEditar || puedeAjustarStock) && (
+                        <td className="p-4 text-center">
+                          <button 
+                            onClick={() => setSeccionActual("nuevo-producto", producto.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                          >
+                            Actualizar <ArrowRight size={14} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

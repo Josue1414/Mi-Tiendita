@@ -1,10 +1,10 @@
-// src/App.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoNavegacion, type SeccionApp } from "./estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "./estado/estadoTrabajadores";
 import { useEstadoInventario } from "./estado/estadoInventario";
 import { useEstadoVentas } from "./estado/estadoVentas";
 import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
+import { useEstadoAsistencias } from "./estado/estadoAsistencias";
 import { cn } from "./utilidades/utils";
 import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut } from "lucide-react";
 
@@ -17,7 +17,7 @@ import VistaPanel from "./vistas/VistaPanel";
 import VistaStockBajo from "./vistas/VistaStockBajo";
 import VistaEquipo from "./vistas/VistaEquipo";
 import VistaConfiguracion from "./vistas/VistaConfiguracion";
-import VistaLogin from "./vistas/VistaLogin"; // <-- Importamos la nueva vista
+import VistaLogin from "./vistas/VistaLogin";
 import { tieneAlertaStock } from "./utilidades/stock";
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
@@ -35,15 +35,15 @@ const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
 export default function App() {
   const { seccionActual, setSeccionActual } = useEstadoNavegacion();
   
-  // Extraemos trabajadorActivo, el estado de carga y cerrarSesion
   const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
-  
   const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
   const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
   const { cargarConfiguracion, cargando: cargandoConfiguracion } = useEstadoConfiguracion();
+  const { registrarSalida } = useEstadoAsistencias();
   
   const [modoOscuro, setModoOscuro] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(true);
+  const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
 
   if (window.location.search.includes('cliente=true')) {
     return <VistaPantallaCliente />;
@@ -61,7 +61,6 @@ export default function App() {
     else document.documentElement.classList.remove("dark");
   }, [modoOscuro]);
   
-  // Pantalla de carga mientras lee la base de datos local
   const estaCargandoGlobal = cargandoTrabajadores || cargandoInventario || cargandoVentas || cargandoConfiguracion;
   
   if (estaCargandoGlobal) {
@@ -73,7 +72,6 @@ export default function App() {
     );
   }
 
-  // Si los datos ya cargaron pero no hay nadie logueado, mostramos el Login
   if (!trabajadorActivo) {
     return <VistaLogin />;
   }
@@ -90,6 +88,7 @@ export default function App() {
     { id: "historial", icono: History, texto: "Historial de Ventas" },
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
   ] as const;
+  
   const alertasStock = productos.filter(tieneAlertaStock).length;
 
   const menusAdmin = [
@@ -100,14 +99,40 @@ export default function App() {
 
   const esDueño = trabajadorActivo?.rol === "DUEÑO";
 
-  const manejarCerrarSesion = () => {
+  const confirmarCerrarSesion = async () => {
+    setMostrarModalSalida(false);
+    if (trabajadorActivo) {
+      await registrarSalida(trabajadorActivo.id);
+    }
     cerrarSesion();
-    setSeccionActual("pos"); // Reseteamos la vista para el próximo ingreso
+    setSeccionActual("pos"); 
   };
 
   return (
-    <div className="flex h-screen bg-emerald-50/30 dark:bg-slate-950 transition-colors overflow-hidden text-sm">
+    <div className="flex h-screen bg-emerald-50/30 dark:bg-slate-950 transition-colors overflow-hidden text-sm relative">
       
+      {mostrarModalSalida && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-full flex items-center justify-center mb-4">
+              <LogOut size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">¿Quieres cerrar sesión?</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+              Tendrás que ingresar tu PIN nuevamente para acceder al sistema.
+            </p>
+            <div className="flex w-full gap-3">
+              <button onClick={() => setMostrarModalSalida(false)} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={confirmarCerrarSesion} className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-bold text-white hover:bg-red-700 shadow-lg shadow-red-600/30 transition-all hover:scale-[1.02]">
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside className={cn(
         "efecto-cristal h-full transition-all duration-300 flex flex-col border-r border-slate-200/50 dark:border-white/10 shrink-0 z-20",
         menuAbierto ? "w-64" : "w-16"
@@ -130,16 +155,29 @@ export default function App() {
             {menusOperativos.map((menu) => {
               const Icono = menu.icono;
               const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+              const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
+
               return (
                 <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={!menuAbierto ? menu.texto : undefined}
-                  className={cn("w-full flex items-center gap-3 p-2.5 rounded-xl transition-all font-medium whitespace-nowrap overflow-visible mb-1",
+                  className={cn("w-full flex items-center gap-3 p-2.5 rounded-xl transition-all font-medium mb-1",
                     activo ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
                     !menuAbierto && "justify-center px-0"
                   )}>
-                  <Icono size={18} className="shrink-0" />
-                  {menuAbierto && <span className="flex-1 text-left">{menu.texto}</span>}
-                  {menu.id === "stock-bajo" && alertasStock > 0 && (
-                    <span className={cn("flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm", !menuAbierto && "absolute right-0 top-0 -translate-y-1/2 translate-x-1/2")} aria-label={`${alertasStock} alertas de stock`} title={`${alertasStock} alertas de stock`}>
+                  
+                  {/* Contenedor relativo del ícono para anclar la alerta */}
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <Icono size={18} />
+                    {!menuAbierto && tieneAlerta && (
+                      <span className="absolute -top-2 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm border border-emerald-50 dark:border-slate-950">
+                        {alertasStock > 99 ? "99+" : alertasStock}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {menuAbierto && <span className="flex-1 text-left truncate">{menu.texto}</span>}
+                  
+                  {menuAbierto && tieneAlerta && (
+                    <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
                       {alertasStock > 99 ? "99+" : alertasStock}
                     </span>
                   )}
@@ -186,8 +224,7 @@ export default function App() {
             {menuAbierto && <span>{modoOscuro ? "Modo Claro" : "Modo Oscuro"}</span>}
           </button>
 
-          {/* Botón de Cerrar Sesión */}
-          <button onClick={manejarCerrarSesion} title={!menuAbierto ? "Cerrar Sesión" : undefined}
+          <button onClick={() => setMostrarModalSalida(true)} title={!menuAbierto ? "Cerrar Sesión Local" : undefined}
             className={cn("flex items-center gap-3 p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors w-full",
               !menuAbierto && "justify-center px-0"
             )}>

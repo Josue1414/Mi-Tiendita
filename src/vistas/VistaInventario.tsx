@@ -1,7 +1,7 @@
-// src/vistas/VistaInventario.tsx
 import { useCallback, useMemo, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
+import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { precioVenta, type Producto } from "../tipos/producto";
@@ -11,15 +11,20 @@ import ModalCategoria from "../componentes/ui/ModalCategoria";
 import ModalCodigoBarras from "../componentes/ui/ModalCodigoBarras";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
+import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 
 export default function VistaInventario() {
   const { productos, categorias, eliminarProducto, actualizarProducto, agregarCategoria, eliminarCategoria } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
+  const { trabajadorActivo } = useEstadoTrabajadores();
+
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
   const [modalCategoria, setModalCategoria] = useState(false);
   const [productoEtiqueta, setProductoEtiqueta] = useState<Producto | null>(null);
   const [escanerCamaraAbierto, setEscanerCamaraAbierto] = useState(false);
+  const [confirmacion, setConfirmacion] = useState<{ abierto: boolean, titulo: string, mensaje: string, accion: () => void }>({ abierto: false, titulo: "", mensaje: "", accion: () => {} });
+  
   const cerrarEscanerCamara = useCallback(() => setEscanerCamaraAbierto(false), []);
   const aplicarCodigoCamara = useCallback((codigo: string) => { setBusqueda(codigo); setCategoriaActiva("todas"); }, []);
 
@@ -29,6 +34,12 @@ export default function VistaInventario() {
   }, []);
 
   useEscanerCodigoBarras(alEscanear);
+
+  // Permisos
+  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
+  const puedeEliminar = esDueño || trabajadorActivo?.permisos?.eliminarProductos;
+  const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
   const conteoPorCategoria = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -56,10 +67,25 @@ export default function VistaInventario() {
 
   const colorDe = (nombre?: string) => categorias.find((c) => c.nombre === nombre)?.color ?? "#64748b";
 
-  const eliminar = async (producto: Producto) => {
-    if (confirm(`¿Eliminar "${producto.nombre}" del inventario?`)) {
-      await eliminarProducto(producto.id);
-    }
+  const solicitarEliminarProducto = (producto: Producto) => {
+    setConfirmacion({
+      abierto: true,
+      titulo: "Eliminar Producto",
+      mensaje: `¿Estás seguro de que deseas eliminar "${producto.nombre}" del inventario de forma permanente?`,
+      accion: () => eliminarProducto(producto.id)
+    });
+  };
+
+  const solicitarEliminarCategoria = (categoria: { id: string; nombre: string }) => {
+    setConfirmacion({
+      abierto: true,
+      titulo: "Eliminar Categoría",
+      mensaje: `¿Eliminar la categoría "${categoria.nombre}"? Sus productos conservarán sus datos, pero quedarán sin categoría.`,
+      accion: async () => {
+        await eliminarCategoria(categoria.id);
+        if (categoriaActiva === categoria.nombre) setCategoriaActiva("todas");
+      }
+    });
   };
 
   const ajustarStock = async (producto: Producto) => {
@@ -74,14 +100,17 @@ export default function VistaInventario() {
     });
   };
 
-  const eliminarCategoriaVisible = async (categoria: { id: string; nombre: string }) => {
-    if (!confirm(`¿Eliminar la categoría "${categoria.nombre}"? Sus productos conservarán sus datos, pero quedarán sin categoría.`)) return;
-    await eliminarCategoria(categoria.id);
-    if (categoriaActiva === categoria.nombre) setCategoriaActiva("todas");
-  };
-
   return (
     <div className="w-full h-full flex flex-col p-5 animate-in fade-in duration-300">
+      
+      <ModalConfirmacion 
+        abierto={confirmacion.abierto} 
+        titulo={confirmacion.titulo} 
+        mensaje={confirmacion.mensaje} 
+        alConfirmar={confirmacion.accion} 
+        alCerrar={() => setConfirmacion({ ...confirmacion, abierto: false })} 
+      />
+
       <ModalCategoria
         abierto={modalCategoria}
         coloresUsados={categorias.map((c) => c.color)}
@@ -100,34 +129,38 @@ export default function VistaInventario() {
           <p className="text-xs text-slate-500 mt-0.5">{productos.length} productos registrados</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setModalCategoria(true)}
-            className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            <FolderPlus size={14} />
-            Categoría
-          </button>
-          <button
-            onClick={() => setSeccionActual("nuevo-producto")}
-            className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-xs font-semibold"
-          >
-            <Plus size={14} />
-            Nuevo Producto
-          </button>
+          {puedeEditar && (
+            <button
+              onClick={() => setModalCategoria(true)}
+              className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              <FolderPlus size={14} />
+              Categoría
+            </button>
+          )}
+          {(puedeEditar || puedeAjustarStock) && (
+            <button
+              onClick={() => setSeccionActual("nuevo-producto")}
+              className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-xs font-semibold"
+            >
+              <Plus size={14} />
+              Nuevo Producto
+            </button>
+          )}
         </div>
       </div>
 
       <div className="relative mb-3 flex gap-2">
         <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-        <input
-          type="text"
-          data-escaner="true"
-          placeholder="Buscar por nombre, código o descripción..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 pl-9 pr-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-        />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            type="text"
+            data-escaner="true"
+            placeholder="Buscar por nombre, código o descripción..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 pl-9 pr-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+          />
         </div>
         <button onClick={() => setEscanerCamaraAbierto(true)} title="Escanear con cámara" aria-label="Escanear con cámara" className="inline-flex w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 sm:w-auto sm:px-3">
           <Camera size={18} />
@@ -154,7 +187,7 @@ export default function VistaInventario() {
             <div key={categoria.id} className="h-8 shrink-0 inline-flex items-center rounded-full border overflow-hidden" style={{ borderColor: categoria.color }}>
               <button
                 onClick={() => setCategoriaActiva(categoria.nombre)}
-                className="h-full px-3 text-xs font-semibold inline-flex items-center gap-1.5"
+                className={cn("h-full px-3 text-xs font-semibold inline-flex items-center gap-1.5", !puedeEliminar && "pr-4")}
                 style={{
                   backgroundColor: activa ? categoria.color : "transparent",
                   color: activa ? colorTextoSobre(categoria.color) : categoria.color,
@@ -163,13 +196,15 @@ export default function VistaInventario() {
                 <Icono size={13} />
                 {categoria.nombre} ({count})
               </button>
-              <button
-                onClick={() => eliminarCategoriaVisible(categoria)}
-                title={`Eliminar ${categoria.nombre}`}
-                className="h-full px-2 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
-              >
-                <Trash2 size={12} />
-              </button>
+              {puedeEliminar && (
+                <button
+                  onClick={() => solicitarEliminarCategoria(categoria)}
+                  title={`Eliminar ${categoria.nombre}`}
+                  className="h-full px-2 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40 transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
           );
         })}
@@ -260,18 +295,24 @@ export default function VistaInventario() {
                       <td className="px-3 py-2.5 text-xs text-slate-500">{producto.paquete || "—"}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-center gap-0.5">
-                          <button title="Editar" onClick={() => setSeccionActual("nuevo-producto", producto.id)} className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
-                            <Edit size={14} />
-                          </button>
+                          {(puedeEditar || puedeAjustarStock) && (
+                            <button title={puedeEditar ? "Editar" : "Ajustar Stock"} onClick={() => setSeccionActual("nuevo-producto", producto.id)} className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+                              <Edit size={14} />
+                            </button>
+                          )}
                           <button title="Código de barras" onClick={() => setProductoEtiqueta(producto)} className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
                             <Barcode size={14} />
                           </button>
-                          <button title="Agregar stock" onClick={() => ajustarStock(producto)} className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-600">
-                            <ArrowUp size={14} />
-                          </button>
-                          <button title="Eliminar" onClick={() => eliminar(producto)} className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500">
-                            <Trash2 size={14} />
-                          </button>
+                          {(puedeEditar || puedeAjustarStock) && (
+                            <button title="Agregar stock" onClick={() => ajustarStock(producto)} className="p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-600">
+                              <ArrowUp size={14} />
+                            </button>
+                          )}
+                          {puedeEliminar && (
+                            <button title="Eliminar" onClick={() => solicitarEliminarProducto(producto)} className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -281,6 +322,8 @@ export default function VistaInventario() {
             </tbody>
           </table>
         </div>
+        
+        {/* Vista Móvil */}
         <div className="flex-1 space-y-2 overflow-y-auto p-3 md:hidden">
           {productosFiltrados.length === 0 ? (
             <p className="p-6 text-center text-sm text-slate-500">No se encontraron productos.</p>
@@ -301,9 +344,16 @@ export default function VistaInventario() {
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="max-w-[55%] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: colorConAlpha(color, 0.16), color }}>{producto.categoria || "Sin categoría"}</span>
                   <div className="flex gap-1">
-                    <button title="Editar" onClick={() => setSeccionActual("nuevo-producto", producto.id)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><Edit size={14} /></button>
-                    <button title="Agregar stock" onClick={() => ajustarStock(producto)} className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50"><ArrowUp size={14} /></button>
+                    {(puedeEditar || puedeAjustarStock) && (
+                      <button title="Editar" onClick={() => setSeccionActual("nuevo-producto", producto.id)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><Edit size={14} /></button>
+                    )}
+                    {(puedeEditar || puedeAjustarStock) && (
+                      <button title="Agregar stock" onClick={() => ajustarStock(producto)} className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50"><ArrowUp size={14} /></button>
+                    )}
                     <button title="Código de barras" onClick={() => setProductoEtiqueta(producto)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><Barcode size={14} /></button>
+                    {puedeEliminar && (
+                      <button title="Eliminar" onClick={() => solicitarEliminarProducto(producto)} className="rounded-md p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 size={14} /></button>
+                    )}
                   </div>
                 </div>
               </article>

@@ -1,8 +1,6 @@
-// src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
-import { Store, HardDrive, Cloud, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet } from "lucide-react";
+import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
-import { usePWA } from "../hooks/usePWA";
 import { cn } from "../utilidades/utils";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
@@ -10,13 +8,11 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 
 export default function VistaConfiguracion() {
   const { 
-    nombreTienda, mensajeTicket, directorioImagenes, sincronizacionNube, teclaCobro, correoDueno,
+    nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, correoDueno,
     teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
-    actualizarDatosTienda, setDirectorioImagenes, toggleSincronizacion, setTeclaCobro, actualizarDatosPago, setCorreoDueno
+    actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago, setCorreoDueno
   } = useEstadoConfiguracion();
 
-  // Integración del hook PWA
-  const { instalarApp, puedeInstalar, estaInstalada } = usePWA();
   const { productos, agregarProducto } = useEstadoInventario();
 
   const [inputNombre, setInputNombre] = useState(nombreTienda);
@@ -28,6 +24,9 @@ export default function VistaConfiguracion() {
   const [correoTemporal, setCorreoTemporal] = useState(correoDueno);
   const [datosPago, setDatosPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
 
+  // Detectamos si la aplicación se está ejecutando dentro de Electron
+  const esAppEscritorio = typeof window !== 'undefined' && !!window.apiLocal;
+
   const manejarGuardarGeneral = (e: React.FormEvent) => {
     e.preventDefault();
     actualizarDatosTienda(inputNombre, inputMensaje);
@@ -37,7 +36,7 @@ export default function VistaConfiguracion() {
 
   const seleccionarCarpeta = async () => {
     if (!('showDirectoryPicker' in window)) {
-      setAviso({ titulo: "Carpetas locales no disponibles", mensaje: "Esta función requiere Chrome o Edge y ejecutarse desde localhost. Puedes continuar usando el almacenamiento local del navegador." });
+      setAviso({ titulo: "Carpetas locales no disponibles", mensaje: "Esta función requiere la aplicación de escritorio nativa para Windows." });
       return;
     }
 
@@ -85,22 +84,33 @@ export default function VistaConfiguracion() {
     setDatosPago((actual) => ({ ...actual, [campo]: valor }));
   };
 
+  const descargarInstalador = () => {
+    setAviso({ titulo: "Descarga iniciada", mensaje: "El archivo instalador (.exe) comenzará a descargarse. Ejecútalo en tu PC para instalar el sistema seguro." });
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
       <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo={aviso?.titulo === "Importación completada" ? "exito" : "advertencia"} alCerrar={() => setAviso(null)} />
       
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          Configuración del Sistema
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Ajusta las preferencias locales, almacenamiento, PWA y conexión a la nube.
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            Configuración del Sistema
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Ajusta las preferencias locales, almacenamiento y opciones de venta.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-800/30 w-fit">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs font-bold uppercase tracking-wider">Suscripción Activa</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
-        
-        {/* Panel General */}
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
             <Store size={20} className="text-emerald-600 dark:text-emerald-400" />
@@ -110,21 +120,11 @@ export default function VistaConfiguracion() {
           <form onSubmit={manejarGuardarGeneral} className="flex flex-col gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Negocio</label>
-              <input 
-                type="text" 
-                value={inputNombre} 
-                onChange={(e) => setInputNombre(e.target.value)} 
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm" 
-              />
+              <input type="text" value={inputNombre} onChange={(e) => setInputNombre(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Mensaje al pie del ticket</label>
-              <textarea 
-                value={inputMensaje} 
-                onChange={(e) => setInputMensaje(e.target.value)} 
-                rows={3}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm resize-none" 
-              />
+              <textarea value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm resize-none" />
             </div>
             <button type="submit" className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-medium transition-all text-sm">
               {guardado ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />}
@@ -133,24 +133,40 @@ export default function VistaConfiguracion() {
           </form>
         </div>
 
-        <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Correo de recuperación</h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400">Liga el correo del dueño. El envío real del enlace se activará al conectar Supabase Auth.</p>
-          <input type="email" value={correoTemporal} onChange={(evento) => setCorreoTemporal(evento.target.value)} onBlur={() => setCorreoDueno(correoTemporal)} placeholder="dueno@ejemplo.com" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" />
+        <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
+            <MonitorDown size={20} className="text-indigo-600 dark:text-indigo-400" />
+            Seguridad y Aplicación Nativa
+          </h2>
+          
+          <div className="mt-auto flex flex-col items-start gap-4">
+            {esAppEscritorio ? (
+              <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 w-full">
+                <Lock size={24} className="shrink-0" />
+                <div className="flex flex-col leading-tight">
+                  <span>Sistema Encriptado Activo</span>
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500 mt-1">Estás utilizando la versión de Windows. Tu inventario y configuraciones están resguardados localmente con seguridad de grado militar.</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Para máxima seguridad contra robo de inventario y manipulación, te recomendamos descargar la versión nativa para Windows. 
+                  Cuenta con un baúl encriptado que bloquea el acceso externo a tus datos y permite lectura de básculas.
+                </p>
+                <button onClick={descargarInstalador} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30 hover:scale-[1.02] w-full justify-center">
+                  <MonitorDown size={20} />
+                  Descargar Instalador (.exe)
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">Atajo de cobro</h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400">Selecciona el campo y presiona una tecla. Se abrirá la ventana de cobro cuando el ticket tenga productos.</p>
-          <input
-            type="text"
-            readOnly
-            value={teclaTemporal}
-            onKeyDown={capturarTeclaCobro}
-            onFocus={(evento) => evento.currentTarget.select()}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
-            aria-label="Tecla de cobro"
-          />
+          <p className="text-xs text-slate-600 dark:text-slate-400">Selecciona el campo y presiona una tecla. Se abrirá la ventana de cobro al presionarla.</p>
+          <input type="text" readOnly value={teclaTemporal} onKeyDown={capturarTeclaCobro} onFocus={(evento) => evento.currentTarget.select()} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100" />
         </div>
 
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
@@ -172,72 +188,23 @@ export default function VistaConfiguracion() {
           <input value={datosPago.mensajePago} onChange={(evento) => actualizarDatoPago("mensajePago", evento.target.value)} onBlur={() => actualizarDatosPago(datosPago)} placeholder="Mensaje después del pago" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" />
         </div>
 
-        {/* Instalación PWA */}
-        <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
-          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
-            <MonitorDown size={20} className="text-indigo-600 dark:text-indigo-400" />
-            Aplicación de Escritorio
-          </h2>
-          
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Instala "Mi Tienda" en tu computadora para acceder a ella como un programa nativo de Windows, sin barra de direcciones y con su propio icono.
-          </p>
-
-          <div className="mt-auto flex flex-col items-start gap-3">
-            {estaInstalada ? (
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
-                <CheckCircle2 size={18} />
-                <span>Aplicación instalada correctamente</span>
-              </div>
-            ) : puedeInstalar ? (
-              <button 
-                onClick={instalarApp}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30 hover:scale-[1.02]"
-              >
-                <MonitorDown size={20} />
-                Instalar en Windows
-              </button>
-            ) : (
-              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs border border-amber-100 dark:border-amber-900/30">
-                <Info size={16} className="shrink-0 mt-0.5" />
-                <p>La instalación no está disponible. Asegúrate de usar Chrome o Edge, o verifica que la configuración PWA esté activa en Vite.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Panel Almacenamiento Local (Offline-First) */}
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
             <HardDrive size={20} className="text-blue-600 dark:text-blue-400" />
-            Almacenamiento Local (Offline)
+            Directorio de Imágenes Físicas
           </h2>
-          
           <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-900/30">
             <Info size={18} className="shrink-0" />
-            <p>Los datos (productos, ventas) se guardan automáticamente en la base de datos interna de tu navegador (IndexedDB) para funcionar sin internet.</p>
+            <p>Las imágenes de tus productos no se suben a la nube para ahorrar datos. Se guardan en la carpeta que elijas de tu PC.</p>
           </div>
-
-          <div className="mt-2">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Directorio de Imágenes Físicas</label>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-              Selecciona una carpeta en tu laptop donde se guardarán los archivos pesados (imágenes de productos).
-            </p>
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={seleccionarCarpeta}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors text-sm shadow-md shadow-blue-600/20 shrink-0"
-              >
-                <FolderOpen size={16} />
-                Elegir Carpeta
-              </button>
-              
-              <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 flex items-center gap-2 overflow-hidden">
-                <span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate">
-                  {directorioImagenes ? `.../${directorioImagenes}` : "Ninguna carpeta seleccionada"}
-                </span>
-              </div>
+          <div className="flex items-center gap-3 mt-2">
+            <button onClick={seleccionarCarpeta} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors text-sm shadow-md shadow-blue-600/20 shrink-0">
+              <FolderOpen size={16} /> Elegir Carpeta
+            </button>
+            <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 overflow-hidden">
+              <span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">
+                {directorioImagenes ? `.../${directorioImagenes}` : "Ninguna carpeta seleccionada"}
+              </span>
             </div>
           </div>
         </div>
@@ -248,51 +215,13 @@ export default function VistaConfiguracion() {
             Importar productos
           </h2>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Carga un archivo Excel. Las columnas principales son: nombre, codigo_barras, precio, costo, categoria, stock_actual y stock_minimo.
+            Carga un archivo Excel. Las columnas requeridas son: nombre, codigo_barras y precio. Opcionales: costo, categoria, stock_actual, etc.
           </p>
-          <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700">
+          <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors">
             <FileSpreadsheet size={16} />
             {importando ? "Importando..." : "Elegir archivo Excel"}
             <input type="file" accept=".xlsx,.xls" onChange={importarExcel} disabled={importando} className="hidden" />
           </label>
-        </div>
-
-        {/* Panel Sincronización en la Nube */}
-        <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
-          <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
-            <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <Cloud size={20} className="text-purple-600 dark:text-purple-400" />
-              Sincronización en la Nube (Supabase)
-            </h2>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                {sincronizacionNube ? "Activada" : "Desactivada"}
-              </span>
-              <div className="relative">
-                <input type="checkbox" className="sr-only" checked={sincronizacionNube} onChange={toggleSincronizacion} />
-                <div className={cn("block w-12 h-6 rounded-full transition-colors", sincronizacionNube ? "bg-purple-500" : "bg-slate-300 dark:bg-slate-700")}></div>
-                <div className={cn("dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform", sincronizacionNube ? "transform translate-x-6" : "")}></div>
-              </div>
-            </label>
-          </div>
-
-          <div className={cn("grid grid-cols-1 sm:grid-cols-3 gap-4 transition-opacity", !sincronizacionNube && "opacity-40 pointer-events-none")}>
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col justify-center items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse mb-1"></span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Estado Conexión</span>
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Esperando credenciales</span>
-            </div>
-            
-            <div className="sm:col-span-2 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-white/5 flex flex-col justify-center gap-2">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                La sincronización requiere vincular tu proyecto de Supabase. El sistema subirá las ventas y el texto del inventario automáticamente cuando haya internet.
-              </p>
-              <button disabled className="self-start px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed">
-                Vincular Proyecto (Pronto)
-              </button>
-            </div>
-          </div>
         </div>
 
       </div>
