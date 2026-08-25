@@ -1,0 +1,412 @@
+// src/vistas/VistaPOS.tsx
+import { useCallback, useEffect, useState } from "react";
+import { useEstadoInventario } from "../estado/estadoInventario";
+import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
+import { useEstadoVentas } from "../estado/estadoVentas";
+import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag } from "lucide-react";
+import { precioVenta, type Producto } from "../tipos/producto";
+import ModalPeso from "../componentes/ui/ModalPeso";
+import ModalCobro from "../componentes/ui/ModalCobro";
+import ImagenLocal from "../componentes/ui/ImagenLocal";
+import { cn } from "../utilidades/utils";
+import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
+import { colorConAlpha, colorTextoSobre } from "../utilidades/coloresCategoria";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
+import ModalAviso from "../componentes/ui/ModalAviso";
+import ModalAutorizacion from "../componentes/ui/ModalAutorizacion";
+
+export default function VistaPOS() {
+  const { productos, categorias, descontarStock } = useEstadoInventario();
+  const { 
+    items, subtotal, descuento, tipoDescuento, total, 
+    agregarAlCarrito, actualizarCantidad, limpiarCarrito, setDescuento 
+  } = useEstadoCarrito();
+  const { agregarVenta } = useEstadoVentas();
+  const { trabajadorActivo, actualizarMetricas } = useEstadoTrabajadores();
+  const { teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
+  
+  const { enviarMensaje } = useEmisorPantallaCliente();
+  
+  const [busqueda, setBusqueda] = useState("");
+  const [categoriaActiva, setCategoriaActiva] = useState("todas");
+  const [productoParaPesar, setProductoParaPesar] = useState<Producto | null>(null);
+  const [modalPesoAbierto, setModalPesoAbierto] = useState(false);
+  const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
+  const [inputDescuento, setInputDescuento] = useState("");
+  const [pagoConfirmado, setPagoConfirmado] = useState(false);
+  const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
+  const [productoAutorizacion, setProductoAutorizacion] = useState<Producto | null>(null);
+  const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
+
+  useEffect(() => {
+    enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
+  }, [items, total, descuento, enviarMensaje]);
+
+  useEffect(() => {
+    const alPresionarTecla = (evento: KeyboardEvent) => {
+      const objetivo = evento.target as HTMLElement | null;
+      const esCampoTexto = objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA" || objetivo?.isContentEditable;
+      if (!esCampoTexto && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
+        evento.preventDefault();
+        setModalCobroAbierto(true);
+      }
+    };
+    window.addEventListener("keydown", alPresionarTecla);
+    return () => window.removeEventListener("keydown", alPresionarTecla);
+  }, [items.length, teclaCobro]);
+
+  const productosFiltrados = productos.filter((p) => {
+    const q = busqueda.toLowerCase().trim();
+    const coincideTexto = !q || p.nombre.toLowerCase().includes(q) || p.codigo_barras.includes(busqueda);
+    const coincideCategoria = categoriaActiva === "todas" || p.categoria === categoriaActiva;
+    return coincideTexto && coincideCategoria;
+  });
+
+  const manejarClickProducto = (producto: Producto) => {
+    if (producto.requiere_autorizacion) {
+      setProductoAutorizacion(producto);
+      return;
+    }
+    continuarAgregado(producto);
+  };
+
+  const continuarAgregado = (producto: Producto, evidencia?: string) => {
+    if (producto.unidad === "KG" || producto.unidad === "LITRO") {
+      setEvidenciaAutorizacion(evidencia);
+      setProductoParaPesar(producto);
+      setModalPesoAbierto(true);
+    } else {
+      if (producto.controla_stock && producto.stock_actual < 1) {
+        setAviso({ titulo: "Producto agotado", mensaje: "Este producto no tiene existencias disponibles para vender." });
+        return;
+      }
+      const cantidadEnCarrito = useEstadoCarrito.getState().items.find((item) => item.producto_id === producto.id)?.cantidad ?? 0;
+      if (producto.controla_stock && cantidadEnCarrito >= producto.stock_actual) {
+        setAviso({ titulo: "Existencia insuficiente", mensaje: `Solo hay ${producto.stock_actual} unidades disponibles de "${producto.nombre}".` });
+        return;
+      }
+      agregarAlCarrito(producto, 1, { evidencia });
+    }
+  };
+
+  const alEscanear = useCallback((codigo: string) => {
+    const producto = productos.find((p) => p.codigo_barras === codigo);
+    if (!producto) {
+      setAviso({ titulo: "Código no encontrado", mensaje: `No existe un producto registrado con el código ${codigo}.` });
+      return;
+    }
+    setBusqueda("");
+    manejarClickProducto(producto);
+  }, [productos]);
+
+  useEscanerCodigoBarras(alEscanear);
+
+  const confirmarVenta = async (metodoPago: string) => {
+    if (!trabajadorActivo) return;
+
+    await descontarStock(items);
+    await agregarVenta({
+      id: crypto.randomUUID(),
+      fecha: new Date().toISOString(),
+      trabajador: trabajadorActivo.nombre, 
+      articulos: items,
+      subtotal,
+      descuento,
+      total,
+      metodoPago
+    });
+
+    actualizarMetricas(trabajadorActivo.id, total);
+    limpiarCarrito();
+    setInputDescuento("");
+    enviarMensaje({ tipo: "COBRO_EXITOSO", total, metodoPago, mensajePago, datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined });
+    setPagoConfirmado(true);
+    window.setTimeout(() => setPagoConfirmado(false), 3500);
+  };
+
+  const aplicarDescuento = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const valor = e.target.value;
+    setInputDescuento(valor);
+    const num = parseFloat(valor);
+    if (!isNaN(num)) {
+      setDescuento(num, tipoDescuento);
+    } else {
+      setDescuento(0, tipoDescuento);
+    }
+  };
+
+  const cambiarTipoDescuento = (nuevoTipo: TipoDescuento) => {
+    const num = parseFloat(inputDescuento) || 0;
+    setDescuento(num, nuevoTipo);
+  };
+
+  return (
+    <div className="w-full h-full min-h-0 flex flex-col md:flex-row gap-4 p-4 lg:p-6 overflow-y-auto animate-in fade-in duration-300">
+      {pagoConfirmado && (
+        <div className="fixed right-6 top-6 z-40 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-xl animate-in slide-in-from-top-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20">✓</span>
+          Pago registrado correctamente
+        </div>
+      )}
+      
+      <ModalPeso 
+        estaAbierto={modalPesoAbierto} 
+        alCerrar={() => setModalPesoAbierto(false)} 
+        producto={productoParaPesar} 
+        alAvisar={(mensaje) => setAviso({ titulo: "Peso no válido", mensaje })}
+        alConfirmar={(prod, peso) => {
+          const cantidadEnCarrito = useEstadoCarrito.getState().items.find((item) => item.producto_id === prod.id)?.cantidad ?? 0;
+          if (prod.controla_stock && cantidadEnCarrito + peso > prod.stock_actual) {
+            setAviso({ titulo: "Existencia insuficiente", mensaje: `Solo quedan ${(prod.stock_actual - cantidadEnCarrito).toFixed(3)} ${prod.unidad.toLowerCase()} disponibles.` });
+            return;
+          }
+          agregarAlCarrito(prod, peso, { evidencia: evidenciaAutorizacion });
+          setEvidenciaAutorizacion(undefined);
+        }} 
+      />
+      <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo="advertencia" alCerrar={() => setAviso(null)} />
+      <ModalAutorizacion
+        abierto={Boolean(productoAutorizacion)}
+        mensaje={productoAutorizacion?.mensaje_autorizacion ?? "Este producto requiere autorización para venderse."}
+        permiteFoto={Boolean(productoAutorizacion?.permite_foto_autorizacion)}
+        alCerrar={() => setProductoAutorizacion(null)}
+        alConfirmar={(evidencia) => {
+          if (productoAutorizacion) continuarAgregado(productoAutorizacion, evidencia);
+          setProductoAutorizacion(null);
+        }}
+      />
+      
+      <ModalCobro 
+        estaAbierto={modalCobroAbierto} 
+        alCerrar={() => setModalCobroAbierto(false)} 
+        subtotal={subtotal}
+        descuento={descuento}
+        total={total} 
+        cantidadArticulos={items.length}
+        alConfirmarVenta={confirmarVenta}
+        teclaCobro={teclaCobro}
+        teclaEfectivo={teclaEfectivo}
+        teclaTarjeta={teclaTarjeta}
+        teclaTransferencia={teclaTransferencia}
+        alCambiarMetodoPago={(metodoPago) => enviarMensaje({ tipo: "ACTUALIZAR_PAGO", metodoPago, datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined })}
+      />
+
+      <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            type="text"
+            data-escaner="true"
+            placeholder="Buscar o escanear código de barras..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && busqueda.trim()) {
+                const exacto = productos.find((p) => p.codigo_barras === busqueda.trim());
+                if (exacto) {
+                  e.preventDefault();
+                  setBusqueda("");
+                  manejarClickProducto(exacto);
+                }
+              }
+            }}
+            className="w-full efecto-cristal pl-9 pr-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setCategoriaActiva("todas")}
+            className={cn(
+              "h-7 shrink-0 px-2.5 rounded-full text-[11px] font-semibold border",
+              categoriaActiva === "todas"
+                ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900"
+                : "border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300"
+            )}
+          >
+            Todas
+          </button>
+          {categorias.map((categoria) => {
+            const activa = categoriaActiva === categoria.nombre;
+            return (
+              <button
+                key={categoria.id}
+                onClick={() => setCategoriaActiva(categoria.nombre)}
+                className="h-7 shrink-0 px-2.5 rounded-full text-[11px] font-semibold border"
+                style={{
+                  backgroundColor: activa ? categoria.color : "transparent",
+                  color: activa ? colorTextoSobre(categoria.color) : categoria.color,
+                  borderColor: categoria.color,
+                }}
+              >
+                {categoria.nombre}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1">
+          {productosFiltrados.map((producto) => {
+            const final = precioVenta(producto);
+            const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
+            return (
+            <button
+              key={producto.id}
+              onDoubleClick={() => manejarClickProducto(producto)}
+              className="efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-500 border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[98px]"
+            >
+              <ImagenLocal 
+                nombreArchivo={producto.imagen_url} 
+                nombreProducto={producto.nombre} 
+                className="w-14 h-14 rounded-lg shrink-0 object-cover" 
+              />
+              <div className="flex flex-col flex-1 h-full py-1 overflow-hidden">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm line-clamp-2 leading-tight">
+                  {producto.nombre}
+                </span>
+                {producto.categoria && color && (
+                  <span className="self-start mt-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-semibold" style={{ backgroundColor: colorConAlpha(color, 0.16), color }}>
+                    {producto.categoria}
+                  </span>
+                )}
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-auto text-sm flex items-baseline gap-1.5">
+                  ${final.toFixed(2)}
+                  {(producto.descuento_porcentaje || 0) > 0 && (
+                    <span className="text-[10px] line-through text-slate-400 font-normal">${producto.precio.toFixed(2)}</span>
+                  )}
+                </span>
+              </div>
+              <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {(producto.unidad === "KG" || producto.unidad === "LITRO") ? <Scale size={14}/> : <Plus size={14}/>}
+              </div>
+            </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="w-full md:w-[min(48%,520px)] flex flex-col gap-4 shrink-0">
+        <div className="efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] md:h-full border border-slate-200/50 dark:border-white/10">
+          
+          <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100">
+            <ShoppingCart size={20} className="text-emerald-600 dark:text-emerald-400" />
+            Ticket de Venta
+          </h2>
+
+          <div className="flex-1 min-h-[100px] overflow-y-auto flex flex-col gap-2 pr-1">
+            {items.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <ShoppingCart size={40} className="opacity-20 mb-1" />
+                <p className="text-sm">El carrito está vacío</p>
+              </div>
+            ) : (
+              items.map((item) => (
+                <div key={item.id} className="flex flex-col gap-1 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5">
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-xs leading-tight line-clamp-2 pr-2">
+                      {item.nombre}
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                      ${item.subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
+                    </span>
+                    
+                    <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden">
+                      <button 
+                        onClick={() => actualizarCantidad(item.id, item.cantidad - ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="text-xs font-semibold w-10 text-center text-slate-900 dark:text-slate-100 tabular-nums">
+                        {(item.unidad === "KG" || item.unidad === "LITRO") ? item.cantidad.toFixed(3) : item.cantidad}
+                      </span>
+                      <button 
+                        onClick={() => actualizarCantidad(item.id, item.cantidad + ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
+            
+            <div className="flex justify-between items-center px-1">
+              <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 font-medium">
+                <Tag size={14} /> Descuento
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-white/10">
+                  <button onClick={() => cambiarTipoDescuento("MONTO")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "MONTO" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>$</button>
+                  <button onClick={() => cambiarTipoDescuento("PORCENTAJE")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "PORCENTAJE" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>%</button>
+                </div>
+                <div className="relative w-20">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-bold">
+                    {tipoDescuento === "MONTO" ? "$" : "%"}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step={tipoDescuento === "MONTO" ? "1" : "5"}
+                    value={inputDescuento}
+                    onChange={aplicarDescuento}
+                    placeholder="0"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-6 pr-2 py-1.5 text-right outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {descuento > 0 && (
+              <div className="flex justify-between items-end px-1 opacity-70">
+                <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">Subtotal</span>
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 line-through">
+                  ${subtotal.toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-end px-1">
+              <span className="text-slate-500 dark:text-slate-400 text-base font-medium">Total</span>
+              <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                ${total.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex gap-2 mt-1">
+              <button 
+                onClick={() => { limpiarCarrito(); setInputDescuento(""); }}
+                disabled={items.length === 0}
+                className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-100 dark:border-red-900/50"
+                title="Vaciar Carrito"
+              >
+                <Trash2 size={20} />
+              </button>
+              <button 
+                onClick={() => setModalCobroAbierto(true)}
+                disabled={items.length === 0}
+                className="flex-1 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-emerald-600/30 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+              >
+                <CreditCard size={20} />
+                Cobrar ({teclaCobro})
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

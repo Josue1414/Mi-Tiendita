@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Fuerza a Tailwind a activar el modo oscuro cuando la clase .dark está presente en el HTML */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+}
+
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --primary: #042f2e;
+    --primary-foreground: #f8fafc;
+    --card: #ffffff;
+    --muted: #f1f5f9;
+    
+    --emerald-500: #10b981;
+    --teal-600: #0d9488;
+  }
+
+  .dark {
+    --background: #020617;
+    --foreground: #f8fafc;
+    --primary: #f8fafc;
+    --primary-foreground: #042f2e;
+    --card: #0f172a;
+    --muted: #1e293b;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.efecto-cristal {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-lg dark:bg-black/50 dark:border-white/10;
+}
