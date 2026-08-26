@@ -1,16 +1,15 @@
 import React, { useState } from "react";
 import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
-import { cn } from "../utilidades/utils";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import ModalAviso from "../componentes/ui/ModalAviso";
 
 export default function VistaConfiguracion() {
   const { 
-    nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, correoDueno,
+    nombreTienda, mensajeTicket, directorioImagenes, teclaCobro,
     teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
-    actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago, setCorreoDueno
+    actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago
   } = useEstadoConfiguracion();
 
   const { productos, agregarProducto } = useEstadoInventario();
@@ -21,7 +20,6 @@ export default function VistaConfiguracion() {
   const [importando, setImportando] = useState(false);
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
-  const [correoTemporal, setCorreoTemporal] = useState(correoDueno);
   const [datosPago, setDatosPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
 
   // Detectamos si la aplicación se está ejecutando dentro de Electron

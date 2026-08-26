@@ -1,3 +1,4 @@
+// src/electron/main.cjs
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -75,6 +76,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, '../../public/logo mi tienda.jpeg'), // Ícono de la ventana
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -108,6 +110,18 @@ app.whenReady().then(() => {
     webContents.session.setDevicePermissionHandler((details) => details.deviceType === 'serial');
   });
 
+  // --- IMPRESIÓN SILENCIOSA ---
+  ipcMain.handle('imprimir-silencioso', async (event, htmlContent) => {
+    const winPrint = new BrowserWindow({ show: false }); // Ventana invisible
+    await winPrint.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+    
+    winPrint.webContents.print({ silent: true, printBackground: true }, (success, errorType) => {
+      if (!success) console.error("Fallo impresión silenciosa:", errorType);
+      winPrint.close();
+    });
+    return true;
+  });
+
   // --- COMUNICACIÓN DE BASE DE DATOS Y SAAS ---
   ipcMain.handle('guardar-datos', async (event, nombreTabla, datos) => {
     try {
@@ -130,7 +144,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // Nuevos Handlers del SaaS
   ipcMain.handle('obtener-hardware-id', () => {
     return obtenerHardwareIdLocal(userDataPath);
   });

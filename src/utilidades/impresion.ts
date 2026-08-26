@@ -1,10 +1,7 @@
 // src/utilidades/impresion.ts
 import type { Venta } from "../estado/estadoVentas";
 
-export const imprimirTicket = (venta: Venta, nombreTienda: string = "Mi Tienda", mensajePie: string = "¡Gracias por su preferencia!") => {
-  const ventana = window.open('', 'PRINT', 'height=600,width=400');
-  if (!ventana) return;
-
+export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Tienda", mensajePie: string = "¡Gracias por su preferencia!") => {
   let htmlArticulos = '';
   venta.articulos.forEach(art => {
     htmlArticulos += `
@@ -29,20 +26,16 @@ export const imprimirTicket = (venta: Venta, nombreTienda: string = "Mi Tienda",
       <head>
         <title>Ticket de Venta</title>
         <style>
-          body { 
-            margin: 0; 
-            padding: 20px 0; 
-            text-align: center; 
-            background: #fff; 
-          }
-          .ticket { 
-            margin: 0 auto; 
-            width: 100%; 
-            max-width: 300px; /* Ancho estándar de impresora de 80mm */
+          html, body { margin: 0; padding: 0; width: 100%; background-color: #fff; }
+          body { display: flex; justify-content: center; align-items: flex-start; }
+          .ticket {
+            width: 80mm; 
+            max-width: 100%;
+            padding: 10px;
             text-align: left;
-            font-family: 'Courier New', Courier, monospace; 
-            font-size: 12px; 
-            color: #000; 
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #000;
           }
           .center { text-align: center; }
           .right { text-align: right; }
@@ -51,8 +44,9 @@ export const imprimirTicket = (venta: Venta, nombreTienda: string = "Mi Tienda",
           table { width: 100%; border-collapse: collapse; }
           td { vertical-align: top; }
           @media print {
+            body { display: block; }
+            .ticket { margin: 0 auto; padding: 0; }
             @page { margin: 0; }
-            body { padding: 10px 0; }
           }
         </style>
       </head>
@@ -94,6 +88,15 @@ export const imprimirTicket = (venta: Venta, nombreTienda: string = "Mi Tienda",
     </html>
   `;
 
+  // NUEVO: Intentar impresión silenciosa nativa primero (Solo funciona si es el .exe)
+  if (typeof window !== 'undefined' && (window as any).apiLocal && (window as any).apiLocal.imprimirSilencioso) {
+    await (window as any).apiLocal.imprimirSilencioso(html);
+    return;
+  }
+
+  // Fallback para navegador web (muestra la ventana)
+  const ventana = window.open('', 'PRINT', 'height=600,width=400');
+  if (!ventana) return;
   ventana.document.write(html);
   ventana.document.close();
   ventana.focus();

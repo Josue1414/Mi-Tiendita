@@ -1,9 +1,8 @@
 // src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
-import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X } from "lucide-react";
+import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
-import QRCode from "qrcode";
 
 type Densidad = "compacta" | "normal" | "amplia";
 type Tema = "verde" | "claro" | "oscuro" | "grafito";
@@ -82,56 +81,76 @@ export default function VistaPantallaCliente() {
 
       <main className="flex min-h-0 flex-1 flex-col px-5 py-4">
         {mensajeExito ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center animate-in zoom-in duration-300">
             <CheckCircle2 size={70} className="text-emerald-400" />
             <h2 className="text-3xl font-bold">Gracias por su compra</h2>
             <p className="text-xl opacity-75">Total pagado: ${mensajeExito.total.toFixed(2)}</p>
             <p className="max-w-xl text-base text-emerald-200">{mensajeExito.mensajePago}</p>
           </div>
         ) : transferenciaActiva ? (
-          <div className="flex h-full min-h-0 flex-col items-center justify-start gap-3 pt-6 text-center sm:gap-4 sm:pt-10">
-            <p className="text-xl font-bold text-emerald-400 sm:text-2xl">Realiza tu transferencia</p>
-            <div className={`flex max-w-3xl items-center gap-5 rounded-2xl border p-5 text-left sm:gap-8 sm:p-7 ${temaClaro ? "border-emerald-200 bg-white shadow-sm" : "border-emerald-400/30 bg-black/25"}`}>
-              {datosCarrito.datosTransferencia?.cuenta && <TransferenciaQr cuenta={datosCarrito.datosTransferencia.cuenta} banco={datosCarrito.datosTransferencia.banco} grande />}
-              <div className="text-lg leading-relaxed">
-                <p><strong>Banco:</strong> {datosCarrito.datosTransferencia?.banco || "No especificado"}</p>
-                {datosCarrito.datosTransferencia?.titular && <p><strong>Titular:</strong> {datosCarrito.datosTransferencia.titular}</p>}
-                <p className="break-all"><strong>Cuenta:</strong> {datosCarrito.datosTransferencia?.cuenta || "No especificada"}</p>
+          <div className="flex h-full min-h-0 flex-col items-center justify-start gap-3 pt-6 text-center sm:gap-4 sm:pt-10 animate-in fade-in slide-in-from-bottom-4">
+            <div className={`p-4 rounded-full ${temaClaro ? "bg-emerald-100 text-emerald-600" : "bg-emerald-900/30 text-emerald-400"}`}>
+              <Landmark size={48} />
+            </div>
+            <p className="text-xl font-bold text-emerald-500 sm:text-3xl">Datos para Transferencia</p>
+            
+            <div className={`flex w-full max-w-2xl flex-col gap-4 rounded-3xl border p-6 text-center sm:p-8 mt-2 ${temaClaro ? "border-emerald-200 bg-white shadow-lg" : "border-emerald-500/30 bg-black/40"}`}>
+              <div className="text-xl leading-loose sm:text-2xl flex flex-col gap-2">
+                <p><span className="opacity-70 font-medium">Banco:</span> <strong className="font-bold">{datosCarrito.datosTransferencia?.banco || "No especificado"}</strong></p>
+                {datosCarrito.datosTransferencia?.titular && (
+                  <p><span className="opacity-70 font-medium">Titular:</span> <strong className="font-bold">{datosCarrito.datosTransferencia.titular}</strong></p>
+                )}
+                
+                <div className={`mt-4 inline-block p-4 sm:p-5 rounded-2xl border ${temaClaro ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
+                  <p className="text-sm font-bold uppercase tracking-widest opacity-70 mb-1">Número de Cuenta / CLABE</p>
+                  <p className="text-3xl sm:text-4xl font-mono font-bold tracking-widest break-all">
+                    {datosCarrito.datosTransferencia?.cuenta || "No especificada"}
+                  </p>
+                </div>
               </div>
             </div>
+
             <div className={`absolute bottom-12 left-5 right-5 flex items-center justify-between rounded-2xl px-5 py-3 sm:px-7 sm:py-4 ${temaClaro ? "bg-white shadow-sm" : "bg-black/25"}`}>
               <span className="text-lg opacity-75 sm:text-2xl">Total a pagar</span>
-              <span className="text-4xl font-bold text-emerald-400 sm:text-5xl">${datosCarrito.total.toFixed(2)}</span>
+              <span className="text-4xl font-bold text-emerald-500 sm:text-5xl">${datosCarrito.total.toFixed(2)}</span>
             </div>
           </div>
         ) : datosCarrito.items.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 opacity-50">
+          <div className="flex h-full flex-col items-center justify-center gap-2 opacity-50 animate-in fade-in">
             <ShoppingCart size={64} />
             <h2 className="text-2xl font-bold">Bienvenido</h2>
             <p className="text-base">Esperando productos...</p>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col animate-in fade-in">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xl font-bold">Su compra</h2>
               <span className="text-xs opacity-60">{datosCarrito.items.length} productos</span>
             </div>
+            
             {transferenciaActiva && (
-              <div className={`mb-3 flex items-center gap-3 rounded-xl border p-3 ${temaClaro ? "border-emerald-200 bg-emerald-50" : "border-emerald-400/30 bg-emerald-950/50"}`}>
-                <div className="min-w-0 flex-1 text-xs">
-                  <p className="mb-1 font-bold text-emerald-400">Datos para transferencia</p>
-                  <p>Banco: {datosCarrito.datosTransferencia?.banco || "No especificado"}</p>
-                  {datosCarrito.datosTransferencia?.titular && <p>Titular: {datosCarrito.datosTransferencia.titular}</p>}
-                  <p className="break-all">Cuenta: {datosCarrito.datosTransferencia?.cuenta || "No especificada"}</p>
+              <div className={`mb-3 flex items-center gap-4 rounded-xl border p-4 ${temaClaro ? "border-emerald-200 bg-emerald-50" : "border-emerald-500/30 bg-emerald-950/40"}`}>
+                <div className={`p-3 rounded-full shrink-0 ${temaClaro ? "bg-emerald-200 text-emerald-700" : "bg-emerald-900/50 text-emerald-400"}`}>
+                  <Landmark size={24} />
                 </div>
-                {datosCarrito.datosTransferencia?.cuenta && <TransferenciaQr cuenta={datosCarrito.datosTransferencia.cuenta} banco={datosCarrito.datosTransferencia.banco} />}
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="mb-1 text-base font-bold text-emerald-600 dark:text-emerald-400">Datos para transferencia</p>
+                  <p><span className="opacity-70">Banco:</span> <strong className="font-medium">{datosCarrito.datosTransferencia?.banco || "No especificado"}</strong></p>
+                  {datosCarrito.datosTransferencia?.titular && (
+                    <p><span className="opacity-70">Titular:</span> <strong className="font-medium">{datosCarrito.datosTransferencia.titular}</strong></p>
+                  )}
+                  <p className={`mt-2 p-2 rounded-lg font-mono text-lg font-bold tracking-wider break-all ${temaClaro ? "bg-white text-emerald-700" : "bg-black/30 text-emerald-400"}`}>
+                    {datosCarrito.datosTransferencia?.cuenta || "No especificada"}
+                  </p>
+                </div>
               </div>
             )}
+
             <div className="grid min-h-0 flex-1 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1">
               {datosCarrito.items.map((item) => (
                 <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-lg px-3 ${temaClaro ? "bg-white shadow-sm" : "bg-black/20"}`}>
                   <div className="flex min-w-0 items-center gap-2">
-                    <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-7 w-7" : "h-10 w-10"} shrink-0 rounded-md object-cover text-xs`} />
+                    <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-7 w-7" : "h-10 w-10"} shrink-0 rounded-md object-cover text-xs bg-white`} />
                     <div className="min-w-0">
                       <h3 className={`${textoNombre} truncate font-semibold`}>{item.nombre}</h3>
                       <p className="text-[11px] opacity-60">{item.cantidad} {item.unidad.toLowerCase()} · ${item.precio.toFixed(2)}</p>
@@ -141,6 +160,7 @@ export default function VistaPantallaCliente() {
                 </div>
               ))}
             </div>
+            
             <div className={`mt-3 flex items-center justify-between rounded-xl px-5 py-3 ${temaClaro ? "bg-white shadow-sm" : "bg-black/25"}`}>
               <span className="text-lg opacity-75">Total a pagar</span>
               <span className={`${textoTotal} font-bold text-emerald-400`}>${datosCarrito.total.toFixed(2)}</span>
@@ -154,18 +174,4 @@ export default function VistaPantallaCliente() {
       </footer>
     </div>
   );
-}
-
-function TransferenciaQr({ cuenta, banco, grande = false }: { cuenta: string; banco: string; grande?: boolean }) {
-  const [codigo, setCodigo] = useState<string | null>(null);
-
-  useEffect(() => {
-    let activo = true;
-    QRCode.toDataURL(`Cuenta para transferencia: ${cuenta}\nBanco: ${banco}`, { width: grande ? 240 : 72, margin: 1 })
-      .then((url) => { if (activo) setCodigo(url); })
-      .catch(() => { if (activo) setCodigo(null); });
-    return () => { activo = false; };
-  }, [banco, cuenta]);
-
-  return codigo ? <img src={codigo} alt="Código QR de transferencia" className={`${grande ? "h-44 w-44 sm:h-56 sm:w-56" : "h-16 w-16"} shrink-0 rounded-md bg-white p-1`} /> : null;
 }

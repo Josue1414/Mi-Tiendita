@@ -1,5 +1,4 @@
 import { AlertTriangle, X } from "lucide-react";
-import { cn } from "../../utilidades/utils";
 
 interface PropsModalConfirmacion {
   abierto: boolean;
