@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useEstadoTrabajadores, type Trabajador } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
-import { Store, Shield, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut } from "lucide-react";
+import { Store, Shield, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, KeyRound } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { supabase } from "../servicios/supabase";
 
@@ -16,8 +16,10 @@ export default function VistaLogin() {
   const [passwordSaaS, setPasswordSaaS] = useState("");
   const [cargandoSaaS, setCargandoSaaS] = useState(false);
   const [errorSaaS, setErrorSaaS] = useState("");
+  const [mensajeExito, setMensajeExito] = useState("");
   const [modoOfflineInfo, setModoOfflineInfo] = useState(false);
   const [mostrarPassword, setMostrarPassword] = useState(false); 
+  const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<Trabajador | null>(null);
   const [pinIngresado, setPinIngresado] = useState("");
@@ -53,6 +55,7 @@ export default function VistaLogin() {
     e.preventDefault();
     setCargandoSaaS(true);
     setErrorSaaS("");
+    setMensajeExito("");
     
     try {
       if (!navigator.onLine) throw new Error("No hay conexión a internet para validar el pago.");
@@ -110,9 +113,29 @@ export default function VistaLogin() {
       setCuentaSaaSLogueada(true);
 
     } catch (err: any) {
-      console.error("Error de autenticación:", err);
       setErrorSaaS(err.message === "Invalid login credentials" ? "Correo o contraseña incorrectos." : err.message);
       await supabase.auth.signOut();
+    } finally {
+      setCargandoSaaS(false);
+    }
+  };
+
+  const manejarRecuperacion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCargandoSaaS(true);
+    setErrorSaaS("");
+    setMensajeExito("");
+
+    try {
+      if (!navigator.onLine) throw new Error("No hay conexión a internet para esta acción.");
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(emailSaaS);
+      if (error) throw error;
+      
+      setMensajeExito("Se ha enviado un correo con las instrucciones para recuperar tu contraseña.");
+      setTimeout(() => setModoRecuperacion(false), 4000);
+    } catch (err: any) {
+      setErrorSaaS(err.message);
     } finally {
       setCargandoSaaS(false);
     }
@@ -167,52 +190,92 @@ export default function VistaLogin() {
       <div className="efecto-cristal w-full max-w-md bg-white/90 dark:bg-slate-900/90 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200/50 dark:border-white/10 relative overflow-hidden z-10">
         
         {!cuentaSaaSLogueada ? (
-          <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-300">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
-              <span className="flex items-center gap-2"><UserCircle className="text-emerald-600" /> Cuenta Admin</span>
-              {modoOfflineInfo && <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md"><WifiOff size={12} /> Offline</span>}
-            </h2>
-            
-            <form onSubmit={manejarLoginSaaS} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
-                <input type="email" required autoFocus value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
-              </div>
+          modoRecuperacion ? (
+            <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+              <button onClick={() => { setModoRecuperacion(false); setErrorSaaS(""); setMensajeExito(""); }} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <ArrowLeft size={20} />
+              </button>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                <KeyRound className="text-emerald-600" /> Recuperar Contraseña
+              </h2>
+              <p className="text-xs text-slate-500 mb-6">Ingresa el correo electrónico asociado a tu cuenta y te enviaremos un enlace para restablecerla.</p>
               
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Contraseña</label>
-                <div className="relative">
-                  <input 
-                    type={mostrarPassword ? "text" : "password"} 
-                    required 
-                    value={passwordSaaS} 
-                    onChange={(e) => setPasswordSaaS(e.target.value)} 
-                    disabled={modoOfflineInfo} 
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" 
-                    placeholder="••••••••" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setMostrarPassword(!mostrarPassword)}
-                    disabled={modoOfflineInfo}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
-                  >
-                    {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              <form onSubmit={manejarRecuperacion} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
+                  <input type="email" required autoFocus value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
+                </div>
+
+                {errorSaaS && (
+                  <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                    {errorSaaS}
+                  </p>
+                )}
+                {mensajeExito && (
+                  <p className="text-emerald-600 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                    {mensajeExito}
+                  </p>
+                )}
+
+                <button type="submit" disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
+                  {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Enviando...</> : "Enviar Instrucciones"}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-300">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
+                <span className="flex items-center gap-2"><UserCircle className="text-emerald-600" /> Cuenta Admin</span>
+                {modoOfflineInfo && <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md"><WifiOff size={12} /> Offline</span>}
+              </h2>
+              
+              <form onSubmit={manejarLoginSaaS} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
+                  <input type="email" required autoFocus value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Contraseña</label>
+                  <div className="relative">
+                    <input 
+                      type={mostrarPassword ? "text" : "password"} 
+                      required 
+                      value={passwordSaaS} 
+                      onChange={(e) => setPasswordSaaS(e.target.value)} 
+                      disabled={modoOfflineInfo} 
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" 
+                      placeholder="••••••••" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setMostrarPassword(!mostrarPassword)}
+                      disabled={modoOfflineInfo}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    >
+                      {mostrarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {errorSaaS && (
+                  <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                    {errorSaaS}
+                  </p>
+                )}
+
+                <button type="submit" disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
+                  {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Conectando...</> : "Iniciar Sesión"}
+                </button>
+
+                <div className="text-center mt-4">
+                  <button type="button" onClick={() => { setModoRecuperacion(true); setErrorSaaS(""); }} disabled={modoOfflineInfo} className="text-xs font-bold text-emerald-600 hover:text-emerald-700 transition-colors disabled:opacity-50">
+                    ¿Olvidaste tu contraseña?
                   </button>
                 </div>
-              </div>
-
-              {errorSaaS && (
-                <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
-                  {errorSaaS}
-                </p>
-              )}
-
-              <button type="submit" disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
-                {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Conectando...</> : "Iniciar Sesión"}
-              </button>
-            </form>
-          </div>
+              </form>
+            </div>
+          )
         ) 
         : !usuarioSeleccionado ? (
           <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">

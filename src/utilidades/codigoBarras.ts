@@ -157,45 +157,83 @@ export function escapeHtml(texto: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export function imprimirEtiqueta(opciones: {
-  nombre: string;
-  codigo: string;
-  precio: number;
-}): void {
-  const svg = svgCodigoBarras(opciones.codigo);
-  if (!svg) {
-    alert("No se pudo generar el código de barras. Revisa el código del producto.");
-    return;
-  }
+// Reemplaza esta función dentro de tu archivo src/utilidades/codigoBarras.ts
+export const imprimirEtiqueta = ({ nombre, codigo, precio }: { nombre: string, codigo: string, precio: number }) => {
+  const ventana = window.open('', 'PRINT', 'height=400,width=600');
+  if (!ventana) return;
 
-  const ventana = window.open("", "_blank", "width=420,height=520");
-  if (!ventana) {
-    alert("Permite ventanas emergentes para imprimir la etiqueta.");
-    return;
-  }
+  const svgCode = svgCodigoBarras(codigo);
 
-  ventana.document.write(`<!doctype html>
-<html>
-  <head>
-    <title>Etiqueta ${escapeHtml(opciones.codigo)}</title>
-    <style>
-      @page { margin: 8mm; size: auto; }
-      body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; color: #0f172a; }
-      .etiqueta { width: 280px; margin: 0 auto; text-align: center; border: 1px dashed #cbd5e1; padding: 12px; }
-      h1 { font-size: 14px; margin: 0 0 8px; line-height: 1.3; }
-      .precio { font-size: 18px; font-weight: 700; margin: 8px 0 0; }
-      svg { max-width: 100%; height: auto; }
-      @media print { .etiqueta { border: none; } }
-    </style>
-  </head>
-  <body>
-    <div class="etiqueta">
-      <h1>${escapeHtml(opciones.nombre)}</h1>
-      ${svg}
-      <p class="precio">$${opciones.precio.toFixed(2)}</p>
-    </div>
-    <script>window.onload = () => { window.focus(); window.print(); };</script>
-  </body>
-</html>`);
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Etiqueta de Producto</title>
+        <style>
+          /* Forzamos el tamaño de impresión estándar para etiquetas (50x25mm) */
+          @page {
+            size: 50mm 25mm;
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            width: 50mm;
+            height: 25mm;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: white;
+            overflow: hidden;
+          }
+          .producto {
+            font-size: 9px;
+            font-weight: bold;
+            text-align: center;
+            width: 95%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+            margin-bottom: 1px;
+            color: black;
+          }
+          .codigo-container {
+            width: 90%;
+            height: 12mm; /* Fija la altura del código de barras */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .codigo-container svg {
+            width: 100%;
+            height: 100%;
+          }
+          .precio {
+            font-size: 11px;
+            font-weight: 900;
+            text-align: center;
+            margin-top: 1px;
+            color: black;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="producto">${nombre}</div>
+        <div class="codigo-container">${svgCode}</div>
+        <div class="precio">$${precio.toFixed(2)}</div>
+      </body>
+    </html>
+  `;
+
+  ventana.document.write(html);
   ventana.document.close();
-}
+  ventana.focus();
+  
+  setTimeout(() => {
+    ventana.print();
+    ventana.close();
+  }, 300);
+};

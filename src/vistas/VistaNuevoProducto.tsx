@@ -1,3 +1,4 @@
+// src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";
@@ -142,7 +143,6 @@ export default function VistaNuevoProducto() {
       imagenBase64 = undefined;
     }
 
-    // Si solo puede ajustar stock y código, mantenemos los datos originales en los demás campos
     const producto: Producto = {
       id: productoExistente?.id ?? crypto.randomUUID(),
       nombre: puedeEditar ? nombre : productoExistente?.nombre || "",
@@ -311,11 +311,11 @@ export default function VistaNuevoProducto() {
             <div className={cn("grid grid-cols-1 sm:grid-cols-3 gap-3", !controlaStock && "opacity-50 pointer-events-none")}>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Cantidad en stock</label>
-                <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} value={stockActual} onChange={(e) => setStockActual(Number(e.target.value))} className={campo} />
+                <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Stock mínimo {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
-                <input type="number" min="0" disabled={!puedeEditar} value={stockMinimo} onChange={(e) => setStockMinimo(Number(e.target.value))} className={campo} />
+                <input type="number" min="0" disabled={!puedeEditar} placeholder="0" value={stockMinimo === 0 ? "" : stockMinimo} onChange={(e) => setStockMinimo(e.target.value ? Number(e.target.value) : 0)} className={campo} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Paquete {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
@@ -368,13 +368,20 @@ export default function VistaNuevoProducto() {
               <label className="block text-xs font-medium text-slate-600 mb-1">Precio de venta *</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditar} step="0.01" required min="0.01" value={precio} onChange={(e) => setPrecio(Number(e.target.value))} className={cn(campo, "pl-7 font-semibold")} />
+                <input type="number" disabled={!puedeEditar} step="0.01" required min="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Costo</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input type="number" disabled={!puedeEditar} step="0.01" min="0" placeholder="0.00" value={costo === 0 ? "" : costo} onChange={(e) => setCosto(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7")} />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Descuento (%)</label>
               <div className="relative">
-                <input type="number" disabled={!puedeEditar} step="0.5" min="0" max="100" value={descuento} onChange={(e) => setDescuento(Number(e.target.value))} className={cn(campo, "pr-8")} />
+                <input type="number" disabled={!puedeEditar} step="0.5" min="0" max="100" placeholder="0" value={descuento === 0 ? "" : descuento} onChange={(e) => setDescuento(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pr-8")} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
               </div>
             </div>
@@ -384,13 +391,7 @@ export default function VistaNuevoProducto() {
                 <span className="line-through opacity-60">${Number(precio).toFixed(2)}</span>
               </p>
             )}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Costo</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditar} step="0.01" min="0" value={costo} onChange={(e) => setCosto(Number(e.target.value))} className={cn(campo, "pl-7")} />
-              </div>
-            </div>
+            
             <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-xs text-slate-500">
               Margen de ganancia: <span className="font-bold text-emerald-600">{margen > 0 ? `${margen.toFixed(1)}%` : "—"}</span>
             </div>

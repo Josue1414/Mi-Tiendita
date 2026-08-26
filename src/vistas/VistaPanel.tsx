@@ -2,19 +2,22 @@
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { 
   DollarSign, TrendingUp, Package, AlertTriangle, 
-  ShoppingCart, Plus, Bell, History, ArrowRight, Calendar
+  ShoppingCart, Plus, Bell, History, ArrowRight, Calendar, Printer
 } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { useState } from "react";
 import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
 import { tieneAlertaStock } from "../utilidades/stock";
+import { imprimirTicket } from "../utilidades/impresion";
 
 export default function VistaPanel() {
   const { ventas } = useEstadoVentas();
   const { productos } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
+  const { nombreTienda } = useEstadoConfiguracion();
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date().toISOString().slice(0, 10));
 
   // --- CÁLCULOS DE MÉTRICAS ---
@@ -190,12 +193,13 @@ export default function VistaPanel() {
                   <th className="pb-2 font-medium">Trabajador</th>
                   <th className="pb-2 font-medium text-right">Total</th>
                   <th className="pb-2 font-medium text-center pl-4">Método</th>
+                  <th className="pb-2 font-medium text-center">Ticket</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/50 dark:divide-white/5">
                 {ventasRecientes.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-slate-500 text-xs">No hay ventas recientes.</td>
+                    <td colSpan={5} className="py-6 text-center text-slate-500 text-xs">No hay ventas recientes.</td>
                   </tr>
                 ) : (
                   ventasRecientes.map((venta) => (
@@ -212,6 +216,15 @@ export default function VistaPanel() {
                         )}>
                           {venta.metodoPago === "TRANSFERENCIA" ? "TRANSF." : venta.metodoPago}
                         </span>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <button 
+                          onClick={() => imprimirTicket(venta, nombreTienda)} 
+                          className="p-1.5 mx-auto flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" 
+                          title="Reimprimir Ticket"
+                        >
+                          <Printer size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))

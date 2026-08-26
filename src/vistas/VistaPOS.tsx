@@ -5,7 +5,7 @@ import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History } from "lucide-react";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
@@ -16,6 +16,7 @@ import { colorConAlpha, colorTextoSobre } from "../utilidades/coloresCategoria";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import ModalAutorizacion from "../componentes/ui/ModalAutorizacion";
+import { imprimirTicket } from "../utilidades/impresion";
 
 export default function VistaPOS() {
   const { productos, categorias, descontarStock } = useEstadoInventario();
@@ -23,9 +24,9 @@ export default function VistaPOS() {
     items, subtotal, descuento, tipoDescuento, total, 
     agregarAlCarrito, actualizarCantidad, limpiarCarrito, setDescuento 
   } = useEstadoCarrito();
-  const { agregarVenta } = useEstadoVentas();
-  const { trabajadorActivo, actualizarMetricas } = useEstadoTrabajadores();
-  const { teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
+  const { ventas, agregarVenta } = useEstadoVentas();
+  const { trabajadorActivo } = useEstadoTrabajadores();
+  const { nombreTienda, mensajeTicket, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
   
   const { enviarMensaje } = useEmisorPantallaCliente();
   
@@ -39,6 +40,8 @@ export default function VistaPOS() {
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [productoAutorizacion, setProductoAutorizacion] = useState<Producto | null>(null);
   const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
+
+  const [impresionAutomatica, setImpresionAutomatica] = useState(true);
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -106,24 +109,50 @@ export default function VistaPOS() {
   const confirmarVenta = async (metodoPago: string) => {
     if (!trabajadorActivo) return;
 
-    await descontarStock(items);
-    await agregarVenta({
-      id: crypto.randomUUID(),
-      fecha: new Date().toISOString(),
-      trabajador: trabajadorActivo.nombre, 
-      articulos: items,
-      subtotal,
-      descuento,
-      total,
-      metodoPago
-    });
+    try {
+      await descontarStock(items);
+      
+      const nuevaVenta = {
+        id: crypto.randomUUID(),
+        fecha: new Date().toISOString(),
+        trabajador: trabajadorActivo.nombre, 
+        articulos: items,
+        subtotal,
+        descuento,
+        total,
+        metodoPago
+      };
 
-    actualizarMetricas(trabajadorActivo.id, total);
-    limpiarCarrito();
-    setInputDescuento("");
-    enviarMensaje({ tipo: "COBRO_EXITOSO", total, metodoPago, mensajePago, datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined });
-    setPagoConfirmado(true);
-    window.setTimeout(() => setPagoConfirmado(false), 3500);
+      await agregarVenta(nuevaVenta);
+
+      setModalCobroAbierto(false);
+      limpiarCarrito();
+      setInputDescuento("");
+
+      try {
+        enviarMensaje({ 
+          tipo: "COBRO_EXITOSO", 
+          total, 
+          metodoPago, 
+          mensajePago, 
+          datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined 
+        });
+      } catch (e) {
+        console.warn("Mensaje a pantalla cliente ignorado", e);
+      }
+
+      if (impresionAutomatica) {
+        imprimirTicket(nuevaVenta, nombreTienda, mensajeTicket);
+      }
+
+      setPagoConfirmado(true);
+      window.setTimeout(() => setPagoConfirmado(false), 3500);
+
+    } catch (error) {
+      console.error("Error al procesar la venta:", error);
+      setAviso({ titulo: "Error", mensaje: "Ocurrió un error al procesar el pago. Revisa el historial de ventas." });
+      setModalCobroAbierto(false); 
+    }
   };
 
   const aplicarDescuento = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,21 +181,23 @@ export default function VistaPOS() {
       )}
       
       <ModalPeso 
-        estaAbierto={modalPesoAbierto} 
+        abierto={modalPesoAbierto} 
         alCerrar={() => setModalPesoAbierto(false)} 
         producto={productoParaPesar} 
-        alAvisar={(mensaje) => setAviso({ titulo: "Peso no válido", mensaje })}
-        alConfirmar={(prod, peso) => {
-          const cantidadEnCarrito = useEstadoCarrito.getState().items.find((item) => item.producto_id === prod.id)?.cantidad ?? 0;
-          if (prod.controla_stock && cantidadEnCarrito + peso > prod.stock_actual) {
-            setAviso({ titulo: "Existencia insuficiente", mensaje: `Solo quedan ${(prod.stock_actual - cantidadEnCarrito).toFixed(3)} ${prod.unidad.toLowerCase()} disponibles.` });
+        alConfirmar={(peso: number) => {
+          if (!productoParaPesar) return;
+          const cantidadEnCarrito = useEstadoCarrito.getState().items.find((item) => item.producto_id === productoParaPesar.id)?.cantidad ?? 0;
+          if (productoParaPesar.controla_stock && cantidadEnCarrito + peso > productoParaPesar.stock_actual) {
+            setAviso({ titulo: "Existencia insuficiente", mensaje: `Solo quedan ${(productoParaPesar.stock_actual - cantidadEnCarrito).toFixed(3)} ${productoParaPesar.unidad.toLowerCase()} disponibles.` });
             return;
           }
-          agregarAlCarrito(prod, peso, { evidencia: evidenciaAutorizacion });
+          agregarAlCarrito(productoParaPesar, peso, { evidencia: evidenciaAutorizacion });
           setEvidenciaAutorizacion(undefined);
         }} 
       />
+      
       <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo="advertencia" alCerrar={() => setAviso(null)} />
+      
       <ModalAutorizacion
         abierto={Boolean(productoAutorizacion)}
         mensaje={productoAutorizacion?.mensaje_autorizacion ?? "Este producto requiere autorización para venderse."}
@@ -303,37 +334,44 @@ export default function VistaPOS() {
               </div>
             ) : (
               items.map((item) => (
-                <div key={item.id} className="flex flex-col gap-1 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5">
-                  <div className="flex justify-between items-start">
-                    <span className="font-medium text-slate-900 dark:text-slate-100 text-xs leading-tight line-clamp-2 pr-2">
-                      {item.nombre}
-                    </span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                      ${item.subtotal.toFixed(2)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
-                    </span>
-                    
-                    <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden">
-                      <button 
-                        onClick={() => actualizarCantidad(item.id, item.cantidad - ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                      >
-                        <Minus size={12} />
-                      </button>
-                      <span className="text-xs font-semibold w-10 text-center text-slate-900 dark:text-slate-100 tabular-nums">
-                        {(item.unidad === "KG" || item.unidad === "LITRO") ? item.cantidad.toFixed(3) : item.cantidad}
+                <div key={item.id} className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5">
+                  <ImagenLocal 
+                    nombreArchivo={item.imagen_url} 
+                    nombreProducto={item.nombre} 
+                    className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-white" 
+                  />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <span className="font-medium text-slate-900 dark:text-slate-100 text-xs leading-tight line-clamp-2 pr-2">
+                        {item.nombre}
                       </span>
-                      <button 
-                        onClick={() => actualizarCantidad(item.id, item.cantidad + ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                      >
-                        <Plus size={12} />
-                      </button>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                        ${item.subtotal.toFixed(2)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-auto pt-1">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
+                      </span>
+                      
+                      <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden">
+                        <button 
+                          onClick={() => actualizarCantidad(item.id, item.cantidad - ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-xs font-semibold w-9 text-center text-slate-900 dark:text-slate-100 tabular-nums">
+                          {(item.unidad === "KG" || item.unidad === "LITRO") ? item.cantidad.toFixed(3) : item.cantidad}
+                        </span>
+                        <button 
+                          onClick={() => actualizarCantidad(item.id, item.cantidad + ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -383,6 +421,28 @@ export default function VistaPOS() {
               <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                 ${total.toFixed(2)}
               </span>
+            </div>
+
+            <div className="flex items-center justify-between px-1 mt-1">
+              <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-emerald-600 transition-colors select-none">
+                <input 
+                  type="checkbox" 
+                  checked={impresionAutomatica} 
+                  onChange={e => setImpresionAutomatica(e.target.checked)} 
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" 
+                />
+                <Printer size={13} /> Imprimir ticket automático
+              </label>
+
+              {ventas.length > 0 && (
+                <button 
+                  type="button"
+                  onClick={() => imprimirTicket(ventas[ventas.length - 1], nombreTienda, mensajeTicket)}
+                  className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
+                >
+                  <History size={13} /> Imprimir último
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2 mt-1">

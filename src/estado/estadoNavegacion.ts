@@ -1,7 +1,7 @@
 // src/estado/estadoNavegacion.ts
 import { create } from "zustand";
 
-export type SeccionApp = "pos" | "inventario" | "nuevo-producto" | "panel" | "reportes" | "stock-bajo" | "historial" | "equipo" | "configuracion";
+export type SeccionApp = "pos" | "inventario" | "nuevo-producto" | "panel" | "reportes" | "stock-bajo" | "historial" | "equipo" | "configuracion" | "perfil";
 
 interface EstadoNavegacion {
   seccionActual: SeccionApp;

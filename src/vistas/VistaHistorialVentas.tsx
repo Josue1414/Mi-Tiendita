@@ -1,10 +1,14 @@
 // src/vistas/VistaHistorialVentas.tsx
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { Search, History, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
+import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
+import { imprimirTicket } from "../utilidades/impresion";
 
 export default function VistaHistorialVentas() {
   const { ventas } = useEstadoVentas();
+  const { nombreTienda, mensajeTicket } = useEstadoConfiguracion();
+  
   const [busqueda, setBusqueda] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
@@ -75,12 +79,13 @@ export default function VistaHistorialVentas() {
                 <th className="p-3 text-right">Descuento</th>
                 <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Total</th>
                 <th className="p-3 text-center">Método</th>
+                <th className="p-3 text-center">Ticket</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/10">
               {ventasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500 text-sm">No hay ventas registradas que coincidan con la búsqueda.</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-500 text-sm">No hay ventas registradas que coincidan con la búsqueda.</td>
                 </tr>
               ) : (
                 ventasPagina.map((venta) => (
@@ -91,7 +96,7 @@ export default function VistaHistorialVentas() {
                       {new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td className="p-3 font-mono text-[11px] text-slate-500">{venta.id.slice(0, 8).toUpperCase()}</td>
-                    <td className="p-3 text-xs">{venta.trabajador}</td>
+                    <td className="p-3 text-xs">{venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim()}</td>
                     <td className="p-3 text-center text-xs">{venta.articulos.length}</td>
                     <td className="p-3 text-right text-xs">${venta.subtotal.toFixed(2)}</td>
                     <td className="p-3 text-right text-xs text-red-500">{venta.descuento > 0 ? `-$${venta.descuento.toFixed(2)}` : "-"}</td>
@@ -101,10 +106,22 @@ export default function VistaHistorialVentas() {
                         {venta.metodoPago}
                       </span>
                     </td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          imprimirTicket(venta, nombreTienda, mensajeTicket);
+                        }}
+                        className="p-1.5 mx-auto flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                        title="Reimprimir Ticket"
+                      >
+                        <Printer size={16} />
+                      </button>
+                    </td>
                   </tr>
                   {ventaSeleccionada === venta.id && (
                     <tr className="bg-emerald-50/60 dark:bg-emerald-950/20">
-                      <td colSpan={8} className="px-5 py-3">
+                      <td colSpan={9} className="px-5 py-3">
                         <div className="flex flex-wrap gap-2">
                           {venta.articulos.map((articulo) => (
                             <span key={articulo.id} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs dark:border-emerald-900/50 dark:bg-slate-900">

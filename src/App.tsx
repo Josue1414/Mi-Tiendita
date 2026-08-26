@@ -6,7 +6,7 @@ import { useEstadoVentas } from "./estado/estadoVentas";
 import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "./estado/estadoAsistencias";
 import { cn } from "./utilidades/utils";
-import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut } from "lucide-react";
+import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle } from "lucide-react";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -18,6 +18,7 @@ import VistaStockBajo from "./vistas/VistaStockBajo";
 import VistaEquipo from "./vistas/VistaEquipo";
 import VistaConfiguracion from "./vistas/VistaConfiguracion";
 import VistaLogin from "./vistas/VistaLogin";
+import VistaPerfil from "./vistas/VistaPerfil";
 import { tieneAlertaStock } from "./utilidades/stock";
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
@@ -30,6 +31,7 @@ const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   historial: VistaHistorialVentas,
   equipo: VistaEquipo,
   configuracion: VistaConfiguracion,
+  perfil: VistaPerfil,
 };
 
 export default function App() {
@@ -87,6 +89,7 @@ export default function App() {
     { id: "inventario", icono: Package, texto: "Inventario" },
     { id: "historial", icono: History, texto: "Historial de Ventas" },
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
+    { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
   ] as const;
   
   const alertasStock = productos.filter(tieneAlertaStock).length;
@@ -139,10 +142,14 @@ export default function App() {
       )}>
         <div className="p-4 flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 h-16 shrink-0">
           {menuAbierto && (
-            <div className="flex flex-col overflow-hidden">
+            <button 
+              onClick={() => setSeccionActual("perfil")} 
+              className="flex flex-col overflow-hidden text-left hover:opacity-80 transition-opacity"
+              title="Ver mi perfil"
+            >
               <span className="font-bold text-lg text-emerald-700 dark:text-emerald-400 truncate">Mi Tienda</span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">{trabajadorActivo?.nombre}</span>
-            </div>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider hover:text-emerald-600 transition-colors">{trabajadorActivo?.nombre}</span>
+            </button>
           )}
           <button onClick={() => setMenuAbierto(!menuAbierto)} className="p-1.5 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors mx-auto">
             {menuAbierto ? <ChevronLeft size={20} /> : <Menu size={20} />}

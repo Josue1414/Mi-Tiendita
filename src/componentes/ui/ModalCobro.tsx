@@ -28,7 +28,8 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
   useEffect(() => {
     if (estaAbierto) {
       setMetodoPago("EFECTIVO");
-      setCantidadRecibida(total.toString());
+      // Corrección: Forzar exactamente 2 decimales para evitar números largos
+      setCantidadRecibida(total.toFixed(2));
       window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
     }
   }, [estaAbierto, total]);

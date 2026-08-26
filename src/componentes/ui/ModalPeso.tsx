@@ -1,8 +1,7 @@
 // src/componentes/ui/ModalPeso.tsx
-import React, { useEffect, useState } from "react";
-import { Scale, X, Check, Usb, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Scale, X, Check, Usb} from "lucide-react";
 import { useBascula } from "../../hooks/useBascula";
-import { cn } from "../../utilidades/utils";
 import type { Producto } from "../../tipos/producto";
 
 interface PropsModalPeso {

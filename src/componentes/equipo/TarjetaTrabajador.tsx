@@ -1,9 +1,8 @@
-// src/componentes/equipo/TarjetaTrabajador.tsx
 import React, { useState, useMemo } from "react";
 import { useEstadoTrabajadores, type Trabajador, type HorarioSemanal } from "../../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
 import { useEstadoVentas } from "../../estado/estadoVentas";
-import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, EyeOff, Eye, Clock, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, Eye, Clock, FileText } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionPin from "../ui/ModalConfirmacionPin";
 
