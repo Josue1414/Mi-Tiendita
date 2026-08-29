@@ -12,7 +12,7 @@ export default function VistaStockBajo() {
   const { trabajadorActivo } = useEstadoTrabajadores();
 
   // Permisos
-  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  const esDueño = trabajadorActivo?.rol === "DUENO";
   const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
   const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
 

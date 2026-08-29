@@ -1,3 +1,4 @@
+// src/vistas/VistaLogin.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoTrabajadores, type Trabajador } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
@@ -23,7 +24,9 @@ export default function VistaLogin() {
 
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<Trabajador | null>(null);
   const [pinIngresado, setPinIngresado] = useState("");
-  const [errorLogin, setErrorLogin] = useState(false);
+  
+  // Cambiamos el booleano por un string para mensajes personalizados
+  const [errorMensaje, setErrorMensaje] = useState("");
   const [mostrarPin, setMostrarPin] = useState(false); 
 
   const usuariosActivos = trabajadores.filter(t => t.activo);
@@ -93,7 +96,7 @@ export default function VistaLogin() {
           const yaRegistrado = dispositivos.some(d => d.hardware_id === hwid);
           if (!yaRegistrado) {
             if (dispositivos.length >= tienda.max_dispositivos) {
-              throw new Error(`Has alcanzado el límite de ${tienda.max_dispositivos} PC(s) permitidas en tu plan.`);
+              throw new Error(`Límite de ${tienda.max_dispositivos} PC(s) alcanzado. Para autorizar este nuevo equipo, inicia sesión en tu Panel Web y elimina la computadora anterior.`);
             } else {
               await supabase.from('dispositivos_vinculados').insert([{
                 tienda_id: tienda.id,
@@ -145,11 +148,22 @@ export default function VistaLogin() {
     e.preventDefault();
     if (!usuarioSeleccionado) return;
 
+    // Validación de día de descanso
+    const diaHoy = new Date().getDay();
+    const diasTrabajo = usuarioSeleccionado.horarioSemanal?.diasTrabajo || [1, 2, 3, 4, 5];
+    
+    if (usuarioSeleccionado.rol === "TRABAJADOR" && !diasTrabajo.includes(diaHoy)) {
+      setErrorMensaje("Hoy es tu día de descanso. Acceso denegado.");
+      setPinIngresado("");
+      setTimeout(() => setErrorMensaje(""), 4000);
+      return;
+    }
+
     const exito = iniciarSesion(usuarioSeleccionado.id, pinIngresado);
     if (!exito) {
-      setErrorLogin(true);
+      setErrorMensaje("PIN incorrecto. Inténtalo de nuevo.");
       setPinIngresado("");
-      setTimeout(() => setErrorLogin(false), 2000);
+      setTimeout(() => setErrorMensaje(""), 2000);
     } else {
       await registrarEntrada(usuarioSeleccionado.id);
     }
@@ -158,7 +172,7 @@ export default function VistaLogin() {
   const manejarRegresoPIN = () => {
     setUsuarioSeleccionado(null);
     setPinIngresado("");
-    setErrorLogin(false);
+    setErrorMensaje("");
     setMostrarPin(false);
   };
 
@@ -289,14 +303,14 @@ export default function VistaLogin() {
             <div className="flex flex-col gap-3">
               {usuariosActivos.map((usuario) => (
                 <button key={usuario.id} onClick={() => setUsuarioSeleccionado(usuario)} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all text-left group bg-white dark:bg-slate-900 shadow-sm">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-inner transition-transform group-hover:scale-105", usuario.rol === "DUEÑO" ? "bg-purple-500" : "bg-blue-500")}>
+                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-inner transition-transform group-hover:scale-105", usuario.rol === "DUENO" ? "bg-purple-500" : "bg-blue-500")}>
                     {usuario.nombre.substring(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{usuario.nombre}</h3>
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                      {usuario.rol === "DUEÑO" ? <Shield size={12} className="text-purple-500" /> : <Briefcase size={12} className="text-blue-500" />}
-                      <span className={cn(usuario.rol === "DUEÑO" ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400")}>{usuario.rol === "DUEÑO" ? "Dueño" : "Trabajador"}</span>
+                      {usuario.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : <Briefcase size={12} className="text-blue-500" />}
+                      <span className={cn(usuario.rol === "DUENO" ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400")}>{usuario.rol === "DUENO" ? "Dueño" : "Trabajador"}</span>
                     </div>
                   </div>
                   <div className="text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors">
@@ -310,7 +324,7 @@ export default function VistaLogin() {
           <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
             <button onClick={manejarRegresoPIN} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><ArrowLeft size={20} /></button>
             <div className="flex flex-col items-center text-center mb-8">
-              <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-white text-2xl shadow-lg mb-4 ring-4 ring-white dark:ring-slate-900", usuarioSeleccionado.rol === "DUEÑO" ? "bg-purple-500" : "bg-blue-500")}>{usuarioSeleccionado.nombre.substring(0, 2).toUpperCase()}</div>
+              <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-white text-2xl shadow-lg mb-4 ring-4 ring-white dark:ring-slate-900", usuarioSeleccionado.rol === "DUENO" ? "bg-purple-500" : "bg-blue-500")}>{usuarioSeleccionado.nombre.substring(0, 2).toUpperCase()}</div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{usuarioSeleccionado.nombre}</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ingresa tu PIN de seguridad</p>
             </div>
@@ -322,8 +336,8 @@ export default function VistaLogin() {
                   autoFocus 
                   required 
                   value={pinIngresado} 
-                  onChange={(e) => { setPinIngresado(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setErrorLogin(false); }} 
-                  className={cn("w-full text-center tracking-[0.5em] text-2xl font-mono bg-slate-50 dark:bg-slate-950 border-2 rounded-2xl py-4 pr-12 outline-none focus:ring-4 transition-all text-slate-900 dark:text-slate-100 placeholder:tracking-normal", errorLogin ? "border-red-500 focus:ring-red-500/20 text-red-600 animate-in shake bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-emerald-500/20")} 
+                  onChange={(e) => { setPinIngresado(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setErrorMensaje(""); }} 
+                  className={cn("w-full text-center tracking-[0.5em] text-2xl font-mono bg-slate-50 dark:bg-slate-950 border-2 rounded-2xl py-4 pr-12 outline-none focus:ring-4 transition-all text-slate-900 dark:text-slate-100 placeholder:tracking-normal", errorMensaje ? "border-red-500 focus:ring-red-500/20 text-red-600 animate-in shake bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-emerald-500/20")} 
                   placeholder="••••" 
                   maxLength={6} 
                   pattern="[A-Za-z]{2}[0-9]{4}" 
@@ -336,7 +350,7 @@ export default function VistaLogin() {
                   {mostrarPin ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              {errorLogin && <p className="text-red-500 text-sm text-center font-medium animate-in fade-in">PIN incorrecto. Inténtalo de nuevo.</p>}
+              {errorMensaje && <p className="text-red-500 text-sm text-center font-medium animate-in fade-in">{errorMensaje}</p>}
               <button type="submit" className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02]">Ingresar al Sistema</button>
             </form>
           </div>

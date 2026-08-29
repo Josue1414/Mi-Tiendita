@@ -16,7 +16,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
   const [mostrarSalario, setMostrarSalario] = useState(false);
   const [modalEliminar, setModalEliminar] = useState(false);
 
-  const esDueñoEnSesion = trabajadorActivo?.rol === "DUEÑO";
+  const esDueñoEnSesion = trabajadorActivo?.rol === "DUENO";
   const esElMismo = trabajadorActivo?.id === trabajador.id;
 
   // Lógica de Notas (Límite 200 palabras)
@@ -102,14 +102,14 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
       {/* HEADER DE LA TARJETA */}
       <div role="button" tabIndex={0} onClick={() => setExpandido(!expandido)} onKeyDown={(e) => { if (e.key === "Enter") setExpandido(!expandido); }} className="flex w-full cursor-pointer justify-between items-center p-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
         <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
-          <div className={cn("w-12 h-12 rounded-xl flex shrink-0 items-center justify-center font-bold text-white text-lg shadow-inner", trabajador.rol === "DUEÑO" ? "bg-purple-500" : "bg-blue-500")}>
+          <div className={cn("w-12 h-12 rounded-xl flex shrink-0 items-center justify-center font-bold text-white text-lg shadow-inner", trabajador.rol === "DUENO" ? "bg-purple-500" : "bg-blue-500")}>
             {trabajador.nombre.substring(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg leading-none truncate">{trabajador.nombre}</h3>
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1.5 font-medium">
               <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                {trabajador.rol === "DUEÑO" ? <Shield size={12} className="text-purple-500" /> : <Briefcase size={12} className="text-blue-500" />}
+                {trabajador.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : <Briefcase size={12} className="text-blue-500" />}
                 {trabajador.rol}
               </span>
               {!trabajador.activo && <span className="text-red-500 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded-md">INACTIVO</span>}

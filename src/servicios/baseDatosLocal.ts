@@ -1,3 +1,4 @@
+// src/servicios/baseDatosLocal.ts
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Producto } from "../tipos/producto";
 

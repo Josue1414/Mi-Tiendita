@@ -423,6 +423,7 @@ export default function VistaPOS() {
               </span>
             </div>
 
+            {/* Opciones de Impresión y Botón "Imprimir Último" */}
             <div className="flex items-center justify-between px-1 mt-1">
               <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-emerald-600 transition-colors select-none">
                 <input 
@@ -437,7 +438,10 @@ export default function VistaPOS() {
               {ventas.length > 0 && (
                 <button 
                   type="button"
-                  onClick={() => imprimirTicket(ventas[ventas.length - 1], nombreTienda, mensajeTicket)}
+                  onClick={() => {
+                    const ultimaVenta = [...ventas].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+                    imprimirTicket(ultimaVenta, nombreTienda, mensajeTicket);
+                  }}
                   className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
                 >
                   <History size={13} /> Imprimir último

@@ -1,3 +1,4 @@
+// src/servicios/importadorProductos.ts
 import * as XLSX from "xlsx";
 import type { Producto } from "../tipos/producto";
 import { generarCodigoEAN13 } from "../utilidades/codigoBarras";

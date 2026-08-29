@@ -6,7 +6,7 @@ import { useEstadoVentas } from "./estado/estadoVentas";
 import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "./estado/estadoAsistencias";
 import { cn } from "./utilidades/utils";
-import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle } from "lucide-react";
+import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet } from "lucide-react";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -19,6 +19,7 @@ import VistaEquipo from "./vistas/VistaEquipo";
 import VistaConfiguracion from "./vistas/VistaConfiguracion";
 import VistaLogin from "./vistas/VistaLogin";
 import VistaPerfil from "./vistas/VistaPerfil";
+import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
@@ -32,6 +33,7 @@ const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   equipo: VistaEquipo,
   configuracion: VistaConfiguracion,
   perfil: VistaPerfil,
+  caja: VistaCorteCaja,
 };
 
 export default function App() {
@@ -81,11 +83,13 @@ export default function App() {
   const ComponenteActivo = componentesSeccion[seccionActual];
 
   const abrirPantallaCliente = () => {
-    window.open("/?cliente=true", "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+    const rutaBase = window.location.href.split('?')[0];
+    window.open(`${rutaBase}?cliente=true`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
   };
 
   const menusOperativos = [
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
+    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
     { id: "inventario", icono: Package, texto: "Inventario" },
     { id: "historial", icono: History, texto: "Historial de Ventas" },
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
@@ -100,7 +104,8 @@ export default function App() {
     { id: "configuracion", icono: Settings, texto: "Configuración" },
   ] as const;
 
-  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  // CORRECCIÓN AQUÍ: Se cambió "DUEÑO" por "DUENO"
+  const esDueño = trabajadorActivo?.rol === "DUENO";
 
   const confirmarCerrarSesion = async () => {
     setMostrarModalSalida(false);
@@ -171,7 +176,6 @@ export default function App() {
                     !menuAbierto && "justify-center px-0"
                   )}>
                   
-                  {/* Contenedor relativo del ícono para anclar la alerta */}
                   <div className="relative flex items-center justify-center shrink-0">
                     <Icono size={18} />
                     {!menuAbierto && tieneAlerta && (

@@ -36,7 +36,7 @@ export default function VistaInventario() {
   useEscanerCodigoBarras(alEscanear);
 
   // Permisos
-  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  const esDueño = trabajadorActivo?.rol === "DUENO";
   const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
   const puedeEliminar = esDueño || trabajadorActivo?.permisos?.eliminarProductos;
   const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;

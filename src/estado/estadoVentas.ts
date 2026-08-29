@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import type { ItemCarrito } from "./estadoCarrito";
 import { guardarRegistro, obtenerRegistros } from "../servicios/db";
+import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 export interface Venta {
   id: string;
@@ -25,7 +26,6 @@ export const useEstadoVentas = create<EstadoVentas>((set) => ({
   ventas: [],
   cargando: true,
 
-  // Carga el historial ordenado por fecha (el más reciente primero)
   cargarVentas: async () => {
     set({ cargando: true });
     try {
@@ -40,8 +40,44 @@ export const useEstadoVentas = create<EstadoVentas>((set) => ({
 
   agregarVenta: async (venta) => {
     try {
+      // 1. Guardar en disco duro local
       await guardarRegistro("ventas", venta);
       set((estado) => ({ ventas: [venta, ...estado.ventas] }));
+
+      // 2. Sincronizar con Supabase
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (tiendaId && session) {
+          // Insertar encabezado de la venta
+          await supabase.from('ventas').insert({
+            id: venta.id,
+            tienda_id: tiendaId,
+            vendedor_id: session.user.id,
+            trabajador_nombre: venta.trabajador,
+            subtotal: venta.subtotal,
+            descuento: venta.descuento,
+            total: venta.total,
+            metodo_pago: venta.metodoPago,
+            created_at: venta.fecha
+          });
+
+          // Insertar el detalle de los productos vendidos
+          const detalles = venta.articulos.map(art => ({
+            venta_id: venta.id,
+            producto_id: art.producto_id,
+            nombre_producto: art.nombre,
+            cantidad: art.cantidad,
+            precio_unitario: art.precio,
+            subtotal: art.subtotal,
+            autorizacion_confirmada: art.autorizacion_confirmada || false,
+            evidencia_nombre_archivo_local: null // Modificado: No requerimos enviar evidencia a la nube
+          }));
+
+          await supabase.from('venta_detalles').insert(detalles);
+        }
+      }
     } catch (error) {
       console.error("Error al guardar la venta:", error);
     }

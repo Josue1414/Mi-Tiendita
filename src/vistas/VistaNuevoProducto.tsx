@@ -22,7 +22,7 @@ export default function VistaNuevoProducto() {
   const editando = Boolean(productoExistente);
 
   // Permisos
-  const esDueño = trabajadorActivo?.rol === "DUEÑO";
+  const esDueño = trabajadorActivo?.rol === "DUENO";
   const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
   const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
