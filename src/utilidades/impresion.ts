@@ -1,7 +1,13 @@
 // src/utilidades/impresion.ts
 import type { Venta } from "../estado/estadoVentas";
 
-export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Tienda", mensajePie: string = "¡Gracias por su preferencia!") => {
+export const imprimirTicket = async (
+  venta: Venta, 
+  nombreTienda: string = "Mi Tienda", 
+  mensajePie: string = "¡Gracias por su preferencia!",
+  direccionTienda: string = "",
+  logoTienda: string = ""
+) => {
   let htmlArticulos = '';
   venta.articulos.forEach(art => {
     htmlArticulos += `
@@ -20,6 +26,10 @@ export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Ti
 
   const nombreCajero = venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim();
 
+  // Se prepara el HTML del logo y la dirección si existen
+  const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" style="max-width: 150px; max-height: 80px;" /></div>` : '';
+  const direccionHtml = direccionTienda ? `<div class="center" style="margin-bottom: 15px; font-size: 10px; white-space: pre-wrap;">${direccionTienda}</div>` : '';
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -31,7 +41,7 @@ export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Ti
           .ticket {
             width: 80mm; 
             max-width: 100%;
-            padding: 10px;
+            padding: 20px 10px 10px 10px; /* Margen superior de 20px para que no pegue arriba */
             text-align: left;
             font-family: 'Courier New', Courier, monospace;
             font-size: 12px;
@@ -45,17 +55,19 @@ export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Ti
           td { vertical-align: top; }
           @media print {
             body { display: block; }
-            .ticket { margin: 0 auto; padding: 0; }
+            .ticket { margin: 0 auto; padding-top: 15px; } /* Espacio de seguridad al imprimir */
             @page { margin: 0; }
           }
         </style>
       </head>
       <body>
         <div class="ticket">
+          ${logoHtml}
           <div class="center bold" style="font-size: 18px; margin-bottom: 5px; text-transform: uppercase;">${nombreTienda}</div>
+          ${direccionHtml}
           <div class="center" style="margin-bottom: 15px; font-size: 10px;">Comprobante de Venta</div>
           
-          <div><span class="bold">Ticket:</span> ${venta.id.split('-')[0].toUpperCase()}</div>
+          <div><span class="bold">Ticket:</span> ${venta.id}</div>
           <div><span class="bold">Fecha:</span> ${new Date(venta.fecha).toLocaleString('es-MX')}</div>
           <div><span class="bold">Cajero:</span> ${nombreCajero}</div>
           
@@ -88,13 +100,11 @@ export const imprimirTicket = async (venta: Venta, nombreTienda: string = "Mi Ti
     </html>
   `;
 
-  // NUEVO: Intentar impresión silenciosa nativa primero (Solo funciona si es el .exe)
   if (typeof window !== 'undefined' && (window as any).apiLocal && (window as any).apiLocal.imprimirSilencioso) {
     await (window as any).apiLocal.imprimirSilencioso(html);
     return;
   }
 
-  // Fallback para navegador web (muestra la ventana)
   const ventana = window.open('', 'PRINT', 'height=600,width=400');
   if (!ventana) return;
   ventana.document.write(html);

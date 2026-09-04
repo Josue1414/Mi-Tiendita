@@ -4,8 +4,10 @@ import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEstadoCaja } from "../estado/estadoCaja";
+import { useEstadoNavegacion } from "../estado/estadoNavegacion"; 
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet } from "lucide-react";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
@@ -17,6 +19,7 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import ModalAutorizacion from "../componentes/ui/ModalAutorizacion";
 import { imprimirTicket } from "../utilidades/impresion";
+import PanelEscaner from "../componentes/pos/PanelEscaner";
 
 export default function VistaPOS() {
   const { productos, categorias, descontarStock } = useEstadoInventario();
@@ -26,7 +29,11 @@ export default function VistaPOS() {
   } = useEstadoCarrito();
   const { ventas, agregarVenta } = useEstadoVentas();
   const { trabajadorActivo } = useEstadoTrabajadores();
-  const { nombreTienda, mensajeTicket, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
+  const { forzarRecepcionCaja, obtenerTurnoActivo } = useEstadoCaja();
+  const { setSeccionActual } = useEstadoNavegacion();
+  
+  // Agregamos direccionTienda y logoTienda para pasarlos a la impresora
+  const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
   
   const { enviarMensaje } = useEmisorPantallaCliente();
   
@@ -42,6 +49,12 @@ export default function VistaPOS() {
   const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
 
   const [impresionAutomatica, setImpresionAutomatica] = useState(true);
+  
+  const [modoVista, setModoVista] = useState<"cuadricula" | "escaner">("cuadricula");
+  const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
+
+  const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
+  const bloqueadoPorFondo = forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO";
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -51,14 +64,14 @@ export default function VistaPOS() {
     const alPresionarTecla = (evento: KeyboardEvent) => {
       const objetivo = evento.target as HTMLElement | null;
       const esCampoTexto = objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA" || objetivo?.isContentEditable;
-      if (!esCampoTexto && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
+      if (!esCampoTexto && !bloqueadoPorFondo && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
         evento.preventDefault();
         setModalCobroAbierto(true);
       }
     };
     window.addEventListener("keydown", alPresionarTecla);
     return () => window.removeEventListener("keydown", alPresionarTecla);
-  }, [items.length, teclaCobro]);
+  }, [items.length, teclaCobro, bloqueadoPorFondo]);
 
   const productosFiltrados = productos.filter((p) => {
     const q = busqueda.toLowerCase().trim();
@@ -68,11 +81,20 @@ export default function VistaPOS() {
   });
 
   const manejarClickProducto = (producto: Producto) => {
+    setProductoEnfoque(producto); 
     if (producto.requiere_autorizacion) {
       setProductoAutorizacion(producto);
       return;
     }
     continuarAgregado(producto);
+  };
+
+  const manejarDobleClicCarrito = (productoId: string) => {
+    const producto = productos.find(p => p.id === productoId);
+    if (producto) {
+      setProductoEnfoque(producto);
+      setModoVista("escaner");
+    }
   };
 
   const continuarAgregado = (producto: Producto, evidencia?: string) => {
@@ -95,6 +117,7 @@ export default function VistaPOS() {
   };
 
   const alEscanear = useCallback((codigo: string) => {
+    if (bloqueadoPorFondo) return;
     const producto = productos.find((p) => p.codigo_barras === codigo);
     if (!producto) {
       setAviso({ titulo: "Código no encontrado", mensaje: `No existe un producto registrado con el código ${codigo}.` });
@@ -102,9 +125,39 @@ export default function VistaPOS() {
     }
     setBusqueda("");
     manejarClickProducto(producto);
-  }, [productos]);
+  }, [productos, bloqueadoPorFondo]);
 
   useEscanerCodigoBarras(alEscanear);
+
+  const generarIdTicket = () => {
+    const ahora = new Date();
+    // 2 dígitos del año
+    const yy = ahora.getFullYear().toString().slice(-2);
+    // 2 dígitos del mes
+    const mm = (ahora.getMonth() + 1).toString().padStart(2, '0');
+    // 2 dígitos del día
+    const dd = ahora.getDate().toString().padStart(2, '0');
+
+    // Función para generar 1 letra aleatoria mayúscula
+    const letraRandom = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    
+    // Función para generar alfanuméricos en mayúscula
+    const alfanumRandom = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      return chars.charAt(Math.floor(Math.random() * chars.length));
+    };
+
+    const l1 = letraRandom();
+    const l2 = letraRandom() + letraRandom();
+    
+    let resto = "";
+    for(let i=0; i<5; i++) {
+      resto += alfanumRandom();
+    }
+
+    // Formato final: YY + 1 Letra + MM + 2 Letras + DD + 5 Alfanuméricos (Total: 14 caracteres)
+    return `${yy}${l1}${mm}${l2}${dd}${resto}`;
+  };
 
   const confirmarVenta = async (metodoPago: string) => {
     if (!trabajadorActivo) return;
@@ -113,7 +166,7 @@ export default function VistaPOS() {
       await descontarStock(items);
       
       const nuevaVenta = {
-        id: crypto.randomUUID(),
+        id: generarIdTicket(),
         fecha: new Date().toISOString(),
         trabajador: trabajadorActivo.nombre, 
         articulos: items,
@@ -128,6 +181,7 @@ export default function VistaPOS() {
       setModalCobroAbierto(false);
       limpiarCarrito();
       setInputDescuento("");
+      setProductoEnfoque(null); 
 
       try {
         enviarMensaje({ 
@@ -142,7 +196,7 @@ export default function VistaPOS() {
       }
 
       if (impresionAutomatica) {
-        imprimirTicket(nuevaVenta, nombreTienda, mensajeTicket);
+        imprimirTicket(nuevaVenta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
       }
 
       setPagoConfirmado(true);
@@ -170,6 +224,33 @@ export default function VistaPOS() {
     const num = parseFloat(inputDescuento) || 0;
     setDescuento(num, nuevoTipo);
   };
+
+  if (bloqueadoPorFondo) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="efecto-cristal p-10 rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 flex flex-col items-center text-center max-w-md shadow-xl animate-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4 relative">
+            <Wallet size={36} />
+            <div className="absolute -bottom-2 -right-2 bg-white dark:bg-slate-900 rounded-full p-1">
+              <Lock size={20} className="text-amber-500" />
+            </div>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Confirma tu fondo de caja</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+            El administrador ha configurado que debes confirmar la recepción del dinero en caja antes de poder realizar ventas o escanear productos.
+          </p>
+          
+          <button 
+            onClick={() => setSeccionActual("caja")} 
+            className="w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02]"
+          >
+            Ir a Corte de Caja
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full min-h-0 flex flex-col md:flex-row gap-4 p-4 lg:p-6 overflow-y-auto animate-in fade-in duration-300">
@@ -225,100 +306,125 @@ export default function VistaPOS() {
       />
 
       <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input
-            type="text"
-            data-escaner="true"
-            placeholder="Buscar o escanear código de barras..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && busqueda.trim()) {
-                const exacto = productos.find((p) => p.codigo_barras === busqueda.trim());
-                if (exacto) {
-                  e.preventDefault();
-                  setBusqueda("");
-                  manejarClickProducto(exacto);
+        <div className="flex gap-2 relative">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              data-escaner="true"
+              placeholder="Buscar o escanear código de barras..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && busqueda.trim()) {
+                  const exacto = productos.find((p) => p.codigo_barras === busqueda.trim());
+                  if (exacto) {
+                    e.preventDefault();
+                    setBusqueda("");
+                    manejarClickProducto(exacto);
+                  }
                 }
-              }
-            }}
-            className="w-full efecto-cristal pl-9 pr-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm"
-          />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          <button
-            onClick={() => setCategoriaActiva("todas")}
-            className={cn(
-              "h-7 shrink-0 px-2.5 rounded-full text-[11px] font-semibold border",
-              categoriaActiva === "todas"
-                ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900"
-                : "border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300"
-            )}
-          >
-            Todas
-          </button>
-          {categorias.map((categoria) => {
-            const activa = categoriaActiva === categoria.nombre;
-            return (
-              <button
-                key={categoria.id}
-                onClick={() => setCategoriaActiva(categoria.nombre)}
-                className="h-7 shrink-0 px-2.5 rounded-full text-[11px] font-semibold border"
-                style={{
-                  backgroundColor: activa ? categoria.color : "transparent",
-                  color: activa ? colorTextoSobre(categoria.color) : categoria.color,
-                  borderColor: categoria.color,
-                }}
-              >
-                {categoria.nombre}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1">
-          {productosFiltrados.map((producto) => {
-            const final = precioVenta(producto);
-            const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
-            return (
+              }}
+              className="w-full efecto-cristal pl-9 pr-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm h-full"
+            />
+          </div>
+          
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
             <button
-              key={producto.id}
-              onDoubleClick={() => manejarClickProducto(producto)}
-              className="efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-500 border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[98px]"
+              onClick={() => setModoVista("cuadricula")}
+              className={cn("p-2 rounded-lg flex items-center justify-center transition-all", modoVista === "cuadricula" ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600" : "text-slate-500 hover:text-slate-900 dark:hover:text-white")}
+              title="Vista Cuadrícula"
             >
-              <ImagenLocal 
-                nombreArchivo={producto.imagen_url} 
-                nombreProducto={producto.nombre} 
-                className="w-14 h-14 rounded-lg shrink-0 object-cover" 
-              />
-              <div className="flex flex-col flex-1 h-full py-1 overflow-hidden">
-                <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm line-clamp-2 leading-tight">
-                  {producto.nombre}
-                </span>
-                {producto.categoria && color && (
-                  <span className="self-start mt-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-semibold" style={{ backgroundColor: colorConAlpha(color, 0.16), color }}>
-                    {producto.categoria}
-                  </span>
-                )}
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-auto text-sm flex items-baseline gap-1.5">
-                  ${final.toFixed(2)}
-                  {(producto.descuento_porcentaje || 0) > 0 && (
-                    <span className="text-[10px] line-through text-slate-400 font-normal">${producto.precio.toFixed(2)}</span>
-                  )}
-                </span>
-              </div>
-              <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {(producto.unidad === "KG" || producto.unidad === "LITRO") ? <Scale size={14}/> : <Plus size={14}/>}
-              </div>
+              <LayoutGrid size={20} />
             </button>
-            );
-          })}
+            <button
+              onClick={() => setModoVista("escaner")}
+              className={cn("p-2 rounded-lg flex items-center justify-center transition-all", modoVista === "escaner" ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600" : "text-slate-500 hover:text-slate-900 dark:hover:text-white")}
+              title="Vista Escáner"
+            >
+              <ScanBarcode size={20} />
+            </button>
+          </div>
         </div>
+
+        {modoVista === "cuadricula" ? (
+          <>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mt-1">
+              <button
+                onClick={() => setCategoriaActiva("todas")}
+                className={cn(
+                  "h-8 shrink-0 px-3 rounded-full text-xs font-semibold border",
+                  categoriaActiva === "todas"
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900"
+                    : "border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300"
+                )}
+              >
+                Todas
+              </button>
+              {categorias.map((categoria) => {
+                const activa = categoriaActiva === categoria.nombre;
+                return (
+                  <button
+                    key={categoria.id}
+                    onClick={() => setCategoriaActiva(categoria.nombre)}
+                    className="h-8 shrink-0 px-3 rounded-full text-xs font-semibold border"
+                    style={{
+                      backgroundColor: activa ? categoria.color : "transparent",
+                      color: activa ? colorTextoSobre(categoria.color) : categoria.color,
+                      borderColor: categoria.color,
+                    }}
+                  >
+                    {categoria.nombre}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1">
+              {productosFiltrados.map((producto) => {
+                const final = precioVenta(producto);
+                const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
+                return (
+                <button
+                  key={producto.id}
+                  onClick={() => manejarClickProducto(producto)}
+                  className="efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-500 border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]"
+                >
+                  <ImagenLocal 
+                    nombreArchivo={producto.imagen_url} 
+                    nombreProducto={producto.nombre} 
+                    className="w-16 h-16 rounded-lg shrink-0 object-cover" 
+                  />
+                  <div className="flex flex-col flex-1 h-full py-1 overflow-hidden">
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm line-clamp-2 leading-tight">
+                      {producto.nombre}
+                    </span>
+                    {producto.categoria && color && (
+                      <span className="self-start mt-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold tracking-wide" style={{ backgroundColor: colorConAlpha(color, 0.16), color }}>
+                        {producto.categoria}
+                      </span>
+                    )}
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-auto text-base flex items-baseline gap-1.5">
+                      ${final.toFixed(2)}
+                      {(producto.descuento_porcentaje || 0) > 0 && (
+                        <span className="text-[10px] line-through text-slate-400 font-normal">${producto.precio.toFixed(2)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {(producto.unidad === "KG" || producto.unidad === "LITRO") ? <Scale size={16}/> : <Plus size={16}/>}
+                  </div>
+                </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <PanelEscaner producto={productoEnfoque} />
+        )}
       </div>
 
-      <div className="w-full md:w-[min(48%,520px)] flex flex-col gap-4 shrink-0">
+      <div className="w-full md:w-[min(35%,380px)] flex flex-col gap-4 shrink-0">
         <div className="efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] md:h-full border border-slate-200/50 dark:border-white/10">
           
           <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100">
@@ -334,7 +440,12 @@ export default function VistaPOS() {
               </div>
             ) : (
               items.map((item) => (
-                <div key={item.id} className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5">
+                <div 
+                  key={item.id} 
+                  onDoubleClick={() => manejarDobleClicCarrito(item.producto_id)}
+                  className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors"
+                  title="Doble clic para ver en escáner"
+                >
                   <ImagenLocal 
                     nombreArchivo={item.imagen_url} 
                     nombreProducto={item.nombre} 
@@ -355,7 +466,7 @@ export default function VistaPOS() {
                         ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
                       </span>
                       
-                      <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden">
+                      <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden" onClick={e => e.stopPropagation()}>
                         <button 
                           onClick={() => actualizarCantidad(item.id, item.cantidad - ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
@@ -423,7 +534,6 @@ export default function VistaPOS() {
               </span>
             </div>
 
-            {/* Opciones de Impresión y Botón "Imprimir Último" */}
             <div className="flex items-center justify-between px-1 mt-1">
               <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-emerald-600 transition-colors select-none">
                 <input 
@@ -432,7 +542,7 @@ export default function VistaPOS() {
                   onChange={e => setImpresionAutomatica(e.target.checked)} 
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" 
                 />
-                <Printer size={13} /> Imprimir ticket automático
+                <Printer size={13} /> Imprimir automático
               </label>
 
               {ventas.length > 0 && (
@@ -440,7 +550,7 @@ export default function VistaPOS() {
                   type="button"
                   onClick={() => {
                     const ultimaVenta = [...ventas].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-                    imprimirTicket(ultimaVenta, nombreTienda, mensajeTicket);
+                    imprimirTicket(ultimaVenta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
                   }}
                   className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
                 >
@@ -451,7 +561,7 @@ export default function VistaPOS() {
 
             <div className="flex gap-2 mt-1">
               <button 
-                onClick={() => { limpiarCarrito(); setInputDescuento(""); }}
+                onClick={() => { limpiarCarrito(); setInputDescuento(""); setProductoEnfoque(null); }}
                 disabled={items.length === 0}
                 className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-100 dark:border-red-900/50"
                 title="Vaciar Carrito"

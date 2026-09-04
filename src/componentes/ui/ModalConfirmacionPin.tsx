@@ -8,11 +8,12 @@ interface PropsModalConfirmacionPin {
   abierto: boolean;
   titulo: string;
   mensaje: string;
+  labelPin?: string; // <-- Nueva propiedad opcional
   alConfirmar: () => void;
   alCerrar: () => void;
 }
 
-export default function ModalConfirmacionPin({ abierto, titulo, mensaje, alConfirmar, alCerrar }: PropsModalConfirmacionPin) {
+export default function ModalConfirmacionPin({ abierto, titulo, mensaje, labelPin, alConfirmar, alCerrar }: PropsModalConfirmacionPin) {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
@@ -54,7 +55,9 @@ export default function ModalConfirmacionPin({ abierto, titulo, mensaje, alConfi
         
         <form onSubmit={manejarConfirmacion} className="flex flex-col gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">Ingresa tu PIN de Dueño</label>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
+              {labelPin || "Ingresa tu PIN de Dueño"}
+            </label>
             <div className="relative flex items-center justify-center">
               <Lock className="absolute left-4 text-slate-400" size={18} />
               <input

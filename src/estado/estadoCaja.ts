@@ -19,11 +19,13 @@ interface EstadoCaja {
   fondoBaseActual: number;
   notaGeneralDueno: string;
   turnos: TurnoCaja[];
+  forzarRecepcionCaja: boolean; // <-- Nuevo estado para el bloqueo
   
   actualizarConfiguracion: (nuevoFondo: number, nuevaNota: string) => void;
   abrirTurno: (trabajadorId: string, nombreTrabajador: string, fondo: number) => void;
   cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string) => void;
   obtenerTurnoActivo: (trabajadorId: string) => TurnoCaja | undefined;
+  setForzarRecepcionCaja: (valor: boolean) => void; // <-- Nueva acción
 }
 
 // Datos iniciales de prueba
@@ -33,6 +35,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   fondoBaseActual: 1000,
   notaGeneralDueno: "Recuerden revisar los billetes grandes.",
   turnos: turnosIniciales,
+  forzarRecepcionCaja: false, // <-- Valor inicial desactivado
 
   actualizarConfiguracion: (nuevoFondo, nuevaNota) => {
     set({ fondoBaseActual: nuevoFondo, notaGeneralDueno: nuevaNota });
@@ -74,5 +77,9 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
 
   obtenerTurnoActivo: (trabajadorId) => {
     return get().turnos.find((t) => t.trabajadorId === trabajadorId && t.estatus === "ABIERTO");
+  },
+
+  setForzarRecepcionCaja: (valor) => {
+    set({ forzarRecepcionCaja: valor });
   },
 }));

@@ -1,5 +1,6 @@
+// src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
-import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock } from "lucide-react";
+import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
@@ -7,29 +8,41 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 
 export default function VistaConfiguracion() {
   const { 
-    nombreTienda, mensajeTicket, directorioImagenes, teclaCobro,
+    nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, direccionTienda, logoTienda,
     teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
     actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago
   } = useEstadoConfiguracion();
 
   const { productos, agregarProducto } = useEstadoInventario();
 
-  const [inputNombre, setInputNombre] = useState(nombreTienda);
-  const [inputMensaje, setInputMensaje] = useState(mensajeTicket);
+  const [inputNombre, setInputNombre] = useState(nombreTienda || "");
+  const [inputMensaje, setInputMensaje] = useState(mensajeTicket || "");
+  const [inputDireccion, setInputDireccion] = useState(direccionTienda || "");
+  const [inputLogo, setInputLogo] = useState(logoTienda || "");
+  
   const [guardado, setGuardado] = useState(false);
   const [importando, setImportando] = useState(false);
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
   const [datosPago, setDatosPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
 
-  // Detectamos si la aplicación se está ejecutando dentro de Electron
   const esAppEscritorio = typeof window !== 'undefined' && !!window.apiLocal;
 
   const manejarGuardarGeneral = (e: React.FormEvent) => {
     e.preventDefault();
-    actualizarDatosTienda(inputNombre, inputMensaje);
+    actualizarDatosTienda(inputNombre, inputMensaje, inputDireccion, inputLogo);
     setGuardado(true);
     setTimeout(() => setGuardado(false), 2000);
+  };
+
+  const manejarLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+    const lector = new FileReader();
+    lector.onloadend = () => {
+      setInputLogo(lector.result as string);
+    };
+    lector.readAsDataURL(archivo);
   };
 
   const seleccionarCarpeta = async () => {
@@ -37,7 +50,6 @@ export default function VistaConfiguracion() {
       setAviso({ titulo: "Carpetas locales no disponibles", mensaje: "Esta función requiere la aplicación de escritorio nativa para Windows." });
       return;
     }
-
     try {
       const handle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
       setDirectorioImagenes(handle.name, handle);
@@ -99,30 +111,56 @@ export default function VistaConfiguracion() {
             Ajusta las preferencias locales, almacenamiento y opciones de venta.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-800/30 w-fit">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-xs font-bold uppercase tracking-wider">Suscripción Activa</span>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
             <Store size={20} className="text-emerald-600 dark:text-emerald-400" />
-            Datos de la Tienda
+            Datos de la Tienda (Visible en Ticket)
           </h2>
           
           <form onSubmit={manejarGuardarGeneral} className="flex flex-col gap-4">
+            
+            <div className="flex gap-4 items-start">
+              <div className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden relative flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+                {inputLogo ? (
+                  <>
+                    <img src={inputLogo} alt="Logo" className="w-full h-full object-contain p-1" />
+                    <button type="button" onClick={() => setInputLogo("")} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md shadow hover:bg-red-600 transition-colors">
+                      <Trash2 size={12} />
+                    </button>
+                  </>
+                ) : (
+                  <ImageIcon size={32} className="text-slate-400" />
+                )}
+              </div>
+              <div className="flex flex-col flex-1 gap-2">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Logo de la tienda</label>
+                <label className="cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-center font-medium hover:bg-slate-50 transition-colors w-fit">
+                  Subir Imagen
+                  <input type="file" accept="image/*" onChange={manejarLogo} className="hidden" />
+                </label>
+                <p className="text-[10px] text-amber-600 dark:text-amber-500 flex gap-1 items-start mt-1">
+                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                  Considera que el logo se imprimirá en cada ticket; un diseño con mucho relleno negro gastará excesiva tinta térmica.
+                </p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Negocio</label>
               <input type="text" value={inputNombre} onChange={(e) => setInputNombre(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm" />
             </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Dirección de la Tienda</label>
+              <textarea value={inputDireccion} onChange={(e) => setInputDireccion(e.target.value)} rows={2} placeholder="Calle, Número, Colonia, Ciudad..." className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm resize-none" />
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Mensaje al pie del ticket</label>
-              <textarea value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm resize-none" />
+              <textarea value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm resize-none" />
             </div>
             <button type="submit" className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-medium transition-all text-sm">
               {guardado ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />}
@@ -221,7 +259,6 @@ export default function VistaConfiguracion() {
             <input type="file" accept=".xlsx,.xls" onChange={importarExcel} disabled={importando} className="hidden" />
           </label>
         </div>
-
       </div>
     </div>
   );

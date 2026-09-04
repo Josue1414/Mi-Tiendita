@@ -1,3 +1,4 @@
+// src/estado/estadoConfiguracion.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
@@ -8,6 +9,8 @@ export interface Configuracion {
   id: string;
   nombreTienda: string;
   mensajeTicket: string;
+  direccionTienda: string; // <-- NUEVO CAMPO
+  logoTienda: string;      // <-- NUEVO CAMPO
   directorioImagenes: string | null;
   directorioHandle: any | null; 
   sincronizacionNube: boolean;
@@ -25,7 +28,7 @@ export interface Configuracion {
 interface EstadoConfiguracion extends Configuracion {
   cargando: boolean;
   cargarConfiguracion: () => Promise<void>;
-  actualizarDatosTienda: (nombre: string, mensaje: string) => Promise<void>;
+  actualizarDatosTienda: (nombre: string, mensaje: string, direccion: string, logo: string) => Promise<void>; // <-- ACTUALIZADO
   setDirectorioImagenes: (nombreCarpeta: string, handle: any) => Promise<void>;
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
@@ -39,6 +42,8 @@ const CONFIG_INICIAL: Configuracion = {
   id: CONFIG_ID,
   nombreTienda: "Mi Tienda",
   mensajeTicket: "¡Gracias por su preferencia! Vuelva pronto.",
+  direccionTienda: "", // <-- VALOR INICIAL
+  logoTienda: "",      // <-- VALOR INICIAL
   directorioImagenes: null,
   directorioHandle: null,
   sincronizacionNube: false,
@@ -113,13 +118,25 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
-  actualizarDatosTienda: async (nombre, mensaje) => {
+  // ACTUALIZADO: Ahora recibe y procesa la dirección y el logo
+  actualizarDatosTienda: async (nombre, mensaje, direccion, logo) => {
     try {
       const configBase = get();
-      const nuevaConfig = { ...configBase, nombreTienda: nombre, mensajeTicket: mensaje };
+      const nuevaConfig = { 
+        ...configBase, 
+        nombreTienda: nombre, 
+        mensajeTicket: mensaje,
+        direccionTienda: direccion,
+        logoTienda: logo
+      };
       
       if (esEscritorio) await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
-      set({ nombreTienda: nombre, mensajeTicket: mensaje });
+      set({ 
+        nombreTienda: nombre, 
+        mensajeTicket: mensaje, 
+        direccionTienda: direccion, 
+        logoTienda: logo 
+      });
 
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();

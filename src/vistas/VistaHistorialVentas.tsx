@@ -7,7 +7,8 @@ import { imprimirTicket } from "../utilidades/impresion";
 
 export default function VistaHistorialVentas() {
   const { ventas } = useEstadoVentas();
-  const { nombreTienda, mensajeTicket } = useEstadoConfiguracion();
+  // Se agregaron direccionTienda y logoTienda para que salgan al reimprimir
+  const { nombreTienda, mensajeTicket, direccionTienda, logoTienda } = useEstadoConfiguracion();
   
   const [busqueda, setBusqueda] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
@@ -95,7 +96,8 @@ export default function VistaHistorialVentas() {
                       <Calendar size={14} className="text-slate-400" />
                       {new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
-                    <td className="p-3 font-mono text-[11px] text-slate-500">{venta.id.slice(0, 8).toUpperCase()}</td>
+                    {/* Se quitó el .slice(0,8) para mostrar el ID completo */}
+                    <td className="p-3 font-mono text-[11px] text-slate-500">{venta.id}</td>
                     <td className="p-3 text-xs">{venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim()}</td>
                     <td className="p-3 text-center text-xs">{venta.articulos.length}</td>
                     <td className="p-3 text-right text-xs">${venta.subtotal.toFixed(2)}</td>
@@ -110,7 +112,7 @@ export default function VistaHistorialVentas() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          imprimirTicket(venta, nombreTienda, mensajeTicket);
+                          imprimirTicket(venta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
                         }}
                         className="p-1.5 mx-auto flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                         title="Reimprimir Ticket"
