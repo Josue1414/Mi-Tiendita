@@ -55,7 +55,9 @@ export default function VistaPOS() {
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
-  const bloqueadoPorFondo = forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO";
+  
+  // EXCEPCIÓN APLICADA: Ni el DUEÑO ni el SUPERVISOR se bloquean por falta de fondo
+  const bloqueadoPorFondo = forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO" && trabajadorActivo?.rol !== "SUPERVISOR";
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -270,7 +272,7 @@ export default function VistaPOS() {
         titulo="Autorización Requerida"
         mensaje="Ingresa el PIN de un Dueño o Supervisor para autorizar esta cancelación."
         labelPin="PIN de Autorización"
-        validarAutorizacion={true} // <-- ¡Solo agregar esto!
+        validarAutorizacion={true}
         alConfirmar={() => {
           if (accionPendiente) accionPendiente();
           setModalPinCancelacion(false);
@@ -408,7 +410,9 @@ export default function VistaPOS() {
                 return (
                 <button
                   key={producto.id}
-                  onClick={() => manejarClickProducto(producto)}
+                  // MODIFICACIÓN: Cambiado de onClick a onDoubleClick para prevenir errores de dedo
+                  onDoubleClick={() => manejarClickProducto(producto)}
+                  title="Doble clic para agregar"
                   className="efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-500 border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]"
                 >
                   <ImagenLocal 

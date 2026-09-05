@@ -5,12 +5,11 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, KeyRound } from "lucide-react";
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, KeyRound, Laptop } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { supabase } from "../servicios/supabase";
 
 export default function VistaLogin() {
-  // Importamos las funciones de recarga de todos los módulos
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
   const { nombreTienda, cargarConfiguracion } = useEstadoConfiguracion();
   const { registrarEntrada, cargarAsistencias } = useEstadoAsistencias();
@@ -27,7 +26,9 @@ export default function VistaLogin() {
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
-  // Estados para Multi-sucursal
+  // Nombre de PC discreto
+  const [nombrePC, setNombrePC] = useState(localStorage.getItem("nombre_dispositivo_local") || "");
+
   const [seleccionandoSucursal, setSeleccionandoSucursal] = useState(false);
   const [sucursalesDisponibles, setSucursalesDisponibles] = useState<any[]>([]);
 
@@ -76,33 +77,37 @@ export default function VistaLogin() {
         
         const { data: dispositivos, error: dispError } = await supabase
           .from('dispositivos_vinculados')
-          .select('hardware_id')
+          .select('*')
           .eq('tienda_id', tienda.id);
 
         if (!dispError && dispositivos) {
-          const yaRegistrado = dispositivos.some(d => d.hardware_id === hwid);
-          if (!yaRegistrado) {
+          const dispositivoActual = dispositivos.find(d => d.hardware_id === hwid);
+          
+          if (!dispositivoActual) {
             if (dispositivos.length >= tienda.max_dispositivos) {
-              throw new Error(`Límite de ${tienda.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}". Libera espacio en el panel web.`);
+              throw new Error(`Límite de ${tienda.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}". Libera espacio en el panel web o contacta a soporte.`);
             } else {
               await supabase.from('dispositivos_vinculados').insert([{
                 tienda_id: tienda.id,
                 hardware_id: hwid,
                 nombre_dispositivo: 'PC Local'
               }]);
+              localStorage.setItem("nombre_dispositivo_local", "PC Local");
+              setNombrePC("PC Local");
             }
           } else {
             await supabase.from('dispositivos_vinculados').update({ ultimo_acceso: new Date().toISOString() })
               .eq('tienda_id', tienda.id).eq('hardware_id', hwid);
+              
+            localStorage.setItem("nombre_dispositivo_local", dispositivoActual.nombre_dispositivo);
+            setNombrePC(dispositivoActual.nombre_dispositivo);
           }
         }
         await window.apiLocal.sincronizarReloj(tienda.fecha_vencimiento);
       }
 
-      // Guardamos la sucursal en el almacenamiento local para que Zustand sepa de dónde traer la info
       localStorage.setItem("tienda_id", tienda.id);
 
-      // ¡Recargamos todos los estados independientemente para la sucursal elegida!
       await Promise.all([
         cargarConfiguracion(),
         cargarTrabajadores(),
@@ -116,7 +121,7 @@ export default function VistaLogin() {
 
     } catch (err: any) {
       setErrorSaaS(err.message);
-      if (sucursalesDisponibles.length === 1) {
+      if (sucursalesDisponibles.length <= 1) {
         await supabase.auth.signOut();
       }
     } finally {
@@ -139,7 +144,6 @@ export default function VistaLogin() {
       });
       if (authError) throw authError;
 
-      // Buscamos TODAS las tiendas activas a las que pertenece el correo
       const { data: miembrosData, error: miembroError } = await supabase
         .from('miembros_tienda')
         .select('tiendas(id, nombre, fecha_vencimiento, max_dispositivos)')
@@ -150,14 +154,11 @@ export default function VistaLogin() {
         throw new Error("No tienes ninguna tienda vinculada o tu acceso fue revocado.");
       }
 
-      // Extraer y limpiar las tiendas
       const tiendas = miembrosData.map(m => m.tiendas).filter(Boolean);
 
       if (tiendas.length === 1) {
-        // Solo tiene una sucursal, entra directo
         await procesarSeleccionSucursal(tiendas[0]);
       } else {
-        // Tiene múltiples sucursales, enviamos al selector
         setSucursalesDisponibles(tiendas);
         setSeleccionandoSucursal(true);
         setCargandoSaaS(false);
@@ -224,7 +225,7 @@ export default function VistaLogin() {
 
   const manejarRegresoCuenta = async () => {
     if (navigator.onLine) await supabase.auth.signOut();
-    localStorage.removeItem("tienda_id"); // Limpiamos la tienda actual
+    localStorage.removeItem("tienda_id");
     setCuentaSaaSLogueada(false);
     setEmailSaaS("");
     setPasswordSaaS("");
@@ -235,6 +236,13 @@ export default function VistaLogin() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-emerald-50/30 dark:bg-slate-950 p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-emerald-600/10 to-transparent -z-10 pointer-events-none"></div>
+
+      {nombrePC && window.apiLocal && (
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-200/50 dark:border-white/10 backdrop-blur-md z-20 shadow-sm transition-all hover:bg-white dark:hover:bg-slate-900">
+          <Laptop size={12} className="text-emerald-600 dark:text-emerald-500" />
+          {nombrePC}
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 z-10">
         <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-600/30">
@@ -252,7 +260,6 @@ export default function VistaLogin() {
         
         {!cuentaSaaSLogueada ? (
           seleccionandoSucursal ? (
-            // ================= SELECTOR DE SUCURSALES ================= //
             <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
               <button onClick={() => { setSeleccionandoSucursal(false); supabase.auth.signOut(); }} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <ArrowLeft size={20} />
@@ -284,7 +291,6 @@ export default function VistaLogin() {
               </div>
             </div>
           ) : modoRecuperacion ? (
-            // ================= RECUPERACIÓN ================= //
             <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
               <button onClick={() => { setModoRecuperacion(false); setErrorSaaS(""); setMensajeExito(""); }} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <ArrowLeft size={20} />
@@ -317,7 +323,6 @@ export default function VistaLogin() {
               </form>
             </div>
           ) : (
-            // ================= LOGIN SAAS NORMAL ================= //
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-300">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
                 <span className="flex items-center gap-2"><UserCircle className="text-emerald-600" /> Cuenta Admin</span>
@@ -373,7 +378,6 @@ export default function VistaLogin() {
           )
         ) 
         : !usuarioSeleccionado ? (
-          // ================= SELECTOR DE TRABAJADOR ================= //
           <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Selecciona tu usuario</h2>
@@ -405,7 +409,6 @@ export default function VistaLogin() {
             </div>
           </div>
         ) : (
-          // ================= INGRESO DE PIN ================= //
           <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
             <button onClick={manejarRegresoPIN} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><ArrowLeft size={20} /></button>
             <div className="flex flex-col items-center text-center mb-8">

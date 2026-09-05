@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle } from "lucide-react";
+// src/vistas/VistaConfiguracion.tsx
+import React, { useState, useEffect } from "react";
+import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle, Laptop, Pencil, X } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import ModalAviso from "../componentes/ui/ModalAviso";
-import { cn } from "../utilidades/utils"; // Import corregido
+import { cn } from "../utilidades/utils";
+import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 export default function VistaConfiguracion() {
   const { 
@@ -34,7 +36,64 @@ export default function VistaConfiguracion() {
   const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
   const [datosPago, setDatosPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
 
+  // Estados para la gestión de dispositivos
+  const [dispositivos, setDispositivos] = useState<any[]>([]);
+  const [miHwid, setMiHwid] = useState<string>("");
+  
+  // Estados para editar nombre de dispositivos
+  const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
+  const [nombreDispTemp, setNombreDispTemp] = useState("");
+
   const esAppEscritorio = typeof window !== 'undefined' && !!window.apiLocal;
+
+  useEffect(() => {
+    const cargarDispositivos = async () => {
+      if (!esDueño || !navigator.onLine) return;
+      
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) return;
+
+      const { data } = await supabase.from('dispositivos_vinculados').select('*').eq('tienda_id', tiendaId);
+      if (data) setDispositivos(data);
+
+      if (window.apiLocal) {
+        const hw = await window.apiLocal.obtenerHardwareId();
+        setMiHwid(hw);
+      }
+    };
+    cargarDispositivos();
+  }, [esDueño]);
+
+  const desvincularEquipo = async (id: string, esMiEquipo: boolean) => {
+    if (esMiEquipo) {
+      setAviso({ titulo: "Acción no permitida", mensaje: "No puedes eliminar el equipo desde el cual estás conectado actualmente. Inicia sesión en otro dispositivo para eliminar este." });
+      return;
+    }
+    if (!confirm("¿Estás seguro de desvincular este equipo? Tendrá que volver a registrarse y ocupará un espacio en tu límite de sucursal.")) return;
+    
+    const { error } = await supabase.from('dispositivos_vinculados').delete().eq('id', id);
+    if (!error) {
+      setDispositivos(prev => prev.filter(d => d.id !== id));
+    } else {
+      setAviso({ titulo: "Error", mensaje: "No se pudo desvincular el equipo. Verifica tu conexión a internet." });
+    }
+  };
+
+  const guardarNombreEquipo = async (id: string, hardwareId: string) => {
+    if (!nombreDispTemp.trim()) return;
+    const { error } = await supabase.from('dispositivos_vinculados').update({ nombre_dispositivo: nombreDispTemp }).eq('id', id);
+    
+    if (!error) {
+      setDispositivos(prev => prev.map(d => d.id === id ? { ...d, nombre_dispositivo: nombreDispTemp } : d));
+      // Si estamos cambiando el nombre del equipo actual, lo guardamos localmente para el Login
+      if (hardwareId === miHwid) {
+        localStorage.setItem('nombre_dispositivo_local', nombreDispTemp);
+      }
+    } else {
+      setAviso({ titulo: "Error", mensaje: "No se pudo actualizar el nombre del equipo." });
+    }
+    setEditandoDispId(null);
+  };
 
   const manejarGuardarGeneral = (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,6 +350,61 @@ export default function VistaConfiguracion() {
             </label>
           )}
         </div>
+
+        {/* ================= GESTIÓN DE EQUIPOS (Exclusivo Dueño) ================= */}
+        {esDueño && (
+          <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
+            <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
+              <Laptop size={20} className="text-blue-600 dark:text-blue-400" />
+              Equipos Vinculados ({dispositivos.length}/5 permitidos)
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dispositivos.map(disp => {
+                const esMiEquipo = disp.hardware_id === miHwid;
+                return (
+                  <div key={disp.id} className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-900/50 flex justify-between items-start">
+                    <div className="flex flex-col flex-1 mr-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        {editandoDispId === disp.id ? (
+                          <div className="flex items-center gap-1 w-full max-w-[200px]">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={nombreDispTemp}
+                              onChange={(e) => setNombreDispTemp(e.target.value)}
+                              className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 text-sm w-full text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                            />
+                            <button onClick={() => guardarNombreEquipo(disp.id, disp.hardware_id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded"><CheckCircle2 size={16} /></button>
+                            <button onClick={() => setEditandoDispId(null)} className="p-1 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"><X size={16} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{disp.nombre_dispositivo}</span>
+                            <button onClick={() => { setEditandoDispId(disp.id); setNombreDispTemp(disp.nombre_dispositivo); }} className="p-1 text-slate-400 hover:text-emerald-600 transition-colors" title="Renombrar equipo"><Pencil size={14} /></button>
+                            {esMiEquipo && <span className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded-full uppercase">Este equipo</span>}
+                          </>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-500 font-mono">ID: {disp.hardware_id.substring(0, 12)}...</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">Último acceso: {new Date(disp.ultimo_acceso).toLocaleDateString('es-MX')}</span>
+                    </div>
+                    <button 
+                      onClick={() => desvincularEquipo(disp.id, esMiEquipo)} 
+                      className="p-2 mt-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" 
+                      title="Desvincular equipo"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            {dispositivos.length === 0 && (
+              <p className="text-xs text-slate-500 italic text-center py-4">Cargando equipos o sin conexión a internet...</p>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
