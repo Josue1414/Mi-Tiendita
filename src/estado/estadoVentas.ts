@@ -1,4 +1,3 @@
-// src/estado/estadoVentas.ts
 import { create } from "zustand";
 import type { ItemCarrito } from "./estadoCarrito";
 import { guardarRegistro, obtenerRegistros } from "../servicios/db";
@@ -13,6 +12,7 @@ export interface Venta {
   descuento: number;
   total: number;
   metodoPago: string;
+  cancelada?: boolean; // Agregado para el control de cancelaciones
 }
 
 interface EstadoVentas {
@@ -20,9 +20,10 @@ interface EstadoVentas {
   cargando: boolean;
   cargarVentas: () => Promise<void>;
   agregarVenta: (venta: Venta) => Promise<void>;
+  cancelarVenta: (id: string) => Promise<void>;
 }
 
-export const useEstadoVentas = create<EstadoVentas>((set) => ({
+export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   ventas: [],
   cargando: true,
 
@@ -60,6 +61,7 @@ export const useEstadoVentas = create<EstadoVentas>((set) => ({
             descuento: venta.descuento,
             total: venta.total,
             metodo_pago: venta.metodoPago,
+            cancelada: false,
             created_at: venta.fecha
           });
 
@@ -72,7 +74,7 @@ export const useEstadoVentas = create<EstadoVentas>((set) => ({
             precio_unitario: art.precio,
             subtotal: art.subtotal,
             autorizacion_confirmada: art.autorizacion_confirmada || false,
-            evidencia_nombre_archivo_local: null // Modificado: No requerimos enviar evidencia a la nube
+            evidencia_nombre_archivo_local: null 
           }));
 
           await supabase.from('venta_detalles').insert(detalles);
@@ -82,4 +84,32 @@ export const useEstadoVentas = create<EstadoVentas>((set) => ({
       console.error("Error al guardar la venta:", error);
     }
   },
+
+  cancelarVenta: async (id) => {
+    try {
+      // Modificamos el estado
+      set((estado) => ({
+        ventas: estado.ventas.map((v) => v.id === id ? { ...v, cancelada: true } : v)
+      }));
+
+      // Guardamos la actualización en la BD Local
+      const ventaActualizada = get().ventas.find(v => v.id === id);
+      if (ventaActualizada) {
+        await guardarRegistro("ventas", ventaActualizada);
+      }
+
+      // Sincronizamos cancelación en Supabase
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) {
+          await supabase.from('ventas')
+            .update({ cancelada: true })
+            .eq('id', id)
+            .eq('tienda_id', tiendaId);
+        }
+      }
+    } catch (error) {
+      console.error("Error al cancelar la venta:", error);
+    }
+  }
 }));

@@ -19,23 +19,25 @@ interface EstadoCaja {
   fondoBaseActual: number;
   notaGeneralDueno: string;
   turnos: TurnoCaja[];
-  forzarRecepcionCaja: boolean; // <-- Nuevo estado para el bloqueo
+  forzarRecepcionCaja: boolean; 
+  requerirPinCancelacion: boolean; // <-- Nuevo estado
   
   actualizarConfiguracion: (nuevoFondo: number, nuevaNota: string) => void;
   abrirTurno: (trabajadorId: string, nombreTrabajador: string, fondo: number) => void;
   cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string) => void;
   obtenerTurnoActivo: (trabajadorId: string) => TurnoCaja | undefined;
-  setForzarRecepcionCaja: (valor: boolean) => void; // <-- Nueva acción
+  setForzarRecepcionCaja: (valor: boolean) => void; 
+  setRequerirPinCancelacion: (valor: boolean) => void; // <-- Nueva acción
 }
 
-// Datos iniciales de prueba
 const turnosIniciales: TurnoCaja[] = [];
 
 export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   fondoBaseActual: 1000,
   notaGeneralDueno: "Recuerden revisar los billetes grandes.",
   turnos: turnosIniciales,
-  forzarRecepcionCaja: false, // <-- Valor inicial desactivado
+  forzarRecepcionCaja: false, 
+  requerirPinCancelacion: false, // <-- Valor inicial
 
   actualizarConfiguracion: (nuevoFondo, nuevaNota) => {
     set({ fondoBaseActual: nuevoFondo, notaGeneralDueno: nuevaNota });
@@ -82,4 +84,8 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   setForzarRecepcionCaja: (valor) => {
     set({ forzarRecepcionCaja: valor });
   },
+  
+  setRequerirPinCancelacion: (valor) => {
+    set({ requerirPinCancelacion: valor });
+  }
 }));

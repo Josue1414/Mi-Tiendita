@@ -1,34 +1,61 @@
 // src/vistas/VistaHistorialVentas.tsx
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
-import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer, Ban } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { imprimirTicket } from "../utilidades/impresion";
+import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
+import { cn } from "../utilidades/utils";
 
 export default function VistaHistorialVentas() {
-  const { ventas } = useEstadoVentas();
-  // Se agregaron direccionTienda y logoTienda para que salgan al reimprimir
+  const { ventas, cancelarVenta } = useEstadoVentas();
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda } = useEstadoConfiguracion();
+  const { trabajadorActivo } = useEstadoTrabajadores();
   
   const [busqueda, setBusqueda] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [pagina, setPagina] = useState(1);
   const [ventaSeleccionada, setVentaSeleccionada] = useState<string | null>(null);
+  const [confirmarCancelacion, setConfirmarCancelacion] = useState<{abierto: boolean, id: string}>({ abierto: false, id: "" });
   const porPagina = 10;
+
+  // Permisos
+  const esDueño = trabajadorActivo?.rol === "DUENO";
+  const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
+  const puedeCancelar = esDueño || (esSupervisor && trabajadorActivo?.permisos?.hacerCancelaciones);
 
   const ventasFiltradas = useMemo(() => ventas.filter((v) => {
     const fecha = v.fecha.slice(0, 10);
     const textoCoincide = v.id.toLowerCase().includes(busqueda.toLowerCase()) || v.trabajador.toLowerCase().includes(busqueda.toLowerCase());
     return textoCoincide && (!fechaInicio || fecha >= fechaInicio) && (!fechaFin || fecha <= fechaFin);
   }), [ventas, busqueda, fechaInicio, fechaFin]);
+  
   const totalPaginas = Math.max(1, Math.ceil(ventasFiltradas.length / porPagina));
   const ventasPagina = ventasFiltradas.slice((pagina - 1) * porPagina, pagina * porPagina);
 
-  const ingresosTotales = ventasFiltradas.reduce((acc, v) => acc + v.total, 0);
+  // Solo sumar ventas que NO estén canceladas
+  const ingresosTotales = ventasFiltradas.reduce((acc, v) => v.cancelada ? acc : acc + v.total, 0);
+
+  const manejarCancelacion = () => {
+    if(confirmarCancelacion.id) {
+      cancelarVenta(confirmarCancelacion.id);
+    }
+    setConfirmarCancelacion({ abierto: false, id: "" });
+  };
 
   return (
     <div className="w-full h-full flex flex-col p-6 animate-in fade-in duration-300">
+      
+      <ModalConfirmacion
+        abierto={confirmarCancelacion.abierto}
+        titulo="Cancelar Venta / Devolución"
+        mensaje="¿Estás seguro de cancelar esta venta? Los artículos quedarán marcados como cancelados y el total se restará de los ingresos."
+        alConfirmar={manejarCancelacion}
+        alCerrar={() => setConfirmarCancelacion({ abierto: false, id: "" })}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
@@ -42,12 +69,15 @@ export default function VistaHistorialVentas() {
           </p>
         </div>
         
-        <div className="flex gap-4">
-          <div className="flex flex-col items-end">
-            <span className="text-xs text-slate-500">Ingresos filtrados</span>
-            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">${ingresosTotales.toFixed(2)}</span>
+        {/* Validamos que solo el dueño pueda ver el total de ingresos filtrados */}
+        {esDueño && (
+          <div className="flex gap-4">
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-slate-500">Ingresos filtrados</span>
+              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">${ingresosTotales.toFixed(2)}</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="relative mb-4">
@@ -80,7 +110,7 @@ export default function VistaHistorialVentas() {
                 <th className="p-3 text-right">Descuento</th>
                 <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Total</th>
                 <th className="p-3 text-center">Método</th>
-                <th className="p-3 text-center">Ticket</th>
+                <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/10">
@@ -91,34 +121,50 @@ export default function VistaHistorialVentas() {
               ) : (
                 ventasPagina.map((venta) => (
                   <Fragment key={venta.id}>
-                  <tr onClick={() => setVentaSeleccionada((actual) => actual === venta.id ? null : venta.id)} className="cursor-pointer hover:bg-white dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100">
-                    <td className="p-3 flex items-center gap-2 text-xs">
-                      <Calendar size={14} className="text-slate-400" />
+                  <tr onClick={() => setVentaSeleccionada((actual) => actual === venta.id ? null : venta.id)} className={cn("cursor-pointer hover:bg-white dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100", venta.cancelada && "opacity-75 bg-red-50/30 dark:bg-red-900/10")}>
+                    <td className={cn("p-3 flex items-center gap-2 text-xs", venta.cancelada && "line-through text-slate-400")}>
+                      <Calendar size={14} className={venta.cancelada ? "text-red-400" : "text-slate-400"} />
                       {new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
-                    {/* Se quitó el .slice(0,8) para mostrar el ID completo */}
-                    <td className="p-3 font-mono text-[11px] text-slate-500">{venta.id}</td>
+                    <td className={cn("p-3 font-mono text-[11px] text-slate-500", venta.cancelada && "line-through")}>{venta.id}</td>
                     <td className="p-3 text-xs">{venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim()}</td>
                     <td className="p-3 text-center text-xs">{venta.articulos.length}</td>
-                    <td className="p-3 text-right text-xs">${venta.subtotal.toFixed(2)}</td>
+                    <td className={cn("p-3 text-right text-xs", venta.cancelada && "line-through text-slate-400")}>${venta.subtotal.toFixed(2)}</td>
                     <td className="p-3 text-right text-xs text-red-500">{venta.descuento > 0 ? `-$${venta.descuento.toFixed(2)}` : "-"}</td>
-                    <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">${venta.total.toFixed(2)}</td>
+                    <td className={cn("p-3 text-right font-bold text-sm", venta.cancelada ? "text-red-500/70 line-through" : "text-emerald-600 dark:text-emerald-400")}>${venta.total.toFixed(2)}</td>
                     <td className="p-3 text-center">
-                      <span className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded-md text-[10px] font-bold tracking-wide uppercase">
-                        {venta.metodoPago}
-                      </span>
+                      {venta.cancelada ? (
+                        <span className="px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-md text-[10px] font-bold uppercase">Cancelada</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded-md text-[10px] font-bold tracking-wide uppercase">{venta.metodoPago}</span>
+                      )}
                     </td>
                     <td className="p-3 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          imprimirTicket(venta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
-                        }}
-                        className="p-1.5 mx-auto flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                        title="Reimprimir Ticket"
-                      >
-                        <Printer size={16} />
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            imprimirTicket(venta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
+                          }}
+                          className="p-1.5 flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                          title="Reimprimir Ticket"
+                        >
+                          <Printer size={16} />
+                        </button>
+                        
+                        {!venta.cancelada && puedeCancelar && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmarCancelacion({ abierto: true, id: venta.id });
+                            }}
+                            className="p-1.5 flex items-center justify-center text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            title="Cancelar Venta / Devolución"
+                          >
+                            <Ban size={16} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                   {ventaSeleccionada === venta.id && (
@@ -126,7 +172,7 @@ export default function VistaHistorialVentas() {
                       <td colSpan={9} className="px-5 py-3">
                         <div className="flex flex-wrap gap-2">
                           {venta.articulos.map((articulo) => (
-                            <span key={articulo.id} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs dark:border-emerald-900/50 dark:bg-slate-900">
+                            <span key={articulo.id} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
                               <strong>{articulo.nombre}</strong> · {articulo.cantidad} {articulo.unidad.toLowerCase()} · ${articulo.subtotal.toFixed(2)}
                               {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
                             </span>

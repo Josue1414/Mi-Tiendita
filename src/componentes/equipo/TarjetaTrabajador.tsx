@@ -1,3 +1,4 @@
+// src/componentes/equipo/TarjetaTrabajador.tsx
 import React, { useState, useMemo } from "react";
 import { useEstadoTrabajadores, type Trabajador, type HorarioSemanal } from "../../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
@@ -16,10 +17,21 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
   const [mostrarSalario, setMostrarSalario] = useState(false);
   const [modalEliminar, setModalEliminar] = useState(false);
 
+  // Lógica de Permisos Estrictos
   const esDueñoEnSesion = trabajadorActivo?.rol === "DUENO";
+  const esSupervisorEnSesion = trabajadorActivo?.rol === "SUPERVISOR";
   const esElMismo = trabajadorActivo?.id === trabajador.id;
+  
+  const puedeEditarInfoGeneral = esDueñoEnSesion || esSupervisorEnSesion;
+  
+  // Regla: Solo el dueño edita salarios. El supervisor puede verlo SI tiene permiso.
+  const puedeVerSalario = esDueñoEnSesion || (esSupervisorEnSesion && trabajadorActivo?.permisos?.verSalarios);
+  const puedeEditarSalario = esDueñoEnSesion;
 
-  // Lógica de Notas (Límite 200 palabras)
+  // Regla: Supervisor puede editar horarios (si tiene el check), pero NUNCA su propio horario.
+  const puedeEditarHorarios = esDueñoEnSesion || (esSupervisorEnSesion && trabajadorActivo?.permisos?.cambiarHorarios && !esElMismo);
+
+  // Lógica de Notas
   const contarPalabras = (texto: string) => texto.trim().split(/\s+/).filter(w => w.length > 0).length;
   const manejarNotas = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const texto = e.target.value;
@@ -28,7 +40,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     }
   };
 
-  // Inicializar horarios si no existen
   const horario: HorarioSemanal = trabajador.horarioSemanal || {
     tipo: "GENERAL", diasTrabajo: [1,2,3,4,5], general: { entrada: "09:00", salida: "18:00" }, especifico: {}
   };
@@ -40,7 +51,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     actualizarTrabajador({ ...trabajador, horarioSemanal: { ...horario, diasTrabajo: nuevosDias } });
   };
 
-  // Lógica de Ventas / Autorizaciones
   const ventasAutorizadas = useMemo(() => {
     return ventas.flatMap(v => v.articulos
       .filter(a => a.autorizacion_confirmada && v.trabajador === trabajador.nombre)
@@ -64,7 +74,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     return { sem, mes, meses6 };
   }, [ventasAutorizadas]);
 
-  // Lógica de Asistencias (Últimos 7 días del trabajador)
   const asistenciasRecientes = useMemo(() => {
     return asistencias
       .filter(a => a.trabajadorId === trabajador.id)
@@ -73,7 +82,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
   }, [asistencias, trabajador.id]);
 
   const validarRetardo = (fecha: string, entradaReal: string) => {
-    const date = new Date(`${fecha}T12:00:00`); // Evitar desfase de UTC
+    const date = new Date(`${fecha}T12:00:00`); 
     const diaIndex = date.getDay();
     if (!horario.diasTrabajo.includes(diaIndex)) return "Día Libre (Extra)";
     
@@ -84,7 +93,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     return entradaReal > hEntradaEsperada ? "Retardo" : "A tiempo";
   };
 
-  const cssInput = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-900 transition-all";
+  const cssInput = "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed";
 
   return (
     <div className={cn(
@@ -102,14 +111,19 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
       {/* HEADER DE LA TARJETA */}
       <div role="button" tabIndex={0} onClick={() => setExpandido(!expandido)} onKeyDown={(e) => { if (e.key === "Enter") setExpandido(!expandido); }} className="flex w-full cursor-pointer justify-between items-center p-5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
         <div className="flex items-center gap-4 flex-1 min-w-0 pr-4">
-          <div className={cn("w-12 h-12 rounded-xl flex shrink-0 items-center justify-center font-bold text-white text-lg shadow-inner", trabajador.rol === "DUENO" ? "bg-purple-500" : "bg-blue-500")}>
+          <div className={cn("w-12 h-12 rounded-xl flex shrink-0 items-center justify-center font-bold text-white text-lg shadow-inner", 
+            trabajador.rol === "DUENO" ? "bg-purple-500" : 
+            trabajador.rol === "SUPERVISOR" ? "bg-indigo-500" : "bg-blue-500"
+          )}>
             {trabajador.nombre.substring(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg leading-none truncate">{trabajador.nombre}</h3>
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1.5 font-medium">
               <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                {trabajador.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : <Briefcase size={12} className="text-blue-500" />}
+                {trabajador.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : 
+                 trabajador.rol === "SUPERVISOR" ? <ShieldCheck size={12} className="text-indigo-500" /> : 
+                 <Briefcase size={12} className="text-blue-500" />}
                 {trabajador.rol}
               </span>
               {!trabajador.activo && <span className="text-red-500 font-bold px-2 py-0.5 bg-red-50 dark:bg-red-900/20 rounded-md">INACTIVO</span>}
@@ -123,7 +137,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
       {expandido && (
         <div className="border-t border-slate-200/50 dark:border-white/10 flex flex-col bg-white/40 dark:bg-black/20">
           
-          {/* NAVEGACIÓN TABS */}
           <div className="flex overflow-x-auto border-b border-slate-200/50 dark:border-white/10 scrollbar-hide px-2">
             {(["PERFIL", "HORARIO", "ASISTENCIA", "AUTORIZACIONES"] as const).map(tab => (
               <button 
@@ -135,7 +148,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
             ))}
           </div>
 
-          {/* CONTENIDO PESTAÑAS */}
           <div className="p-5">
             
             {/* --- TAB: PERFIL --- */}
@@ -144,36 +156,43 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">Nombre Completo</label>
-                    <input type="text" readOnly={!esDueñoEnSesion} value={trabajador.nombre} onChange={(e) => actualizarTrabajador({...trabajador, nombre: e.target.value})} className={cssInput} />
+                    <input type="text" readOnly={!puedeEditarInfoGeneral} value={trabajador.nombre} onChange={(e) => actualizarTrabajador({...trabajador, nombre: e.target.value})} className={cssInput} disabled={!puedeEditarInfoGeneral} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">Fecha de Ingreso</label>
-                    <input type="date" readOnly={!esDueñoEnSesion} value={trabajador.fechaIngreso || ""} onChange={(e) => actualizarTrabajador({...trabajador, fechaIngreso: e.target.value})} className={cssInput} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">PIN de Acceso</label>
-                    <input type="text" readOnly={!esDueñoEnSesion} value={esDueñoEnSesion ? trabajador.pin : "••••••"} onChange={(e) => actualizarTrabajador({...trabajador, pin: e.target.value.toUpperCase()})} maxLength={6} className={cn(cssInput, "font-mono font-bold tracking-widest")} />
+                    <input type="date" readOnly={!puedeEditarInfoGeneral} value={trabajador.fechaIngreso || ""} onChange={(e) => actualizarTrabajador({...trabajador, fechaIngreso: e.target.value})} className={cssInput} disabled={!puedeEditarInfoGeneral} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between">
-                      Salario Mensual
-                      <button onClick={() => setMostrarSalario(!mostrarSalario)} className="text-slate-400 hover:text-emerald-500"><Eye size={14} /></button>
+                      PIN de Acceso
+                      {!esDueñoEnSesion && <span className="text-[10px] text-slate-400 font-normal">(Solo Dueño)</span>}
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                      <input type={mostrarSalario ? "number" : "password"} readOnly={!esDueñoEnSesion} value={trabajador.salario || ""} onChange={(e) => actualizarTrabajador({...trabajador, salario: Number(e.target.value)})} className={cn(cssInput, "pl-7")} />
-                    </div>
+                    <input type="text" readOnly={!esDueñoEnSesion} disabled={!esDueñoEnSesion} value={esDueñoEnSesion ? trabajador.pin : "••••••"} onChange={(e) => actualizarTrabajador({...trabajador, pin: e.target.value.toUpperCase()})} maxLength={6} className={cn(cssInput, "font-mono font-bold tracking-widest")} />
                   </div>
+                  
+                  {/* Visibilidad y edición de salario controladas */}
+                  {puedeVerSalario && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between">
+                        Salario Mensual
+                        <button onClick={() => setMostrarSalario(!mostrarSalario)} className="text-slate-400 hover:text-emerald-500"><Eye size={14} /></button>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                        <input type={mostrarSalario ? "number" : "password"} readOnly={!puedeEditarSalario} disabled={!puedeEditarSalario} value={trabajador.salario || ""} onChange={(e) => actualizarTrabajador({...trabajador, salario: Number(e.target.value)})} className={cn(cssInput, "pl-7")} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
                     Notas y Observaciones <span className="font-normal text-slate-400">{contarPalabras(trabajador.notas || "")} / 200 palabras</span>
                   </label>
-                  <textarea readOnly={!esDueñoEnSesion} value={trabajador.notas || ""} onChange={manejarNotas} rows={3} className={cn(cssInput, "resize-none")} placeholder="Información relevante, faltas, acuerdos..." />
+                  <textarea readOnly={!puedeEditarInfoGeneral} disabled={!puedeEditarInfoGeneral} value={trabajador.notas || ""} onChange={manejarNotas} rows={3} className={cn(cssInput, "resize-none")} placeholder="Información relevante, faltas, acuerdos..." />
                 </div>
 
-                {trabajador.rol === "TRABAJADOR" && esDueñoEnSesion && (
+                {trabajador.rol === "TRABAJADOR" && puedeEditarInfoGeneral && (
                   <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 space-y-3">
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><ShieldCheck size={16} className="text-emerald-600" /> Permisos del Trabajador</p>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
@@ -188,7 +207,30 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                   </div>
                 )}
 
-                {/* ZONA DE PELIGRO */}
+                {trabajador.rol === "SUPERVISOR" && esDueñoEnSesion && (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/30 space-y-3 mt-4">
+                    <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                      <ShieldCheck size={16} /> Permisos de Supervisor
+                    </p>
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                      <input type="checkbox" checked={trabajador.permisos?.cambiarHorarios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarHorarios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar horarios y días de trabajadores
+                    </label>
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                      <input type="checkbox" checked={trabajador.permisos?.hacerCancelaciones ?? true} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), hacerCancelaciones: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Autorizar cancelaciones de ventas o preventas
+                    </label>
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                      <input type="checkbox" checked={trabajador.permisos?.cambiarInfoTicket || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarInfoTicket: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar información editable del ticket
+                    </label>
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                      <input type="checkbox" checked={trabajador.permisos?.cambiarPrecios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarPrecios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar precios de los productos
+                    </label>
+                    {/* NUEVO PERMISO DE SALARIOS */}
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer border-t border-indigo-200 dark:border-indigo-800/50 pt-2 mt-2">
+                      <input type="checkbox" checked={trabajador.permisos?.verSalarios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), verSalarios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Permitir VISUALIZAR el salario de los trabajadores
+                    </label>
+                  </div>
+                )}
+
                 {esDueñoEnSesion && !esElMismo && (
                   <div className="flex gap-3 pt-4 border-t border-slate-200/50 dark:border-white/10">
                     <button onClick={() => actualizarTrabajador({...trabajador, activo: !trabajador.activo})} className={cn("flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors", trabajador.activo ? "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400")}>
@@ -211,7 +253,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((dia, i) => {
                       const labora = horario.diasTrabajo.includes(i);
                       return (
-                        <button key={i} disabled={!esDueñoEnSesion} onClick={() => toggleDia(i)} className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-colors border", labora ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-white/5 opacity-60")}>
+                        <button key={i} disabled={!puedeEditarHorarios} onClick={() => toggleDia(i)} className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-colors border", labora ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-white/5 opacity-60 disabled:opacity-30", !puedeEditarHorarios && "cursor-not-allowed")}>
                           {dia}
                         </button>
                       );
@@ -224,14 +266,14 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Configuración de Horas</p>
                     <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
                       Mismo horario toda la semana
-                      <input type="checkbox" disabled={!esDueñoEnSesion} checked={horario.tipo === "GENERAL"} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, tipo: e.target.checked ? "GENERAL" : "ESPECIFICO"}})} className="w-4 h-4 accent-emerald-600 rounded" />
+                      <input type="checkbox" disabled={!puedeEditarHorarios} checked={horario.tipo === "GENERAL"} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, tipo: e.target.checked ? "GENERAL" : "ESPECIFICO"}})} className="w-4 h-4 accent-emerald-600 rounded disabled:opacity-50" />
                     </label>
                   </div>
 
                   {horario.tipo === "GENERAL" ? (
                     <div className="flex items-center gap-4">
-                      <div className="flex-1"><label className="block text-xs text-slate-500 mb-1">Hora Entrada</label><input type="time" disabled={!esDueñoEnSesion} value={horario.general.entrada} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, general: {...horario.general, entrada: e.target.value}}})} className={cssInput} /></div>
-                      <div className="flex-1"><label className="block text-xs text-slate-500 mb-1">Hora Salida</label><input type="time" disabled={!esDueñoEnSesion} value={horario.general.salida} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, general: {...horario.general, salida: e.target.value}}})} className={cssInput} /></div>
+                      <div className="flex-1"><label className="block text-xs text-slate-500 mb-1">Hora Entrada</label><input type="time" disabled={!puedeEditarHorarios} value={horario.general.entrada} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, general: {...horario.general, entrada: e.target.value}}})} className={cssInput} /></div>
+                      <div className="flex-1"><label className="block text-xs text-slate-500 mb-1">Hora Salida</label><input type="time" disabled={!puedeEditarHorarios} value={horario.general.salida} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, general: {...horario.general, salida: e.target.value}}})} className={cssInput} /></div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -241,9 +283,9 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                         return (
                           <div key={diaIndex} className="flex items-center gap-4 bg-white dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-white/5">
                             <span className="w-24 text-xs font-bold text-slate-700 dark:text-slate-300">{nombreDia}</span>
-                            <input type="time" disabled={!esDueñoEnSesion} value={config.entrada} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, especifico: {...horario.especifico, [diaIndex]: {...config, entrada: e.target.value}}}})} className={cn(cssInput, "py-1.5")} />
+                            <input type="time" disabled={!puedeEditarHorarios} value={config.entrada} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, especifico: {...horario.especifico, [diaIndex]: {...config, entrada: e.target.value}}}})} className={cn(cssInput, "py-1.5")} />
                             <span className="text-slate-400 text-xs">a</span>
-                            <input type="time" disabled={!esDueñoEnSesion} value={config.salida} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, especifico: {...horario.especifico, [diaIndex]: {...config, salida: e.target.value}}}})} className={cn(cssInput, "py-1.5")} />
+                            <input type="time" disabled={!puedeEditarHorarios} value={config.salida} onChange={(e) => actualizarTrabajador({...trabajador, horarioSemanal: {...horario, especifico: {...horario.especifico, [diaIndex]: {...config, salida: e.target.value}}}})} className={cn(cssInput, "py-1.5")} />
                           </div>
                         );
                       })}
@@ -274,7 +316,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                       {asistenciasRecientes.length === 0 ? (
-                        <tr><td colSpan={5} className="p-6 text-center text-slate-400">No hay registros recientes.</td></tr>
+                        <tr><td colSpan={5} className="p-6 text-center text-slate-400">No hay registros recientes de asistencia.</td></tr>
                       ) : (
                         asistenciasRecientes.map(a => {
                           const estatus = validarRetardo(a.fecha, a.horaEntrada);

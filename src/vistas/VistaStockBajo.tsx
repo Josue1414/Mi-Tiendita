@@ -11,10 +11,12 @@ export default function VistaStockBajo() {
   const { setSeccionActual } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
 
-  // Permisos
+  // Permisos Actualizados para Supervisor
   const esDueño = trabajadorActivo?.rol === "DUENO";
-  const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
-  const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
+  const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
+  
+  const puedeEditar = esDueño || esSupervisor || trabajadorActivo?.permisos?.editarProductos;
+  const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
   // Filtramos SOLO los que controlan stock y están en o por debajo del mínimo
   const productosBajos = productos.filter(tieneAlertaStock);

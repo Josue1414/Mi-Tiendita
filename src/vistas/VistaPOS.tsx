@@ -18,6 +18,7 @@ import { colorConAlpha, colorTextoSobre } from "../utilidades/coloresCategoria";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import ModalAutorizacion from "../componentes/ui/ModalAutorizacion";
+import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import { imprimirTicket } from "../utilidades/impresion";
 import PanelEscaner from "../componentes/pos/PanelEscaner";
 
@@ -29,12 +30,10 @@ export default function VistaPOS() {
   } = useEstadoCarrito();
   const { ventas, agregarVenta } = useEstadoVentas();
   const { trabajadorActivo } = useEstadoTrabajadores();
-  const { forzarRecepcionCaja, obtenerTurnoActivo } = useEstadoCaja();
+  const { forzarRecepcionCaja, obtenerTurnoActivo, requerirPinCancelacion } = useEstadoCaja();
   const { setSeccionActual } = useEstadoNavegacion();
   
-  // Agregamos direccionTienda y logoTienda para pasarlos a la impresora
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
-  
   const { enviarMensaje } = useEmisorPantallaCliente();
   
   const [busqueda, setBusqueda] = useState("");
@@ -47,11 +46,13 @@ export default function VistaPOS() {
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [productoAutorizacion, setProductoAutorizacion] = useState<Producto | null>(null);
   const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
-
   const [impresionAutomatica, setImpresionAutomatica] = useState(true);
-  
   const [modoVista, setModoVista] = useState<"cuadricula" | "escaner">("cuadricula");
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
+
+  // Estados para la restricción de cancelación
+  const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
+  const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
   const bloqueadoPorFondo = forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO";
@@ -79,6 +80,17 @@ export default function VistaPOS() {
     const coincideCategoria = categoriaActiva === "todas" || p.categoria === categoriaActiva;
     return coincideTexto && coincideCategoria;
   });
+
+  const manejarCancelacion = (accion: () => void) => {
+    const esAutorizado = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
+    
+    if (!requerirPinCancelacion || esAutorizado) {
+      accion();
+    } else {
+      setAccionPendiente(() => accion);
+      setModalPinCancelacion(true);
+    }
+  };
 
   const manejarClickProducto = (producto: Producto) => {
     setProductoEnfoque(producto); 
@@ -131,17 +143,11 @@ export default function VistaPOS() {
 
   const generarIdTicket = () => {
     const ahora = new Date();
-    // 2 dígitos del año
     const yy = ahora.getFullYear().toString().slice(-2);
-    // 2 dígitos del mes
     const mm = (ahora.getMonth() + 1).toString().padStart(2, '0');
-    // 2 dígitos del día
     const dd = ahora.getDate().toString().padStart(2, '0');
 
-    // Función para generar 1 letra aleatoria mayúscula
     const letraRandom = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
-    
-    // Función para generar alfanuméricos en mayúscula
     const alfanumRandom = () => {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       return chars.charAt(Math.floor(Math.random() * chars.length));
@@ -154,8 +160,6 @@ export default function VistaPOS() {
     for(let i=0; i<5; i++) {
       resto += alfanumRandom();
     }
-
-    // Formato final: YY + 1 Letra + MM + 2 Letras + DD + 5 Alfanuméricos (Total: 14 caracteres)
     return `${yy}${l1}${mm}${l2}${dd}${resto}`;
   };
 
@@ -261,6 +265,23 @@ export default function VistaPOS() {
         </div>
       )}
       
+      <ModalConfirmacionPin
+        abierto={modalPinCancelacion}
+        titulo="Autorización Requerida"
+        mensaje="Ingresa el PIN de un Dueño o Supervisor para autorizar esta cancelación."
+        labelPin="PIN de Autorización"
+        validarAutorizacion={true} // <-- ¡Solo agregar esto!
+        alConfirmar={() => {
+          if (accionPendiente) accionPendiente();
+          setModalPinCancelacion(false);
+          setAccionPendiente(null);
+        }}
+        alCerrar={() => {
+          setModalPinCancelacion(false);
+          setAccionPendiente(null);
+        }}
+      />
+
       <ModalPeso 
         abierto={modalPesoAbierto} 
         alCerrar={() => setModalPesoAbierto(false)} 
@@ -468,7 +489,15 @@ export default function VistaPOS() {
                       
                       <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden" onClick={e => e.stopPropagation()}>
                         <button 
-                          onClick={() => actualizarCantidad(item.id, item.cantidad - ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
+                          onClick={() => {
+                            const decremento = (item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1;
+                            const nuevaCantidad = item.cantidad - decremento;
+                            if (nuevaCantidad <= 0) {
+                              manejarCancelacion(() => actualizarCantidad(item.id, nuevaCantidad));
+                            } else {
+                              actualizarCantidad(item.id, nuevaCantidad);
+                            }
+                          }} 
                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
                         >
                           <Minus size={12} />
@@ -561,7 +590,7 @@ export default function VistaPOS() {
 
             <div className="flex gap-2 mt-1">
               <button 
-                onClick={() => { limpiarCarrito(); setInputDescuento(""); setProductoEnfoque(null); }}
+                onClick={() => manejarCancelacion(() => { limpiarCarrito(); setInputDescuento(""); setProductoEnfoque(null); })}
                 disabled={items.length === 0}
                 className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-100 dark:border-red-900/50"
                 title="Vaciar Carrito"

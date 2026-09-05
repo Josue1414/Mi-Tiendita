@@ -43,7 +43,9 @@ export default function App() {
   const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
   const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
   const { cargarConfiguracion, cargando: cargandoConfiguracion } = useEstadoConfiguracion();
-  const { registrarSalida } = useEstadoAsistencias();
+  
+  // SOLUCIÓN: Agregada la carga de asistencias
+  const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
   
   const [modoOscuro, setModoOscuro] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(true);
@@ -58,7 +60,8 @@ export default function App() {
     cargarVentas();
     cargarTrabajadores();
     cargarConfiguracion();
-  }, [cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion]);
+    cargarAsistencias(); // <-- Ahora se cargarán al abrir la app
+  }, [cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
 
   useEffect(() => {
     if (modoOscuro) document.documentElement.classList.add("dark");
@@ -104,8 +107,7 @@ export default function App() {
     { id: "configuracion", icono: Settings, texto: "Configuración" },
   ] as const;
 
-  // CORRECCIÓN AQUÍ: Se cambió "DUEÑO" por "DUENO"
-  const esDueño = trabajadorActivo?.rol === "DUENO";
+  const esAdmin = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
 
   const confirmarCerrarSesion = async () => {
     setMostrarModalSalida(false);
@@ -197,7 +199,7 @@ export default function App() {
             })}
           </div>
 
-          {esDueño && (
+          {esAdmin && (
             <div className="mt-4 mb-2">
               {menuAbierto && <p className="px-2 text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider mb-2">Administración</p>}
               {menusAdmin.map((menu) => {

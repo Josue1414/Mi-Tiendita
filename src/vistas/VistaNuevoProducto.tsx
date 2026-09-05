@@ -1,4 +1,3 @@
-// src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";
@@ -23,8 +22,13 @@ export default function VistaNuevoProducto() {
 
   // Permisos
   const esDueño = trabajadorActivo?.rol === "DUENO";
-  const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
-  const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
+  const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
+  
+  const puedeEditar = esDueño || esSupervisor || trabajadorActivo?.permisos?.editarProductos;
+  const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
+  
+  // Permiso específico: Si es supervisor, necesita el checkbox de "cambiarPrecios". El Dueño siempre puede.
+  const puedeEditarPrecio = esDueño || (esSupervisor && trabajadorActivo?.permisos?.cambiarPrecios) || (trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo?.permisos?.editarProductos);
 
   const [nombre, setNombre] = useState("");
   const [codigo, setCodigo] = useState("");
@@ -155,9 +159,9 @@ export default function VistaNuevoProducto() {
       stock_actual: stockActual,
       stock_minimo: puedeEditar ? stockMinimo : (productoExistente?.stock_minimo ?? 5),
       unidad: puedeEditar ? unidad : (productoExistente?.unidad || "PIEZA"),
-      precio: puedeEditar ? precio : (productoExistente?.precio ?? 0),
-      costo: puedeEditar ? costo : (productoExistente?.costo ?? 0),
-      descuento_porcentaje: puedeEditar ? Math.max(0, Math.min(100, descuento)) : (productoExistente?.descuento_porcentaje ?? 0),
+      precio: puedeEditarPrecio ? precio : (productoExistente?.precio ?? 0),
+      costo: puedeEditarPrecio ? costo : (productoExistente?.costo ?? 0),
+      descuento_porcentaje: puedeEditarPrecio ? Math.max(0, Math.min(100, descuento)) : (productoExistente?.descuento_porcentaje ?? 0),
       activo: true,
       imagen_url: imagenBase64,
       requiere_autorizacion: puedeEditar ? requiereAutorizacion : (productoExistente?.requiere_autorizacion ?? false),
@@ -362,26 +366,26 @@ export default function VistaNuevoProducto() {
 
           <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
             <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex justify-between items-center">
-              Precios {!puedeEditar && <Lock size={14} className="text-slate-400" />}
+              Precios {!puedeEditarPrecio && <Lock size={14} className="text-slate-400" />}
             </h2>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Precio de venta *</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditar} step="0.01" required min="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
+                <input type="number" disabled={!puedeEditarPrecio} step="0.01" required min="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Costo</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditar} step="0.01" min="0" placeholder="0.00" value={costo === 0 ? "" : costo} onChange={(e) => setCosto(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7")} />
+                <input type="number" disabled={!puedeEditarPrecio} step="0.01" min="0" placeholder="0.00" value={costo === 0 ? "" : costo} onChange={(e) => setCosto(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7")} />
               </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Descuento (%)</label>
               <div className="relative">
-                <input type="number" disabled={!puedeEditar} step="0.5" min="0" max="100" placeholder="0" value={descuento === 0 ? "" : descuento} onChange={(e) => setDescuento(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pr-8")} />
+                <input type="number" disabled={!puedeEditarPrecio} step="0.5" min="0" max="100" placeholder="0" value={descuento === 0 ? "" : descuento} onChange={(e) => setDescuento(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pr-8")} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
               </div>
             </div>

@@ -1,3 +1,4 @@
+// src/vistas/VistaInventario.tsx
 import { useCallback, useMemo, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
@@ -35,11 +36,13 @@ export default function VistaInventario() {
 
   useEscanerCodigoBarras(alEscanear);
 
-  // Permisos
+  // Permisos Corregidos
   const esDueño = trabajadorActivo?.rol === "DUENO";
-  const puedeEditar = esDueño || trabajadorActivo?.permisos?.editarProductos;
-  const puedeEliminar = esDueño || trabajadorActivo?.permisos?.eliminarProductos;
-  const puedeAjustarStock = esDueño || trabajadorActivo?.permisos?.actualizarStockCodigo;
+  const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
+  
+  const puedeEditar = esDueño || esSupervisor || trabajadorActivo?.permisos?.editarProductos;
+  const puedeEliminar = esDueño || esSupervisor || trabajadorActivo?.permisos?.eliminarProductos;
+  const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
   const conteoPorCategoria = useMemo(() => {
     const mapa = new Map<string, number>();

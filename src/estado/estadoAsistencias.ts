@@ -1,6 +1,7 @@
 // src/estado/estadoAsistencias.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros } from "../servicios/db";
+import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 export interface RegistroAsistencia {
   id: string; // Formato: trabajadorId_YYYY-MM-DD
@@ -23,8 +24,39 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
 
   cargarAsistencias: async () => {
     try {
-      const data = await obtenerRegistros("asistencias");
-      set({ asistencias: data as RegistroAsistencia[] });
+      // 1. Carga desde almacenamiento local
+      const dataLocal = await obtenerRegistros("asistencias");
+      let asistenciasMapeadas = dataLocal as RegistroAsistencia[];
+      set({ asistencias: asistenciasMapeadas });
+
+      // 2. Sincronización con la nube (Supabase)
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) {
+          const { data: nubeData, error } = await supabase
+            .from("asistencias")
+            .select("*")
+            .eq("tienda_id", tiendaId);
+
+          if (!error && nubeData) {
+            const asistenciasNube: RegistroAsistencia[] = nubeData.map((a: any) => ({
+              id: a.id,
+              trabajadorId: a.trabajador_id,
+              fecha: a.fecha,
+              horaEntrada: a.hora_entrada,
+              horaSalida: a.hora_salida,
+              desconexiones: a.desconexiones
+            }));
+            
+            set({ asistencias: asistenciasNube });
+            
+            // Actualizar persistencia local con los datos más recientes
+            for (const asis of asistenciasNube) {
+              await guardarRegistro("asistencias", asis);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Error al cargar asistencias:", error);
     }
@@ -56,10 +88,27 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
       };
     }
 
+    // Guardado local
     await guardarRegistro("asistencias", nuevoRegistro);
     set((estado) => ({
       asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
     }));
+
+    // Guardado en la nube
+    if (navigator.onLine) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        await supabase.from("asistencias").upsert({
+          id: nuevoRegistro.id,
+          tienda_id: tiendaId,
+          trabajador_id: nuevoRegistro.trabajadorId,
+          fecha: nuevoRegistro.fecha,
+          hora_entrada: nuevoRegistro.horaEntrada,
+          hora_salida: nuevoRegistro.horaSalida,
+          desconexiones: nuevoRegistro.desconexiones
+        }, { onConflict: 'id' });
+      }
+    }
   },
 
   registrarSalida: async (trabajadorId: string) => {
@@ -78,10 +127,23 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
         horaSalida: horaLocal,
         desconexiones: registroExistente.desconexiones + 1,
       };
+      
+      // Guardado local
       await guardarRegistro("asistencias", nuevoRegistro);
       set((estado) => ({
         asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
       }));
+
+      // Guardado en la nube
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) {
+          await supabase.from("asistencias").update({
+            hora_salida: nuevoRegistro.horaSalida,
+            desconexiones: nuevoRegistro.desconexiones
+          }).eq("id", nuevoRegistro.id).eq("tienda_id", tiendaId);
+        }
+      }
     }
   },
 }));

@@ -1,3 +1,4 @@
+// src/estado/estadoTrabajadores.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro } from "../servicios/db";
 import { cifrarPin, descifrarPin } from "../utilidades/seguridad";
@@ -5,12 +6,17 @@ import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
-export type RolTrabajador = "DUENO" | "TRABAJADOR";
+export type RolTrabajador = "DUENO" | "SUPERVISOR" | "TRABAJADOR";
 
 export interface PermisosTrabajador {
   editarProductos: boolean;
   eliminarProductos: boolean;
   actualizarStockCodigo: boolean;
+  cambiarHorarios?: boolean;
+  hacerCancelaciones?: boolean;
+  cambiarInfoTicket?: boolean;
+  cambiarPrecios?: boolean;
+  verSalarios?: boolean; // <-- NUEVO PERMISO AGREGADO
 }
 
 export interface HorarioSemanal {
@@ -51,13 +57,13 @@ const TRABAJADORES_INICIALES: Trabajador[] = [
   { 
     id: "00000000-0000-0000-0000-000000000001", nombre: "Carlos Dueño", rol: "DUENO", pin: "DU1234", activo: true, ventasRealizadas: 0, ingresosGenerados: 0,
     fechaIngreso: new Date().toISOString().split("T")[0],
-    permisos: { editarProductos: true, eliminarProductos: true, actualizarStockCodigo: true },
+    permisos: { editarProductos: true, eliminarProductos: true, actualizarStockCodigo: true, cambiarHorarios: true, hacerCancelaciones: true, cambiarInfoTicket: true, cambiarPrecios: true, verSalarios: true },
     horarioSemanal: { tipo: "GENERAL", diasTrabajo: [1,2,3,4,5], general: { entrada: "09:00", salida: "18:00" }, especifico: {} }
   },
   { 
     id: "00000000-0000-0000-0000-000000000002", nombre: "María García", rol: "TRABAJADOR", pin: "TR0000", activo: true, ventasRealizadas: 0, ingresosGenerados: 0,
     fechaIngreso: new Date().toISOString().split("T")[0],
-    permisos: { editarProductos: false, eliminarProductos: false, actualizarStockCodigo: false },
+    permisos: { editarProductos: false, eliminarProductos: false, actualizarStockCodigo: false, cambiarHorarios: false, hacerCancelaciones: false, cambiarInfoTicket: false, cambiarPrecios: false, verSalarios: false },
     horarioSemanal: { tipo: "GENERAL", diasTrabajo: [1,2,3,4,5], general: { entrada: "09:00", salida: "18:00" }, especifico: {} }
   }
 ];
@@ -90,7 +96,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
           if (esEscritorio && estadoTrabajadores.length > 0) {
-            // Se omiten los trabajadores con IDs antiguos ("1", "2") para que Supabase no rechace la petición
             const trabajadoresValidos = estadoTrabajadores.filter(t => t.id.length > 10);
             
             if (trabajadoresValidos.length > 0) {
@@ -114,7 +119,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
               id: m.usuario_id,
               nombre: m.nombre,
               rol: m.rol,
-              // Respaldo crítico: si el SQL inyectó un PIN vacío, fuerza DU1234
               pin: m.pin_hash ? descifrarPin(m.pin_hash) : "DU1234", 
               activo: m.activo,
               ventasRealizadas: 0, 

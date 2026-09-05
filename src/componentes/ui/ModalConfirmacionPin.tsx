@@ -8,13 +8,14 @@ interface PropsModalConfirmacionPin {
   abierto: boolean;
   titulo: string;
   mensaje: string;
-  labelPin?: string; // <-- Nueva propiedad opcional
+  labelPin?: string;
+  validarAutorizacion?: boolean; // <-- Nueva prop para comprobación global
   alConfirmar: () => void;
   alCerrar: () => void;
 }
 
-export default function ModalConfirmacionPin({ abierto, titulo, mensaje, labelPin, alConfirmar, alCerrar }: PropsModalConfirmacionPin) {
-  const { trabajadorActivo } = useEstadoTrabajadores();
+export default function ModalConfirmacionPin({ abierto, titulo, mensaje, labelPin, validarAutorizacion, alConfirmar, alCerrar }: PropsModalConfirmacionPin) {
+  const { trabajadorActivo, trabajadores } = useEstadoTrabajadores();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
 
@@ -29,7 +30,25 @@ export default function ModalConfirmacionPin({ abierto, titulo, mensaje, labelPi
 
   const manejarConfirmacion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.toUpperCase() === trabajadorActivo?.pin.toUpperCase()) {
+    let esValido = false;
+
+    if (validarAutorizacion) {
+      // Busca el PIN en todo el equipo
+      const autorizador = trabajadores.find(t => t.pin.toUpperCase() === pin.toUpperCase() && t.activo);
+      if (autorizador) {
+        if (autorizador.rol === "DUENO") {
+          esValido = true;
+        } else if (autorizador.rol === "SUPERVISOR") {
+          // Si es supervisor, debe tener el permiso específico
+          esValido = autorizador.permisos?.hacerCancelaciones !== false;
+        }
+      }
+    } else {
+      // Comportamiento normal: solo valida contra el trabajador activo
+      esValido = pin.toUpperCase() === trabajadorActivo?.pin.toUpperCase();
+    }
+
+    if (esValido) {
       alConfirmar();
       alCerrar();
     } else {
@@ -74,7 +93,7 @@ export default function ModalConfirmacionPin({ abierto, titulo, mensaje, labelPi
                 maxLength={6}
               />
             </div>
-            {error && <p className="text-red-500 text-xs text-center font-bold mt-2 animate-in fade-in">PIN incorrecto. Acceso denegado.</p>}
+            {error && <p className="text-red-500 text-xs text-center font-bold mt-2 animate-in fade-in">PIN incorrecto o sin permisos. Acceso denegado.</p>}
           </div>
 
           <div className="flex gap-3 mt-2">
