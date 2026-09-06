@@ -5,8 +5,10 @@ import { useEstadoInventario } from "./estado/estadoInventario";
 import { useEstadoVentas } from "./estado/estadoVentas";
 import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "./estado/estadoAsistencias";
+import { useEstadoRed } from "./estado/estadoRed";
+import { conectarLAN } from "./servicios/socketCliente";
 import { cn } from "./utilidades/utils";
-import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet } from "lucide-react";
+import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server } from "lucide-react";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -40,12 +42,12 @@ export default function App() {
   const { seccionActual, setSeccionActual } = useEstadoNavegacion();
   
   const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
-  const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
+  const { productos, cargarProductos, cargando: cargandoInventario, aplicarSincronizacionRemota } = useEstadoInventario();
   const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
   const { cargarConfiguracion, cargando: cargandoConfiguracion } = useEstadoConfiguracion();
-  
-  // SOLUCIÓN: Agregada la carga de asistencias
   const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
+  
+  const { esMaestro, ipMaestro, conectadoLAN } = useEstadoRed();
   
   const [modoOscuro, setModoOscuro] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(true);
@@ -55,12 +57,27 @@ export default function App() {
     return <VistaPantallaCliente />;
   }
 
+  // --- LÓGICA DE SINCRONIZACIÓN LAN ---
+  useEffect(() => {
+    const api = (window as any).apiLocal;
+    if (esMaestro && api) {
+      api.iniciarServidorLAN();
+      api.onAccionDeEsclavo((accion: any) => {
+         aplicarSincronizacionRemota(accion);
+      });
+    } else if (!esMaestro && ipMaestro) {
+      conectarLAN(ipMaestro, (accion) => {
+         aplicarSincronizacionRemota(accion);
+      });
+    }
+  }, [esMaestro, ipMaestro, aplicarSincronizacionRemota]);
+
   useEffect(() => {
     cargarProductos();
     cargarVentas();
     cargarTrabajadores();
     cargarConfiguracion();
-    cargarAsistencias(); // <-- Ahora se cargarán al abrir la app
+    cargarAsistencias();
   }, [cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
 
   useEffect(() => {
@@ -149,11 +166,7 @@ export default function App() {
       )}>
         <div className="p-4 flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 h-16 shrink-0">
           {menuAbierto && (
-            <button 
-              onClick={() => setSeccionActual("perfil")} 
-              className="flex flex-col overflow-hidden text-left hover:opacity-80 transition-opacity"
-              title="Ver mi perfil"
-            >
+            <button onClick={() => setSeccionActual("perfil")} className="flex flex-col overflow-hidden text-left hover:opacity-80 transition-opacity" title="Ver mi perfil">
               <span className="font-bold text-lg text-emerald-700 dark:text-emerald-400 truncate">Mi Tienda</span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider hover:text-emerald-600 transition-colors">{trabajadorActivo?.nombre}</span>
             </button>
@@ -161,6 +174,19 @@ export default function App() {
           <button onClick={() => setMenuAbierto(!menuAbierto)} className="p-1.5 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors mx-auto">
             {menuAbierto ? <ChevronLeft size={20} /> : <Menu size={20} />}
           </button>
+        </div>
+
+        <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10">
+          <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold", 
+            esMaestro ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" :
+            conectadoLAN ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : 
+            "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          )}>
+            {esMaestro ? <Server size={14} /> : <Wifi size={14} />}
+            {menuAbierto && (
+              <span>{esMaestro ? "Servidor Activo" : conectadoLAN ? "Conectado a PC" : "LAN Desconectado"}</span>
+            )}
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 scrollbar-hide">

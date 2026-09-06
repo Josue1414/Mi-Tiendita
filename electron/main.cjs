@@ -1,13 +1,18 @@
-// src/electron/main.cjs
+// electron/main.cjs
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const os = require('os');
 
 const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
 const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32); 
 const IV_LENGTH = 16;
+let ioServidor;
 
 function encriptar(texto) {
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -32,7 +37,6 @@ function desencriptar(texto) {
   }
 }
 
-// 1. Generador de ID de Máquina Único
 function obtenerHardwareIdLocal(userDataPath) {
   const hwidPath = path.join(userDataPath, 'hardware.key');
   if (fs.existsSync(hwidPath)) {
@@ -43,7 +47,6 @@ function obtenerHardwareIdLocal(userDataPath) {
   return newHwid;
 }
 
-// 2. Validador de Suscripción Offline (Anti-Trampas)
 function validarSuscripcionLocal(dbPath) {
   const saasPath = path.join(dbPath, 'saas_state.enc');
   if (!fs.existsSync(saasPath)) return { activo: false, error: 'No hay registro de pago local. Conéctate a internet para validar tu cuenta por primera vez.' };
@@ -56,12 +59,10 @@ function validarSuscripcionLocal(dbPath) {
   const ultimaVez = new Date(estado.ultimaFechaConocida).getTime();
   const vencimiento = new Date(estado.fechaVencimiento).getTime();
 
-  // Si el reloj de la PC es menor a la última vez que se usó, alteraron el reloj de Windows.
   if (ahora < ultimaVez) {
     return { activo: false, error: 'Se detectó una alteración en el reloj de Windows. Conéctate a internet para sincronizar la seguridad.' };
   }
 
-  // Actualizamos la última fecha conocida para evitar que regresen el tiempo
   estado.ultimaFechaConocida = new Date().toISOString();
   fs.writeFileSync(saasPath, encriptar(JSON.stringify(estado)), 'utf8');
 
@@ -72,12 +73,48 @@ function validarSuscripcionLocal(dbPath) {
   return { activo: true };
 }
 
+function obtenerIpLocal() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
+
+function iniciarServidorLAN() {
+  if (ioServidor) return;
+  const appExpress = express();
+  const server = http.createServer(appExpress);
+  ioServidor = new Server(server, { cors: { origin: "*" } });
+
+  ioServidor.on('connection', (socket) => {
+    console.log('Dispositivo esclavo conectado:', socket.id);
+    
+    // Interceptar acciones de los clientes (celulares/PCs secundarias)
+    socket.on('accion-esclavo', (data) => {
+      const wins = BrowserWindow.getAllWindows();
+      if (wins.length > 0) {
+        // Enviar a la vista React de la PC maestra para procesar y guardar en BD local
+        wins[0].webContents.send('accion-de-esclavo', data);
+      }
+    });
+  });
+
+  server.listen(4000, '0.0.0.0', () => {
+    console.log('Servidor LAN iniciado en puerto 4000');
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, '../../public/logo mi tienda.jpeg'), // Ícono de la ventana
+    icon: path.join(__dirname, '../../public/logo mi tienda.jpeg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -100,7 +137,6 @@ app.whenReady().then(() => {
     fs.mkdirSync(dbPath, { recursive: true });
   }
 
-  // --- CONFIGURACIÓN DE HARDWARE (BÁSCULAS USB/SERIAL) ---
   app.on('web-contents-created', (event, webContents) => {
     webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
       event.preventDefault();
@@ -111,11 +147,9 @@ app.whenReady().then(() => {
     webContents.session.setDevicePermissionHandler((details) => details.deviceType === 'serial');
   });
 
-  // --- IMPRESIÓN SILENCIOSA ---
   ipcMain.handle('imprimir-silencioso', async (event, htmlContent) => {
-    const winPrint = new BrowserWindow({ show: false }); // Ventana invisible
+    const winPrint = new BrowserWindow({ show: false });
     await winPrint.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-    
     winPrint.webContents.print({ silent: true, printBackground: true }, (success, errorType) => {
       if (!success) console.error("Fallo impresión silenciosa:", errorType);
       winPrint.close();
@@ -123,7 +157,6 @@ app.whenReady().then(() => {
     return true;
   });
 
-  // --- COMUNICACIÓN DE BASE DE DATOS Y SAAS ---
   ipcMain.handle('guardar-datos', async (event, nombreTabla, datos) => {
     try {
       const archivoRuta = path.join(dbPath, `${nombreTabla}.enc`);
@@ -145,21 +178,12 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('obtener-hardware-id', () => {
-    return obtenerHardwareIdLocal(userDataPath);
-  });
-
-  ipcMain.handle('validar-suscripcion-offline', () => {
-    return validarSuscripcionLocal(dbPath);
-  });
-
+  ipcMain.handle('obtener-hardware-id', () => obtenerHardwareIdLocal(userDataPath));
+  ipcMain.handle('validar-suscripcion-offline', () => validarSuscripcionLocal(dbPath));
   ipcMain.handle('sincronizar-reloj', (event, fechaVencimientoNube) => {
     try {
       const saasPath = path.join(dbPath, 'saas_state.enc');
-      const estado = {
-        ultimaFechaConocida: new Date().toISOString(),
-        fechaVencimiento: fechaVencimientoNube
-      };
+      const estado = { ultimaFechaConocida: new Date().toISOString(), fechaVencimiento: fechaVencimientoNube };
       fs.writeFileSync(saasPath, encriptar(JSON.stringify(estado)), 'utf8');
       return { exito: true };
     } catch (error) {
@@ -167,8 +191,14 @@ app.whenReady().then(() => {
     }
   });
 
-  createWindow();
+  // RUTAS IPC PARA RED LOCAL
+  ipcMain.handle('obtener-ip-local', () => obtenerIpLocal());
+  ipcMain.handle('iniciar-servidor-lan', () => { iniciarServidorLAN(); return true; });
+  ipcMain.handle('emitir-a-esclavos', (event, data) => {
+    if (ioServidor) ioServidor.emit('accion-maestro', data);
+  });
 
+  createWindow();
   autoUpdater.checkForUpdatesAndNotify();
 
   app.on('activate', () => {
