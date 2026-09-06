@@ -79,6 +79,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       case 'ACTUALIZAR_PRODUCTO': get().actualizarProducto(payload, true); break;
       case 'ELIMINAR_PRODUCTO': get().eliminarProducto(payload, true); break;
       case 'DESCONTAR_STOCK': get().descontarStock(payload, true); break;
+      case 'AGREGAR_CATEGORIA': get().agregarCategoria(payload.nombre, payload.color, true); break;
+      case 'ELIMINAR_CATEGORIA': get().eliminarCategoria(payload, true); break;
     }
   },
 
@@ -152,7 +154,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     const { esMaestro } = useEstadoRed.getState();
     if (!esMaestro && !propagado) {
       emitirAccionMaestro({ tipo: 'AGREGAR_PRODUCTO', payload: producto });
-      set((estado) => ({ productos: [...estado.productos, producto] })); // Optimista
+      set((estado) => ({ productos: [...estado.productos, producto] })); 
       return;
     }
 
@@ -216,16 +218,31 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   agregarCategoria: async (nombre, color, propagado = false) => {
+    const { esMaestro } = useEstadoRed.getState();
     const nombreLimpio = nombre.trim();
     if (!nombreLimpio) return null;
+    
     const existente = get().categorias.find((c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase());
     if (existente) return existente;
 
-    const nueva: Categoria = { id: crypto.randomUUID(), nombre: nombreLimpio, color: color || siguienteColor(get().categorias.map((c) => c.color)) };
+    const nueva: Categoria = { 
+      id: crypto.randomUUID(), 
+      nombre: nombreLimpio, 
+      color: color || siguienteColor(get().categorias.map((c) => c.color)) 
+    };
 
-    // Categorías no se implementan con socket de forma inmediata en este snippet por simplicidad, pero se guardan local
+    if (!esMaestro && !propagado) {
+      emitirAccionMaestro({ tipo: 'AGREGAR_CATEGORIA', payload: { nombre: nueva.nombre, color: nueva.color } });
+      set((estado) => ({ categorias: [...estado.categorias, nueva] }));
+      return nueva;
+    }
+
     if (esEscritorio) await guardarRegistro("categorias", nueva);
     set((estado) => ({ categorias: [...estado.categorias, nueva] }));
+
+    if (esMaestro && !propagado) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'AGREGAR_CATEGORIA', payload: { nombre: nueva.nombre, color: nueva.color } });
+    }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
@@ -235,17 +252,36 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   eliminarCategoria: async (id, propagado = false) => {
+    const { esMaestro } = useEstadoRed.getState();
     const categoria = get().categorias.find((c) => c.id === id);
     if (!categoria) return;
-    const productosActualizados = get().productos.map((producto) => producto.categoria.trim().toLocaleLowerCase() === categoria.nombre.trim().toLocaleLowerCase() ? { ...producto, categoria: "" } : producto);
+
+    if (!esMaestro && !propagado) {
+      emitirAccionMaestro({ tipo: 'ELIMINAR_CATEGORIA', payload: id });
+      const productosActualizados = get().productos.map((producto) => 
+        producto.categoria.trim().toLocaleLowerCase() === categoria.nombre.trim().toLocaleLowerCase() ? { ...producto, categoria: "" } : producto
+      );
+      set((estado) => ({ productos: productosActualizados, categorias: estado.categorias.filter((c) => c.id !== id) }));
+      return;
+    }
+
+    const productosActualizados = get().productos.map((producto) => 
+      producto.categoria.trim().toLocaleLowerCase() === categoria.nombre.trim().toLocaleLowerCase() ? { ...producto, categoria: "" } : producto
+    );
     
     for (const producto of productosActualizados) {
       const productoAnterior = get().productos.find((p) => p.id === producto.id);
-      if (productoAnterior?.categoria !== producto.categoria) await get().actualizarProducto(producto); 
+      if (productoAnterior?.categoria !== producto.categoria) {
+        await get().actualizarProducto(producto, true); 
+      }
     }
     
     if (esEscritorio) await eliminarRegistro("categorias", id);
     set((estado) => ({ productos: productosActualizados, categorias: estado.categorias.filter((c) => c.id !== id) }));
+
+    if (esMaestro && !propagado) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'ELIMINAR_CATEGORIA', payload: id });
+    }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
@@ -276,7 +312,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     for (const producto of productosActualizados) {
       const productoAnterior = get().productos.find((p) => p.id === producto.id);
       if (productoAnterior?.stock_actual !== producto.stock_actual) {
-        await get().actualizarProducto(producto, true); // Evita bucle pasando 'true'
+        await get().actualizarProducto(producto, true); 
       }
     }
     set({ productos: productosActualizados });
