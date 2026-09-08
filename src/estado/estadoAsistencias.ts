@@ -17,6 +17,7 @@ interface EstadoAsistencias {
   cargarAsistencias: () => Promise<void>;
   registrarEntrada: (trabajadorId: string) => Promise<void>;
   registrarSalida: (trabajadorId: string) => Promise<void>;
+  sincronizarAsistencia: (payload: any) => Promise<void>;
 }
 
 export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
@@ -159,5 +160,41 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
         await registrarPendienteSync({ tabla: 'asistencias', operacion: 'ACTUALIZAR', payload: nuevoRegistro });
       }
     }
+  },
+
+  sincronizarAsistencia: async (payload: any) => {
+    const { eventType, new: nuevo, old: viejo } = payload;
+    const registroAnterior = viejo as { id?: string } | null;
+    const registroNuevo = nuevo as {
+      id: string;
+      trabajador_id: string;
+      fecha: string;
+      hora_entrada: string;
+      hora_salida: string | null;
+      desconexiones: number;
+    } | null;
+
+    if (eventType === "DELETE") {
+      if (!registroAnterior?.id) return;
+      set((estado) => ({ asistencias: estado.asistencias.filter((a) => a.id !== registroAnterior.id) }));
+      return;
+    }
+
+    if (!registroNuevo) return;
+    const asistencia: RegistroAsistencia = {
+      id: registroNuevo.id,
+      trabajadorId: registroNuevo.trabajador_id,
+      fecha: registroNuevo.fecha,
+      horaEntrada: registroNuevo.hora_entrada,
+      horaSalida: registroNuevo.hora_salida,
+      desconexiones: registroNuevo.desconexiones
+    };
+
+    await guardarRegistro("asistencias", asistencia);
+    set((estado) => ({
+      asistencias: estado.asistencias.some((a) => a.id === asistencia.id)
+        ? estado.asistencias.map((a) => a.id === asistencia.id ? asistencia : a)
+        : [...estado.asistencias, asistencia]
+    }));
   },
 }));

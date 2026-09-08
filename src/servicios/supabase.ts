@@ -37,3 +37,56 @@ export const obtenerTiendaIdActual = async () => {
   
   return null;
 };
+
+const obtenerIdentificadorDispositivo = async () => {
+  const apiLocal = (window as Window & { apiLocal?: { obtenerHardwareId: () => Promise<string> } }).apiLocal;
+  if (apiLocal) return apiLocal.obtenerHardwareId();
+
+  let identificador = localStorage.getItem('web_hardware_id');
+  if (!identificador) {
+    identificador = `web-${crypto.randomUUID()}`;
+    localStorage.setItem('web_hardware_id', identificador);
+  }
+  return identificador;
+};
+
+export const registrarDispositivoActual = async (tienda: { id: string; max_dispositivos: number; nombre?: string }) => {
+  const hardwareId = await obtenerIdentificadorDispositivo();
+  const { data: existente, error: errorConsulta } = await supabase
+    .from('dispositivos_vinculados')
+    .select('*')
+    .eq('tienda_id', tienda.id)
+    .eq('hardware_id', hardwareId)
+    .maybeSingle();
+
+  if (errorConsulta) throw errorConsulta;
+
+  if (existente) {
+    await supabase.from('dispositivos_vinculados')
+      .update({ ultimo_acceso: new Date().toISOString() })
+      .eq('tienda_id', tienda.id)
+      .eq('hardware_id', hardwareId);
+    localStorage.setItem('nombre_dispositivo_local', existente.nombre_dispositivo);
+    return { hardwareId, dispositivo: existente };
+  }
+
+  const { count, error: errorConteo } = await supabase
+    .from('dispositivos_vinculados')
+    .select('id', { count: 'exact', head: true })
+    .eq('tienda_id', tienda.id);
+  if (errorConteo) throw errorConteo;
+  if ((count ?? 0) >= tienda.max_dispositivos) {
+    throw new Error(`Límite de ${tienda.max_dispositivos} dispositivo(s) alcanzado en "${tienda.nombre || 'esta tienda'}".`);
+  }
+
+  const nombre = hardwareId.startsWith('web-') ? 'Navegador Web' : 'PC Local';
+  const { data: nuevo, error: errorAlta } = await supabase
+    .from('dispositivos_vinculados')
+    .insert({ tienda_id: tienda.id, hardware_id: hardwareId, nombre_dispositivo: nombre })
+    .select()
+    .single();
+  if (errorAlta) throw errorAlta;
+
+  localStorage.setItem('nombre_dispositivo_local', nombre);
+  return { hardwareId, dispositivo: nuevo };
+};

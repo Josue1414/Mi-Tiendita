@@ -7,7 +7,7 @@ import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, KeyRound, Laptop } from "lucide-react";
 import { cn } from "../utilidades/utils";
-import { supabase } from "../servicios/supabase";
+import { supabase, registrarDispositivoActual } from "../servicios/supabase";
 
 export default function VistaLogin() {
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
@@ -55,6 +55,14 @@ export default function VistaLogin() {
       if (navigator.onLine) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
+          const tiendaId = localStorage.getItem("tienda_id");
+          if (tiendaId) {
+            const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento').eq('id', tiendaId).single();
+            if (tienda) {
+              const registro = await registrarDispositivoActual(tienda);
+              setNombrePC(registro.dispositivo.nombre_dispositivo);
+            }
+          }
           setCuentaSaaSLogueada(true);
         }
       }
@@ -72,37 +80,14 @@ export default function VistaLogin() {
         throw new Error(`La suscripción de la sucursal "${tienda.nombre}" ha vencido. Realiza tu pago.`);
       }
 
-      if (window.apiLocal) {
-        const hwid = await window.apiLocal.obtenerHardwareId();
-        
-        const { data: dispositivos, error: dispError } = await supabase
-          .from('dispositivos_vinculados')
-          .select('*')
-          .eq('tienda_id', tienda.id);
+      const registroDispositivo = await registrarDispositivoActual({
+        id: tienda.id,
+        max_dispositivos: tienda.max_dispositivos,
+        nombre: tienda.nombre
+      });
+      setNombrePC(registroDispositivo.dispositivo.nombre_dispositivo);
 
-        if (!dispError && dispositivos) {
-          const dispositivoActual = dispositivos.find(d => d.hardware_id === hwid);
-          
-          if (!dispositivoActual) {
-            if (dispositivos.length >= tienda.max_dispositivos) {
-              throw new Error(`Límite de ${tienda.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}". Libera espacio en el panel web o contacta a soporte.`);
-            } else {
-              await supabase.from('dispositivos_vinculados').insert([{
-                tienda_id: tienda.id,
-                hardware_id: hwid,
-                nombre_dispositivo: 'PC Local'
-              }]);
-              localStorage.setItem("nombre_dispositivo_local", "PC Local");
-              setNombrePC("PC Local");
-            }
-          } else {
-            await supabase.from('dispositivos_vinculados').update({ ultimo_acceso: new Date().toISOString() })
-              .eq('tienda_id', tienda.id).eq('hardware_id', hwid);
-              
-            localStorage.setItem("nombre_dispositivo_local", dispositivoActual.nombre_dispositivo);
-            setNombrePC(dispositivoActual.nombre_dispositivo);
-          }
-        }
+      if (window.apiLocal) {
         await window.apiLocal.sincronizarReloj(tienda.fecha_vencimiento);
       }
 

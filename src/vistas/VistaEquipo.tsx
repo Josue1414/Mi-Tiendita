@@ -1,15 +1,21 @@
 // src/vistas/VistaEquipo.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useEstadoTrabajadores, type RolTrabajador } from "../estado/estadoTrabajadores";
 import { Users, UserPlus } from "lucide-react";
 import TarjetaTrabajador from "../componentes/equipo/TarjetaTrabajador";
+import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 
 export default function VistaEquipo() {
   const { trabajadores, trabajadorActivo, agregarTrabajador } = useEstadoTrabajadores();
+  const cargarAsistencias = useEstadoAsistencias((estado) => estado.cargarAsistencias);
   
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState<RolTrabajador>("TRABAJADOR");
   const [pin, setPin] = useState("");
+
+  useEffect(() => {
+    cargarAsistencias();
+  }, [cargarAsistencias]);
 
   const manejarGuardado = (e: React.FormEvent) => {
     e.preventDefault();

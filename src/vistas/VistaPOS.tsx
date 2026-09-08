@@ -46,7 +46,8 @@ export default function VistaPOS() {
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [productoAutorizacion, setProductoAutorizacion] = useState<Producto | null>(null);
   const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
-  const [impresionAutomatica, setImpresionAutomatica] = useState(true);
+  const claveImpresion = `imprimir_ticket_automatico:${localStorage.getItem("tienda_id") || "predeterminada"}`;
+  const [impresionAutomatica, setImpresionAutomatica] = useState(() => localStorage.getItem(claveImpresion) !== "false");
   const [modoVista, setModoVista] = useState<"cuadricula" | "escaner">("cuadricula");
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
 
@@ -572,7 +573,11 @@ export default function VistaPOS() {
                 <input 
                   type="checkbox" 
                   checked={impresionAutomatica} 
-                  onChange={e => setImpresionAutomatica(e.target.checked)} 
+                  onChange={e => {
+                    const valor = e.target.checked;
+                    setImpresionAutomatica(valor);
+                    localStorage.setItem(claveImpresion, String(valor));
+                  }}
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" 
                 />
                 <Printer size={13} /> Imprimir automático

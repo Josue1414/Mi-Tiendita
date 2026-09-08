@@ -102,11 +102,13 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
           }
 
           // B) Traer config de tienda
-          const { data: tiendaData } = await supabase.from('tiendas').select('forzar_recepcion_caja, requerir_pin_cancelacion').eq('id', tiendaId).single();
+          const { data: tiendaData } = await supabase.from('tiendas').select('forzar_recepcion_caja, requerir_pin_cancelacion, fondo_base_actual, nota_general_dueno').eq('id', tiendaId).single();
           if (tiendaData) {
             const nuevasConfigs = {
               forzarRecepcionCaja: tiendaData.forzar_recepcion_caja,
-              requerirPinCancelacion: tiendaData.requerir_pin_cancelacion
+              requerirPinCancelacion: tiendaData.requerir_pin_cancelacion,
+              fondoBaseActual: Number(tiendaData.fondo_base_actual ?? get().fondoBaseActual),
+              notaGeneralDueno: tiendaData.nota_general_dueno ?? get().notaGeneralDueno
             };
             set(nuevasConfigs);
             if (esEscritorio) {
@@ -126,6 +128,12 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
     set({ fondoBaseActual: nuevoFondo, notaGeneralDueno: nuevaNota });
     if (esEscritorio) {
       await guardarRegistro("config_caja", { id: 'config_caja_1', ...get(), fondoBaseActual: nuevoFondo, notaGeneralDueno: nuevaNota });
+    }
+    if (navigator.onLine) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) await supabase.from('tiendas').update({ fondo_base_actual: nuevoFondo, nota_general_dueno: nuevaNota }).eq('id', tiendaId);
+    } else {
+      await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { fondo_base_actual: nuevoFondo, nota_general_dueno: nuevaNota } });
     }
   },
 
@@ -262,7 +270,9 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
     if (nuevo) {
       const actualizacion = { 
         forzarRecepcionCaja: nuevo.forzar_recepcion_caja, 
-        requerirPinCancelacion: nuevo.requerir_pin_cancelacion 
+        requerirPinCancelacion: nuevo.requerir_pin_cancelacion,
+        fondoBaseActual: Number(nuevo.fondo_base_actual ?? get().fondoBaseActual),
+        notaGeneralDueno: nuevo.nota_general_dueno ?? get().notaGeneralDueno
       };
       set(actualizacion);
       if (esEscritorio) await guardarRegistro("config_caja", { id: 'config_caja_1', ...get(), ...actualizacion });

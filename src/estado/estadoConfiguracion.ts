@@ -82,22 +82,18 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
           
-          if (esEscritorio) {
-            await supabase.from('tiendas').update({
-              nombre: estadoLocal.nombreTienda,
-              mensaje_pago: estadoLocal.mensajePago,
-              banco_transferencia: estadoLocal.bancoTransferencia,
-              titular_transferencia: estadoLocal.titularTransferencia,
-              cuenta_transferencia: estadoLocal.cuentaTransferencia
-            }).eq('id', tiendaId);
-          }
-
           const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
           
           if (tiendaNube) {
             const estadoActualizado = {
               ...estadoLocal,
               nombreTienda: tiendaNube.nombre || estadoLocal.nombreTienda,
+              mensajeTicket: tiendaNube.mensaje_ticket ?? estadoLocal.mensajeTicket,
+              direccionTienda: tiendaNube.direccion_tienda ?? estadoLocal.direccionTienda,
+              teclaCobro: tiendaNube.tecla_cobro ?? estadoLocal.teclaCobro,
+              teclaEfectivo: tiendaNube.tecla_efectivo ?? estadoLocal.teclaEfectivo,
+              teclaTarjeta: tiendaNube.tecla_tarjeta ?? estadoLocal.teclaTarjeta,
+              teclaTransferencia: tiendaNube.tecla_transferencia ?? estadoLocal.teclaTransferencia,
               mensajePago: tiendaNube.mensaje_pago || estadoLocal.mensajePago,
               bancoTransferencia: tiendaNube.banco_transferencia || "",
               titularTransferencia: tiendaNube.titular_transferencia || "",
@@ -140,9 +136,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
 
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) await supabase.from('tiendas').update({ nombre }).eq('id', tiendaId);
+        if (tiendaId) await supabase.from('tiendas').update({ nombre, mensaje_ticket: mensaje, direccion_tienda: direccion }).eq('id', tiendaId);
       } else {
-        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { nombre } });
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { nombre, mensaje_ticket: mensaje, direccion_tienda: direccion } });
       }
     } catch (error) {
       console.error("Error al guardar datos de la tienda:", error);
@@ -182,6 +178,12 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         await guardarRegistro("configuracion", nuevaConfig);
       }
       set({ teclaCobro: teclaNormalizada });
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) await supabase.from('tiendas').update({ tecla_cobro: teclaNormalizada }).eq('id', tiendaId);
+      } else {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { tecla_cobro: teclaNormalizada } });
+      }
     } catch (error) {
       console.error("Error al guardar la tecla de cobro:", error);
     }
@@ -199,7 +201,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         mensaje_pago: nuevaConfig.mensajePago,
         banco_transferencia: nuevaConfig.bancoTransferencia,
         titular_transferencia: nuevaConfig.titularTransferencia,
-        cuenta_transferencia: nuevaConfig.cuentaTransferencia
+        cuenta_transferencia: nuevaConfig.cuentaTransferencia,
+        tecla_efectivo: nuevaConfig.teclaEfectivo,
+        tecla_tarjeta: nuevaConfig.teclaTarjeta,
+        tecla_transferencia: nuevaConfig.teclaTransferencia
       };
 
       if (navigator.onLine) {
@@ -230,6 +235,12 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     if (nuevo) {
       const actualizacion = {
         nombreTienda: nuevo.nombre,
+        mensajeTicket: nuevo.mensaje_ticket ?? get().mensajeTicket,
+        direccionTienda: nuevo.direccion_tienda ?? get().direccionTienda,
+        teclaCobro: nuevo.tecla_cobro || get().teclaCobro,
+        teclaEfectivo: nuevo.tecla_efectivo || get().teclaEfectivo,
+        teclaTarjeta: nuevo.tecla_tarjeta || get().teclaTarjeta,
+        teclaTransferencia: nuevo.tecla_transferencia || get().teclaTransferencia,
         mensajePago: nuevo.mensaje_pago,
         bancoTransferencia: nuevo.banco_transferencia || "",
         titularTransferencia: nuevo.titular_transferencia || "",

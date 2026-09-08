@@ -4,6 +4,12 @@ import { openDB } from "idb";
 const DB_NOMBRE = "mitiendita_db";
 const DB_VERSION = 2; // Incrementada para soportar nuevas tablas
 
+const puedeGuardarCopiaLocal = () => {
+  if (!window.apiLocal) return true;
+  const tiendaId = localStorage.getItem("tienda_id");
+  return tiendaId !== null && localStorage.getItem(`mi_tienda_es_cerebro:${tiendaId}`) === "true";
+};
+
 export interface PendienteSync {
   id: string;
   tabla: string;
@@ -51,6 +57,7 @@ const initDB = async () => {
 
 export const guardarRegistro = async (tabla: string, dato: any) => {
   if (window.apiLocal) {
+    if (!puedeGuardarCopiaLocal()) return;
     const todosLosRegistros = await obtenerRegistros(tabla);
     const index = todosLosRegistros.findIndex((r: any) => r.id === dato.id);
     
@@ -70,6 +77,7 @@ export const guardarRegistro = async (tabla: string, dato: any) => {
 
 export const obtenerRegistros = async (tabla: string) => {
   if (window.apiLocal) {
+    if (!puedeGuardarCopiaLocal()) return [];
     const datos = await window.apiLocal.leerDatos(tabla);
     return datos;
   }
@@ -80,6 +88,7 @@ export const obtenerRegistros = async (tabla: string) => {
 
 export const eliminarRegistro = async (tabla: string, id: string) => {
   if (window.apiLocal) {
+    if (!puedeGuardarCopiaLocal()) return;
     const todosLosRegistros = await obtenerRegistros(tabla);
     const filtrados = todosLosRegistros.filter((r: any) => r.id !== id);
     await window.apiLocal.guardarDatos(tabla, filtrados);

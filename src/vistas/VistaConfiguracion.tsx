@@ -8,6 +8,7 @@ import { useEstadoRed } from "../estado/estadoRed";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import { cn } from "../utilidades/utils";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+import { establecerRolCerebro } from "../servicios/cerebroTienda";
 
 interface Dispositivo {
   id: string;
@@ -15,6 +16,7 @@ interface Dispositivo {
   nombre_dispositivo: string;
   ultimo_acceso: string;
   tienda_id: string;
+  es_cerebro?: boolean;
 }
 
 interface DirectorioHandle {
@@ -72,10 +74,30 @@ export default function VistaConfiguracion() {
   const [miHwid, setMiHwid] = useState<string>("");
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
+  const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
 
   const win = window as unknown as NavegadorExtendido;
   const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
   const suscripcionActiva = true;
+
+  const cambiarRolCerebro = async (nuevoRol: boolean) => {
+    setCambiandoRolCerebro(true);
+    try {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) throw new Error("No se encontró la tienda activa.");
+      await establecerRolCerebro(tiendaId, nuevoRol);
+      setEsMaestro(nuevoRol);
+      window.location.reload();
+    } catch (error: unknown) {
+      const mensaje = error instanceof Error ? error.message : "Verifica tu conexión y vuelve a intentarlo.";
+      setAviso({
+        titulo: "No se pudo cambiar el cerebro",
+        mensaje
+      });
+    } finally {
+      setCambiandoRolCerebro(false);
+    }
+  };
 
   // Cargar IP Local
   useEffect(() => {
@@ -117,6 +139,15 @@ export default function VistaConfiguracion() {
       }
     };
     cargarDispositivos();
+
+    const tiendaActual = localStorage.getItem('tienda_id');
+    if (!tiendaActual || !esDueño || !navigator.onLine) return;
+    const canalDispositivos = supabase.channel(`dispositivos-${tiendaActual}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dispositivos_vinculados', filter: `tienda_id=eq.${tiendaActual}` }, () => {
+        cargarDispositivos();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(canalDispositivos); };
   }, [esDueño, esAppEscritorio, win.apiLocal]);
 
   const desvincularEquipo = async (id: string, esMiEquipo: boolean) => {
@@ -315,11 +346,11 @@ export default function VistaConfiguracion() {
                   </span>
                 ) : (
                   <button 
-                    onClick={() => { setEsMaestro(true); window.location.reload(); }}
-                    disabled={esMaestro}
+                    onClick={() => cambiarRolCerebro(true)}
+                    disabled={esMaestro || cambiandoRolCerebro}
                     className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-100 disabled:text-indigo-400 dark:disabled:bg-indigo-950 dark:disabled:text-indigo-800 transition-colors"
                   >
-                    {esMaestro ? "Esta PC es el Cerebro" : "Convertir en Cerebro"}
+                    {esMaestro ? "Esta PC es el Cerebro" : cambiandoRolCerebro ? "Validando disponibilidad..." : "Convertir en Cerebro"}
                   </button>
                 )}
 
@@ -349,8 +380,8 @@ export default function VistaConfiguracion() {
                 </p>
                 
                 {esMaestro ? (
-                  <button onClick={() => { setEsMaestro(false); window.location.reload(); }} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">
-                    Cambiar a modo Cliente
+                  <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors disabled:opacity-50">
+                    {cambiandoRolCerebro ? "Guardando cambio..." : "Liberar cerebro y cambiar a Cliente"}
                   </button>
                 ) : (
                   <div className="w-full flex flex-col gap-2">
@@ -415,6 +446,9 @@ export default function VistaConfiguracion() {
                               <span className="flex items-center gap-1 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shadow-sm">
                                 <MonitorDown size={10} /> Este equipo
                               </span>
+                            )}
+                            {disp.es_cerebro && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Cerebro</span>
                             )}
                           </>
                         )}

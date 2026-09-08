@@ -8,10 +8,30 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
+import { useEstadoAsistencias } from "../estado/estadoAsistencias";
+import { obtenerRolCerebro } from "../servicios/cerebroTienda";
+import { useEstadoRed } from "../estado/estadoRed";
 
 export function useSincronizacion() {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
   const { trabajadorActivo } = useEstadoTrabajadores();
+
+  useEffect(() => {
+    const cargarRolCerebro = async () => {
+      if (!estaEnLinea) return;
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId || !(window as any).apiLocal) return;
+
+      try {
+        const esCerebro = await obtenerRolCerebro(tiendaId);
+        useEstadoRed.getState().setEsMaestro(esCerebro);
+      } catch (error) {
+        console.error("No se pudo validar la PC cerebro:", error);
+      }
+    };
+
+    cargarRolCerebro();
+  }, [estaEnLinea]);
 
   useEffect(() => {
     const handleOnline = () => setEstaEnLinea(true);
@@ -176,7 +196,7 @@ export function useSincronizacion() {
     let canalTiempoReal: any;
 
     const suscribirTiempoReal = async () => {
-      if (!estaEnLinea || !trabajadorActivo) return;
+      if (!estaEnLinea) return;
       
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) return;
@@ -196,6 +216,9 @@ export function useSincronizacion() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'turnos_caja', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoCaja.getState().sincronizarTurno(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'asistencias', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoAsistencias.getState().sincronizarAsistencia(payload);
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tiendas', filter: `id=eq.${tiendaId}` }, (payload) => {
           useEstadoCaja.getState().sincronizarTienda(payload);

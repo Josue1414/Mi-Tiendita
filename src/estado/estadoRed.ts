@@ -1,5 +1,6 @@
 // src/estado/estadoRed.ts
 import { create } from "zustand";
+import { esCerebroLocal } from "../servicios/cerebroTienda";
 
 interface EstadoRed {
   esMaestro: boolean;
@@ -11,7 +12,7 @@ interface EstadoRed {
 }
 
 export const useEstadoRed = create<EstadoRed>((set) => ({
-  esMaestro: typeof window !== 'undefined' && (window as any).apiLocal !== undefined,
+  esMaestro: typeof window !== 'undefined' && window.apiLocal !== undefined && esCerebroLocal(),
   ipMaestro: localStorage.getItem("ip_maestro") || "",
   conectadoLAN: false,
   setEsMaestro: (esMaestro) => set({ esMaestro }),
