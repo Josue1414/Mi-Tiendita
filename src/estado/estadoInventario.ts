@@ -173,7 +173,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
   actualizarProducto: async (productoActualizado, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
-    if (!esMaestro && !propagado) {
+    if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'ACTUALIZAR_PRODUCTO', payload: productoActualizado });
       set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoActualizado.id ? productoActualizado : p)) }));
       return;

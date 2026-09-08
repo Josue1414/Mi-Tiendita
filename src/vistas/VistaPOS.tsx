@@ -47,13 +47,24 @@ export default function VistaPOS() {
   const [productoAutorizacion, setProductoAutorizacion] = useState<Producto | null>(null);
   const [evidenciaAutorizacion, setEvidenciaAutorizacion] = useState<string>();
   const claveImpresion = `imprimir_ticket_automatico:${localStorage.getItem("tienda_id") || "predeterminada"}`;
-  const [impresionAutomatica, setImpresionAutomatica] = useState(() => localStorage.getItem(claveImpresion) !== "false");
+  const [esVistaMovil, setEsVistaMovil] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  const [impresionAutomatica, setImpresionAutomatica] = useState(() => {
+    const preferencia = localStorage.getItem(claveImpresion);
+    return preferencia === null ? !window.matchMedia("(max-width: 1023px)").matches : preferencia === "true";
+  });
   const [modoVista, setModoVista] = useState<"cuadricula" | "escaner">("cuadricula");
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
 
   // Estados para la restricción de cancelación
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
+
+  useEffect(() => {
+    const consulta = window.matchMedia("(max-width: 1023px)");
+    const actualizarVista = () => setEsVistaMovil(consulta.matches);
+    consulta.addEventListener("change", actualizarVista);
+    return () => consulta.removeEventListener("change", actualizarVista);
+  }, []);
 
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
   
@@ -408,13 +419,14 @@ export default function VistaPOS() {
               {productosFiltrados.map((producto) => {
                 const final = precioVenta(producto);
                 const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
+                const seleccionado = esVistaMovil && productoEnfoque?.id === producto.id;
                 return (
-                <button
+                <div
                   key={producto.id}
-                  // MODIFICACIÓN: Cambiado de onClick a onDoubleClick para prevenir errores de dedo
-                  onDoubleClick={() => manejarClickProducto(producto)}
-                  title="Doble clic para agregar"
-                  className="efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-500 border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]"
+                  onClick={() => { if (esVistaMovil) setProductoEnfoque(producto); }}
+                  onDoubleClick={() => { if (!esVistaMovil) manejarClickProducto(producto); }}
+                  title={esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar"}
+                  className={cn("efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]", seleccionado && "ring-2 ring-emerald-500")}
                 >
                   <ImagenLocal 
                     nombreArchivo={producto.imagen_url} 
@@ -437,10 +449,12 @@ export default function VistaPOS() {
                       )}
                     </span>
                   </div>
-                  <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {(producto.unidad === "KG" || producto.unidad === "LITRO") ? <Scale size={16}/> : <Plus size={16}/>}
-                  </div>
-                </button>
+                  {esVistaMovil && (
+                    <button type="button" onClick={(evento) => { evento.stopPropagation(); manejarClickProducto(producto); }} className={cn("absolute right-2 top-2 flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white shadow-md transition-opacity", seleccionado ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                      {(producto.unidad === "KG" || producto.unidad === "LITRO") ? <Scale size={16}/> : <Plus size={16}/>}<span className="sr-only">Agregar {producto.nombre}</span><span className="hidden sm:inline">Agregar</span>
+                    </button>
+                  )}
+                </div>
                 );
               })}
             </div>

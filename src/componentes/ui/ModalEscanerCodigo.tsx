@@ -15,6 +15,16 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState("");
   const [escaneando, setEscaneando] = useState(false);
+  const [codigoManual, setCodigoManual] = useState("");
+
+  const enviarCodigoManual = () => {
+    const codigo = codigoManual.trim();
+    if (codigo.length < 4) {
+      setError("Escribe un código válido de al menos 4 caracteres.");
+      return;
+    }
+    alDetectar(codigo);
+  };
 
   useEffect(() => {
     if (!abierto) return;
@@ -83,6 +93,23 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
             <Camera size={16} /> Usar foto del código
             <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => setError("La lectura desde foto depende del soporte del navegador. Si no se detecta, escribe el código manualmente.")} />
           </label>
+          <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
+            <label htmlFor="codigo-manual" className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">Escribir código manualmente</label>
+            <div className="flex gap-2">
+              <input
+                id="codigo-manual"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={codigoManual}
+                onChange={(evento) => setCodigoManual(evento.target.value)}
+                onKeyDown={(evento) => { if (evento.key === "Enter") enviarCodigoManual(); }}
+                placeholder="Ej. 7501234567890"
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+              <button type="button" onClick={enviarCodigoManual} className="rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Buscar</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

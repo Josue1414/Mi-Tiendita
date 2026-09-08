@@ -194,14 +194,15 @@ export function useSincronizacion() {
 
   useEffect(() => {
     let canalTiempoReal: any;
+    let cancelado = false;
 
     const suscribirTiempoReal = async () => {
       if (!estaEnLinea) return;
       
       const tiendaId = await obtenerTiendaIdActual();
-      if (!tiendaId) return;
+      if (!tiendaId || cancelado) return;
 
-      canalTiempoReal = supabase.channel('sincronizacion-tienda')
+      canalTiempoReal = supabase.channel(`sincronizacion-tienda-${tiendaId}-${crypto.randomUUID()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'miembros_tienda', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoTrabajadores.getState().sincronizarTrabajador(payload);
         })
@@ -224,12 +225,13 @@ export function useSincronizacion() {
           useEstadoCaja.getState().sincronizarTienda(payload);
           useEstadoConfiguracion.getState().sincronizarConfiguracion(payload);
         })
-        .subscribe();
+      if (!cancelado) canalTiempoReal.subscribe();
     };
 
     suscribirTiempoReal();
 
     return () => {
+      cancelado = true;
       if (canalTiempoReal) supabase.removeChannel(canalTiempoReal);
     };
   }, [estaEnLinea, trabajadorActivo]);

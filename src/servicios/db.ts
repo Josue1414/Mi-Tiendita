@@ -2,7 +2,7 @@
 import { openDB } from "idb";
 
 const DB_NOMBRE = "mitiendita_db";
-const DB_VERSION = 2; // Incrementada para soportar nuevas tablas
+const DB_VERSION = 3; // Incluye asistencias y configuraciones de caja
 
 const puedeGuardarCopiaLocal = () => {
   if (!window.apiLocal) return true;
@@ -46,6 +46,15 @@ const initDB = async () => {
       }
       if (!db.objectStoreNames.contains("ventas")) {
         db.createObjectStore("ventas", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("asistencias")) {
+        db.createObjectStore("asistencias", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("configuracion")) {
+        db.createObjectStore("configuracion", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("config_caja")) {
+        db.createObjectStore("config_caja", { keyPath: "id" });
       }
       // Nueva tabla para operaciones offline
       if (!db.objectStoreNames.contains("pendientes_sync")) {

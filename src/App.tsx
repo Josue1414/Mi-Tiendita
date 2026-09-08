@@ -10,7 +10,8 @@ import { useEstadoRed } from "./estado/estadoRed";
 import { conectarLAN } from "./servicios/socketCliente";
 import { useSincronizacion } from "./hooks/useSincronizacion";
 import { cn } from "./utilidades/utils";
-import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff } from "lucide-react";
+import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff } from "lucide-react";
+import { claseTemaVisual, EVENTO_TEMA, obtenerTemaVisual, type TemaVisual } from "./utilidades/temas";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -25,6 +26,7 @@ import VistaLogin from "./vistas/VistaLogin";
 import VistaPerfil from "./vistas/VistaPerfil";
 import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
+import AccionEscaneoInventario from "./componentes/movil/AccionEscaneoInventario";
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   pos: VistaPOS,
@@ -52,9 +54,18 @@ export default function App() {
   const { esMaestro, ipMaestro, conectadoLAN } = useEstadoRed();
   const { estaEnLinea } = useSincronizacion();
   
-  const [modoOscuro, setModoOscuro] = useState(false);
+  const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
+
+  useEffect(() => {
+    const aplicarTema = (evento: Event) => {
+      const tema = (evento as CustomEvent<TemaVisual>).detail;
+      if (tema) setTemaVisual(tema);
+    };
+    window.addEventListener(EVENTO_TEMA, aplicarTema);
+    return () => window.removeEventListener(EVENTO_TEMA, aplicarTema);
+  }, []);
 
   if (window.location.search.includes('cliente=true')) {
     return <VistaPantallaCliente />;
@@ -84,9 +95,9 @@ export default function App() {
   }, [cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
 
   useEffect(() => {
-    if (modoOscuro) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-  }, [modoOscuro]);
+    const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito";
+    document.documentElement.classList.toggle("dark", usaModoOscuro);
+  }, [temaVisual]);
   
   const estaCargandoGlobal = cargandoTrabajadores || cargandoInventario || cargandoVentas || cargandoConfiguracion;
   
@@ -128,6 +139,8 @@ export default function App() {
   ] as const;
 
   const esAdmin = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
+  const menusMoviles = [...menusOperativos, ...(esAdmin ? menusAdmin : [])];
+  const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
 
   const confirmarCerrarSesion = async () => {
     setMostrarModalSalida(false);
@@ -139,7 +152,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-emerald-50/30 dark:bg-slate-950 transition-colors overflow-hidden text-sm relative">
+    <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
       
       {mostrarModalSalida && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in">
@@ -164,7 +177,7 @@ export default function App() {
       )}
 
       <aside className={cn(
-        "efecto-cristal h-full transition-all duration-300 flex flex-col border-r border-slate-200/50 dark:border-white/10 shrink-0 z-20",
+        "efecto-cristal hidden lg:flex h-full transition-all duration-300 flex-col border-r border-slate-200/50 dark:border-white/10 shrink-0 z-20",
         menuAbierto ? "w-64" : "w-16"
       )}>
         <div className="p-4 flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 h-16 shrink-0">
@@ -265,14 +278,6 @@ export default function App() {
             {menuAbierto && <span>Pantalla Cliente</span>}
           </button>
           
-          <button onClick={() => setModoOscuro(!modoOscuro)} title={!menuAbierto ? "Tema" : undefined}
-            className={cn("flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors w-full",
-              !menuAbierto && "justify-center px-0"
-            )}>
-            {modoOscuro ? <Sun size={18} className="shrink-0" /> : <Moon size={18} className="shrink-0" />}
-            {menuAbierto && <span>{modoOscuro ? "Modo Claro" : "Modo Oscuro"}</span>}
-          </button>
-
           <button onClick={() => setMostrarModalSalida(true)} title={!menuAbierto ? "Cerrar Sesión Local" : undefined}
             className={cn("flex items-center gap-3 p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors w-full",
               !menuAbierto && "justify-center px-0"
@@ -283,7 +288,49 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 h-full overflow-hidden flex flex-col p-4 sm:p-6 bg-transparent">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 h-[4.75rem] lg:hidden border-t border-slate-200/70 bg-white/95 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/95">
+        <div className="absolute inset-y-0 left-0 right-1/2 min-w-0 overflow-hidden pr-14">
+          <div className="h-full w-full min-w-0 touch-pan-x overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max items-center gap-1 px-2 py-2">
+          {menusMoviles.slice(0, puntoEscaneo).map((menu) => {
+          const Icono = menu.icono;
+          const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+          const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
+          return (
+            <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
+              <Icono size={18} />
+              <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
+              {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
+            </button>
+          );
+          })}
+            </div>
+          </div>
+        </div>
+        <AccionEscaneoInventario />
+        <div className="absolute inset-y-0 left-1/2 right-0 min-w-0 overflow-hidden pl-14">
+          <div className="h-full w-full min-w-0 touch-pan-x overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max items-center gap-1 px-2 py-2">
+          {menusMoviles.slice(puntoEscaneo).map((menu) => {
+          const Icono = menu.icono;
+          const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+          const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
+          return (
+            <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
+              <Icono size={18} />
+              <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
+              {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
+            </button>
+          );
+          })}
+          <button onClick={abrirPantallaCliente} title="Pantalla Cliente" className="flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10"><MonitorPlay size={18} /><span>Pantalla</span></button>
+          <button onClick={() => setMostrarModalSalida(true)} title="Cerrar Sesión" className="flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"><LogOut size={18} /><span>Salir</span></button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 h-full min-w-0 overflow-hidden flex flex-col p-3 pb-24 sm:p-6 sm:pb-24 lg:pb-6 bg-transparent">
         <div className="efecto-cristal w-full h-full rounded-3xl overflow-hidden relative shadow-sm border border-slate-200/50 dark:border-white/10 flex flex-col">
           <ComponenteActivo />
         </div>

@@ -31,7 +31,11 @@ export default function VistaNuevoProducto() {
   const puedeEditarPrecio = esDueño || (esSupervisor && trabajadorActivo?.permisos?.cambiarPrecios) || (trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo?.permisos?.editarProductos);
 
   const [nombre, setNombre] = useState("");
-  const [codigo, setCodigo] = useState("");
+  const [codigo, setCodigo] = useState(() => {
+    const codigoPendiente = localStorage.getItem("codigo_producto_pendiente");
+    if (codigoPendiente) localStorage.removeItem("codigo_producto_pendiente");
+    return codigoPendiente || "";
+  });
   const [descripcion, setDescripcion] = useState("");
   const [categoria, setCategoria] = useState("");
   const [ubicacion, setUbicacion] = useState("");

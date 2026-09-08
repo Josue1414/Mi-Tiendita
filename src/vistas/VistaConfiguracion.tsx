@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle, Laptop, Pencil, X, Network, Server, Smartphone, Wifi, WifiOff } from "lucide-react";
+import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle, Laptop, Pencil, X, Network, Server, Smartphone, Wifi, WifiOff, Sun, Moon, Palette } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
@@ -9,6 +9,7 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 import { cn } from "../utilidades/utils";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { establecerRolCerebro } from "../servicios/cerebroTienda";
+import { guardarTemaVisual, obtenerTemaVisual, TEMAS_VISUALES, type TemaVisual } from "../utilidades/temas";
 
 interface Dispositivo {
   id: string;
@@ -75,10 +76,17 @@ export default function VistaConfiguracion() {
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
+  const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
 
   const win = window as unknown as NavegadorExtendido;
   const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
   const suscripcionActiva = true;
+
+  const cambiarTemaVisual = (tema: TemaVisual) => {
+    setTemaVisual(tema);
+    guardarTemaVisual(tema);
+    document.documentElement.classList.toggle("dark", tema === "oscuro" || tema === "grafito");
+  };
 
   const cambiarRolCerebro = async (nuevoRol: boolean) => {
     setCambiandoRolCerebro(true);
@@ -279,6 +287,28 @@ export default function VistaConfiguracion() {
           <p className="text-sm font-bold">Modo de vista para Supervisor. Solo el Dueño puede modificar la configuración general.</p>
         </div>
       )}
+
+      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100"><Palette size={20} className="text-emerald-600 dark:text-emerald-400" /> Apariencia de la aplicación</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Elige el mismo lenguaje visual disponible en la pantalla cliente. Se guarda en este dispositivo.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">Tema: {temaVisual}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {TEMAS_VISUALES.map((tema) => {
+            const seleccionado = temaVisual === tema.id;
+            return (
+              <button key={tema.id} type="button" onClick={() => cambiarTemaVisual(tema.id)} className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-all", seleccionado ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-900/20" : "border-slate-200 bg-white hover:border-emerald-300 dark:border-white/10 dark:bg-slate-900/60 dark:hover:border-emerald-700")}>
+                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-inner", tema.muestra)}>{tema.id === "claro" ? <Sun size={16} /> : tema.id === "verde" ? <Palette size={16} /> : <Moon size={16} />}</span>
+                <span className="min-w-0"><strong className="block text-sm text-slate-800 dark:text-slate-100">{tema.nombre}</strong><small className="block truncate text-[10px] text-slate-500 dark:text-slate-400">{tema.descripcion}</small></span>
+                {seleccionado && <CheckCircle2 size={16} className="ml-auto shrink-0 text-emerald-600 dark:text-emerald-400" />}
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
         

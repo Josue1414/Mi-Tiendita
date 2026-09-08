@@ -41,8 +41,8 @@ export default function PanelAutorizaciones({ productos, ventas }: PropsPanelAut
         </h2>
         {ventasAutorizadas.length === 0 ? <p className="text-sm text-slate-500">Aún no hay ventas autorizadas.</p> : (
           <div className="space-y-2">
-            {ventasAutorizadas.map(({ venta, articulo }) => (
-              <div key={`${venta.id}-${articulo.id}`} className="flex items-start justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/30">
+            {ventasAutorizadas.map(({ venta, articulo }, indice) => (
+              <div key={`${venta.id}-${articulo.id || articulo.producto_id || articulo.nombre}-${indice}`} className="flex items-start justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/30">
                 <div className="min-w-0">
                   <p className="break-words font-medium text-slate-800 dark:text-slate-200">{articulo.nombre}</p>
                   <p className="text-[10px] text-slate-500">Vendedor: {venta.trabajador} · {new Date(venta.fecha).toLocaleDateString("es-MX")}</p>
