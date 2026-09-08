@@ -1,18 +1,22 @@
+// src/estado/estadoVentas.ts
 import { create } from "zustand";
 import type { ItemCarrito } from "./estadoCarrito";
-import { guardarRegistro, obtenerRegistros } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+
+const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
 export interface Venta {
   id: string;
   fecha: string;
   trabajador: string;
+  vendedor_id?: string;
   articulos: ItemCarrito[];
   subtotal: number;
   descuento: number;
   total: number;
   metodoPago: string;
-  cancelada?: boolean; // Agregado para el control de cancelaciones
+  cancelada?: boolean;
 }
 
 interface EstadoVentas {
@@ -21,6 +25,7 @@ interface EstadoVentas {
   cargarVentas: () => Promise<void>;
   agregarVenta: (venta: Venta) => Promise<void>;
   cancelarVenta: (id: string) => Promise<void>;
+  sincronizarVenta: (payload: any) => Promise<void>;
 }
 
 export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
@@ -30,9 +35,64 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   cargarVentas: async () => {
     set({ cargando: true });
     try {
-      const data = await obtenerRegistros("ventas");
-      const ventasOrdenadas = (data as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-      set({ ventas: ventasOrdenadas, cargando: false });
+      let estadoVentas: Venta[] = [];
+
+      // 1. Carga Local (Offline-first)
+      const dataLocal = await obtenerRegistros("ventas");
+      estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
+
+      // 2. Sincronización con Nube (Diff y Purga)
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) {
+          const { data: ventasNube, error } = await supabase
+            .from('ventas')
+            .select('*, venta_detalles(*)')
+            .eq('tienda_id', tiendaId)
+            .order('created_at', { ascending: false });
+
+          if (!error && ventasNube) {
+            const ventasMapeadas: Venta[] = ventasNube.map(v => ({
+              id: v.id,
+              fecha: v.created_at,
+              trabajador: v.trabajador_nombre,
+              vendedor_id: v.vendedor_id,
+              subtotal: v.subtotal,
+              descuento: v.descuento,
+              total: v.total,
+              metodoPago: v.metodo_pago,
+              cancelada: v.cancelada,
+              articulos: v.venta_detalles.map((d: any) => ({
+                producto_id: d.producto_id,
+                nombre: d.nombre_producto,
+                cantidad: d.cantidad,
+                precio: d.precio_unitario,
+                subtotal: d.subtotal,
+                autorizacion_confirmada: d.autorizacion_confirmada
+              }))
+            }));
+
+            if (esEscritorio) {
+              const idsNube = new Set(ventasMapeadas.map(v => v.id));
+              
+              for (const vLocal of estadoVentas) {
+                if (!idsNube.has(vLocal.id)) await eliminarRegistro("ventas", vLocal.id);
+              }
+
+              for (const v of ventasMapeadas) {
+                await guardarRegistro("ventas", v);
+              }
+            }
+
+            set({ ventas: ventasMapeadas, cargando: false });
+          }
+        } else {
+          set({ cargando: false });
+        }
+      } else {
+        set({ cargando: false });
+      }
     } catch (error) {
       console.error("Error al cargar ventas:", error);
       set({ cargando: false });
@@ -41,17 +101,15 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
   agregarVenta: async (venta) => {
     try {
-      // 1. Guardar en disco duro local
       await guardarRegistro("ventas", venta);
       set((estado) => ({ ventas: [venta, ...estado.ventas] }));
 
-      // 2. Sincronizar con Supabase
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         const { data: { session } } = await supabase.auth.getSession();
         
         if (tiendaId && session) {
-          // Insertar encabezado de la venta
+          venta.vendedor_id = session.user.id;
           await supabase.from('ventas').insert({
             id: venta.id,
             tienda_id: tiendaId,
@@ -65,7 +123,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             created_at: venta.fecha
           });
 
-          // Insertar el detalle de los productos vendidos
           const detalles = venta.articulos.map(art => ({
             venta_id: venta.id,
             producto_id: art.producto_id,
@@ -79,6 +136,9 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
           await supabase.from('venta_detalles').insert(detalles);
         }
+      } else {
+        // Encolar para cuando regrese el internet
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
       }
     } catch (error) {
       console.error("Error al guardar la venta:", error);
@@ -87,18 +147,15 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
   cancelarVenta: async (id) => {
     try {
-      // Modificamos el estado
       set((estado) => ({
         ventas: estado.ventas.map((v) => v.id === id ? { ...v, cancelada: true } : v)
       }));
 
-      // Guardamos la actualización en la BD Local
       const ventaActualizada = get().ventas.find(v => v.id === id);
       if (ventaActualizada) {
         await guardarRegistro("ventas", ventaActualizada);
       }
 
-      // Sincronizamos cancelación en Supabase
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
@@ -107,9 +164,33 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             .eq('id', id)
             .eq('tienda_id', tiendaId);
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
       }
     } catch (error) {
       console.error("Error al cancelar la venta:", error);
+    }
+  },
+
+  // Sincronización silenciosa para WebSockets
+  sincronizarVenta: async (payload: any) => {
+    const { eventType, new: nuevo, old: viejo } = payload;
+    const { ventas } = get();
+
+    if (eventType === 'DELETE') {
+      if (esEscritorio) await eliminarRegistro("ventas", viejo.id);
+      set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
+    } else if (eventType === 'UPDATE') {
+      const actualizadas = ventas.map(v => v.id === nuevo.id ? { ...v, cancelada: nuevo.cancelada } : v);
+      if (esEscritorio) {
+        const modificada = actualizadas.find(v => v.id === nuevo.id);
+        if (modificada) await guardarRegistro("ventas", modificada);
+      }
+      set({ ventas: actualizadas });
+    } else if (eventType === 'INSERT') {
+      // Si insertan desde otra PC, disparamos una recarga rápida solo de esta tabla para traer los detalles, 
+      // o podríamos aislar la petición a esa sola venta para no recargar todo
+      get().cargarVentas();
     }
   }
 }));

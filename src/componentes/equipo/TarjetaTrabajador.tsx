@@ -1,9 +1,10 @@
 // src/componentes/equipo/TarjetaTrabajador.tsx
-import React, { useState, useMemo } from "react";
-import { useEstadoTrabajadores, type Trabajador, type HorarioSemanal } from "../../estado/estadoTrabajadores";
+import React, { useState, useMemo, useEffect } from "react";
+import { useEstadoTrabajadores, type Trabajador, type PermisosTrabajador, type HorarioSemanal } from "../../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
 import { useEstadoVentas } from "../../estado/estadoVentas";
-import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, Eye, Clock, FileText } from "lucide-react";
+// Se agregó el ícono "Save" a la importación
+import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, Eye, Clock, FileText, Save } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionPin from "../ui/ModalConfirmacionPin";
 
@@ -16,6 +17,36 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
   const [pestaña, setPestaña] = useState<"PERFIL" | "HORARIO" | "ASISTENCIA" | "AUTORIZACIONES">("PERFIL");
   const [mostrarSalario, setMostrarSalario] = useState(false);
   const [modalEliminar, setModalEliminar] = useState(false);
+
+  // --- NUEVO: Estado local para el formulario de Perfil ---
+  const [formLocal, setFormLocal] = useState<Trabajador>(trabajador);
+  const [hayCambios, setHayCambios] = useState(false);
+
+  // Sincronizar si el trabajador cambia externamente y no estamos editando
+  useEffect(() => {
+    if (!hayCambios) {
+      setFormLocal(trabajador);
+    }
+  }, [trabajador, hayCambios]);
+
+  const manejarCambio = (campo: keyof Trabajador, valor: any) => {
+    setFormLocal(prev => ({ ...prev, [campo]: valor }));
+    setHayCambios(true);
+  };
+
+  const manejarPermiso = (permiso: keyof PermisosTrabajador, valor: boolean) => {
+    setFormLocal(prev => ({
+      ...prev,
+      permisos: { ...(prev.permisos || {}), [permiso]: valor } as PermisosTrabajador
+    }));
+    setHayCambios(true);
+  };
+
+  const guardarCambiosPerfil = () => {
+    actualizarTrabajador(formLocal);
+    setHayCambios(false);
+  };
+  // --------------------------------------------------------
 
   // Lógica de Permisos Estrictos
   const esDueñoEnSesion = trabajadorActivo?.rol === "DUENO";
@@ -31,12 +62,12 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
   // Regla: Supervisor puede editar horarios (si tiene el check), pero NUNCA su propio horario.
   const puedeEditarHorarios = esDueñoEnSesion || (esSupervisorEnSesion && trabajadorActivo?.permisos?.cambiarHorarios && !esElMismo);
 
-  // Lógica de Notas
+  // Lógica de Notas usando el estado local
   const contarPalabras = (texto: string) => texto.trim().split(/\s+/).filter(w => w.length > 0).length;
   const manejarNotas = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const texto = e.target.value;
     if (contarPalabras(texto) <= 200) {
-      actualizarTrabajador({ ...trabajador, notas: texto });
+      manejarCambio("notas", texto);
     }
   };
 
@@ -58,6 +89,16 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     );
   }, [ventas, trabajador.nombre]);
 
+  // --- CORRECCIÓN: Filtro robusto para las asistencias ---
+  const asistenciasRecientes = useMemo(() => {
+    if (!asistencias) return [];
+    return asistencias
+      .filter(a => String(a.trabajadorId).trim() === String(trabajador.id).trim())
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+      .slice(0, 7);
+  }, [asistencias, trabajador.id]);
+  // -------------------------------------------------------
+
   const calculoAutorizaciones = useMemo(() => {
     const hoy = new Date();
     const hace1Semana = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -73,13 +114,6 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
     });
     return { sem, mes, meses6 };
   }, [ventasAutorizadas]);
-
-  const asistenciasRecientes = useMemo(() => {
-    return asistencias
-      .filter(a => a.trabajadorId === trabajador.id)
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-      .slice(0, 7);
-  }, [asistencias, trabajador.id]);
 
   const validarRetardo = (fecha: string, entradaReal: string) => {
     const date = new Date(`${fecha}T12:00:00`); 
@@ -156,21 +190,20 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">Nombre Completo</label>
-                    <input type="text" readOnly={!puedeEditarInfoGeneral} value={trabajador.nombre} onChange={(e) => actualizarTrabajador({...trabajador, nombre: e.target.value})} className={cssInput} disabled={!puedeEditarInfoGeneral} />
+                    <input type="text" readOnly={!puedeEditarInfoGeneral} value={formLocal.nombre} onChange={(e) => manejarCambio("nombre", e.target.value)} className={cssInput} disabled={!puedeEditarInfoGeneral} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">Fecha de Ingreso</label>
-                    <input type="date" readOnly={!puedeEditarInfoGeneral} value={trabajador.fechaIngreso || ""} onChange={(e) => actualizarTrabajador({...trabajador, fechaIngreso: e.target.value})} className={cssInput} disabled={!puedeEditarInfoGeneral} />
+                    <input type="date" readOnly={!puedeEditarInfoGeneral} value={formLocal.fechaIngreso || ""} onChange={(e) => manejarCambio("fechaIngreso", e.target.value)} className={cssInput} disabled={!puedeEditarInfoGeneral} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between">
                       PIN de Acceso
                       {!esDueñoEnSesion && <span className="text-[10px] text-slate-400 font-normal">(Solo Dueño)</span>}
                     </label>
-                    <input type="text" readOnly={!esDueñoEnSesion} disabled={!esDueñoEnSesion} value={esDueñoEnSesion ? trabajador.pin : "••••••"} onChange={(e) => actualizarTrabajador({...trabajador, pin: e.target.value.toUpperCase()})} maxLength={6} className={cn(cssInput, "font-mono font-bold tracking-widest")} />
+                    <input type="text" readOnly={!esDueñoEnSesion} disabled={!esDueñoEnSesion} value={esDueñoEnSesion ? formLocal.pin : "••••••"} onChange={(e) => manejarCambio("pin", e.target.value.toUpperCase())} maxLength={6} className={cn(cssInput, "font-mono font-bold tracking-widest")} />
                   </div>
                   
-                  {/* Visibilidad y edición de salario controladas */}
                   {puedeVerSalario && (
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between">
@@ -179,7 +212,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                        <input type={mostrarSalario ? "number" : "password"} readOnly={!puedeEditarSalario} disabled={!puedeEditarSalario} value={trabajador.salario || ""} onChange={(e) => actualizarTrabajador({...trabajador, salario: Number(e.target.value)})} className={cn(cssInput, "pl-7")} />
+                        <input type={mostrarSalario ? "number" : "password"} readOnly={!puedeEditarSalario} disabled={!puedeEditarSalario} value={formLocal.salario || ""} onChange={(e) => manejarCambio("salario", Number(e.target.value))} className={cn(cssInput, "pl-7")} />
                       </div>
                     </div>
                   )}
@@ -187,22 +220,22 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
 
                 <div>
                   <label className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">
-                    Notas y Observaciones <span className="font-normal text-slate-400">{contarPalabras(trabajador.notas || "")} / 200 palabras</span>
+                    Notas y Observaciones <span className="font-normal text-slate-400">{contarPalabras(formLocal.notas || "")} / 200 palabras</span>
                   </label>
-                  <textarea readOnly={!puedeEditarInfoGeneral} disabled={!puedeEditarInfoGeneral} value={trabajador.notas || ""} onChange={manejarNotas} rows={3} className={cn(cssInput, "resize-none")} placeholder="Información relevante, faltas, acuerdos..." />
+                  <textarea readOnly={!puedeEditarInfoGeneral} disabled={!puedeEditarInfoGeneral} value={formLocal.notas || ""} onChange={manejarNotas} rows={3} className={cn(cssInput, "resize-none")} placeholder="Información relevante, faltas, acuerdos..." />
                 </div>
 
                 {trabajador.rol === "TRABAJADOR" && puedeEditarInfoGeneral && (
                   <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 space-y-3">
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><ShieldCheck size={16} className="text-emerald-600" /> Permisos del Trabajador</p>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.editarProductos || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), editarProductos: e.target.checked} as any})} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir editar productos/categorías
+                      <input type="checkbox" checked={formLocal.permisos?.editarProductos || false} onChange={(e) => manejarPermiso("editarProductos", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir editar productos/categorías
                     </label>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.eliminarProductos || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), eliminarProductos: e.target.checked} as any})} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir eliminar productos
+                      <input type="checkbox" checked={formLocal.permisos?.eliminarProductos || false} onChange={(e) => manejarPermiso("eliminarProductos", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir eliminar productos
                     </label>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.actualizarStockCodigo || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), actualizarStockCodigo: e.target.checked} as any})} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir ajustar stock y códigos de barras
+                      <input type="checkbox" checked={formLocal.permisos?.actualizarStockCodigo || false} onChange={(e) => manejarPermiso("actualizarStockCodigo", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir ajustar stock y códigos de barras
                     </label>
                   </div>
                 )}
@@ -213,21 +246,33 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                       <ShieldCheck size={16} /> Permisos de Supervisor
                     </p>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.cambiarHorarios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarHorarios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar horarios y días de trabajadores
+                      <input type="checkbox" checked={formLocal.permisos?.cambiarHorarios || false} onChange={(e) => manejarPermiso("cambiarHorarios", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar horarios y días de trabajadores
                     </label>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.hacerCancelaciones ?? true} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), hacerCancelaciones: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Autorizar cancelaciones de ventas o preventas
+                      <input type="checkbox" checked={formLocal.permisos?.hacerCancelaciones ?? true} onChange={(e) => manejarPermiso("hacerCancelaciones", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Autorizar cancelaciones de ventas o preventas
                     </label>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.cambiarInfoTicket || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarInfoTicket: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar información editable del ticket
+                      <input type="checkbox" checked={formLocal.permisos?.cambiarInfoTicket || false} onChange={(e) => manejarPermiso("cambiarInfoTicket", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar información editable del ticket
                     </label>
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={trabajador.permisos?.cambiarPrecios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), cambiarPrecios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar precios de los productos
+                      <input type="checkbox" checked={formLocal.permisos?.cambiarPrecios || false} onChange={(e) => manejarPermiso("cambiarPrecios", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Cambiar precios de los productos
                     </label>
-                    {/* NUEVO PERMISO DE SALARIOS */}
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer border-t border-indigo-200 dark:border-indigo-800/50 pt-2 mt-2">
-                      <input type="checkbox" checked={trabajador.permisos?.verSalarios || false} onChange={(e) => actualizarTrabajador({...trabajador, permisos: {...(trabajador.permisos || {}), verSalarios: e.target.checked} as any})} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Permitir VISUALIZAR el salario de los trabajadores
+                      <input type="checkbox" checked={formLocal.permisos?.verSalarios || false} onChange={(e) => manejarPermiso("verSalarios", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Permitir VISUALIZAR el salario de los trabajadores
                     </label>
+                  </div>
+                )}
+
+                {/* BOTÓN DE GUARDAR CAMBIOS */}
+                {hayCambios && puedeEditarInfoGeneral && (
+                  <div className="flex justify-end pt-4 mt-2">
+                    <button
+                      onClick={guardarCambiosPerfil}
+                      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30"
+                    >
+                      <Save size={18} />
+                      Guardar Cambios
+                    </button>
                   </div>
                 )}
 

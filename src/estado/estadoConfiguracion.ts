@@ -1,6 +1,6 @@
 // src/estado/estadoConfiguracion.ts
 import { create } from "zustand";
-import { guardarRegistro, obtenerRegistros } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
@@ -9,8 +9,8 @@ export interface Configuracion {
   id: string;
   nombreTienda: string;
   mensajeTicket: string;
-  direccionTienda: string; // <-- NUEVO CAMPO
-  logoTienda: string;      // <-- NUEVO CAMPO
+  direccionTienda: string; 
+  logoTienda: string;      
   directorioImagenes: string | null;
   directorioHandle: any | null; 
   sincronizacionNube: boolean;
@@ -28,12 +28,13 @@ export interface Configuracion {
 interface EstadoConfiguracion extends Configuracion {
   cargando: boolean;
   cargarConfiguracion: () => Promise<void>;
-  actualizarDatosTienda: (nombre: string, mensaje: string, direccion: string, logo: string) => Promise<void>; // <-- ACTUALIZADO
+  actualizarDatosTienda: (nombre: string, mensaje: string, direccion: string, logo: string) => Promise<void>;
   setDirectorioImagenes: (nombreCarpeta: string, handle: any) => Promise<void>;
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
   actualizarDatosPago: (datos: Partial<Configuracion>) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
+  sincronizarConfiguracion: (payload: any) => Promise<void>; // <-- NUEVO: Para tiempo real
 }
 
 const CONFIG_ID = "config_principal";
@@ -42,8 +43,8 @@ const CONFIG_INICIAL: Configuracion = {
   id: CONFIG_ID,
   nombreTienda: "Mi Tienda",
   mensajeTicket: "¡Gracias por su preferencia! Vuelva pronto.",
-  direccionTienda: "", // <-- VALOR INICIAL
-  logoTienda: "",      // <-- VALOR INICIAL
+  direccionTienda: "", 
+  logoTienda: "",      
   directorioImagenes: null,
   directorioHandle: null,
   sincronizacionNube: false,
@@ -118,7 +119,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
-  // ACTUALIZADO: Ahora recibe y procesa la dirección y el logo
   actualizarDatosTienda: async (nombre, mensaje, direccion, logo) => {
     try {
       const configBase = get();
@@ -141,6 +141,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) await supabase.from('tiendas').update({ nombre }).eq('id', tiendaId);
+      } else {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { nombre } });
       }
     } catch (error) {
       console.error("Error al guardar datos de la tienda:", error);
@@ -193,16 +195,20 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       if (esEscritorio) await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
       set(datos);
 
+      const payloadNube = {
+        mensaje_pago: nuevaConfig.mensajePago,
+        banco_transferencia: nuevaConfig.bancoTransferencia,
+        titular_transferencia: nuevaConfig.titularTransferencia,
+        cuenta_transferencia: nuevaConfig.cuentaTransferencia
+      };
+
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('tiendas').update({
-            mensaje_pago: nuevaConfig.mensajePago,
-            banco_transferencia: nuevaConfig.bancoTransferencia,
-            titular_transferencia: nuevaConfig.titularTransferencia,
-            cuenta_transferencia: nuevaConfig.cuentaTransferencia
-          }).eq('id', tiendaId);
+          await supabase.from('tiendas').update(payloadNube).eq('id', tiendaId);
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: payloadNube });
       }
     } catch (error) {
       console.error("Error al guardar datos de pago:", error);
@@ -218,4 +224,28 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
     set({ correoDueno: correoLimpio });
   },
+
+  sincronizarConfiguracion: async (payload: any) => {
+    const { new: nuevo } = payload;
+    if (nuevo) {
+      const actualizacion = {
+        nombreTienda: nuevo.nombre,
+        mensajePago: nuevo.mensaje_pago,
+        bancoTransferencia: nuevo.banco_transferencia || "",
+        titularTransferencia: nuevo.titular_transferencia || "",
+        cuentaTransferencia: nuevo.cuenta_transferencia || ""
+      };
+      
+      set((state) => ({ ...state, ...actualizacion }));
+      
+      if (esEscritorio) {
+        const configBase = get();
+        await guardarRegistro("configuracion", { 
+          ...configBase, 
+          ...actualizacion, 
+          directorioHandle: configBase.directorioHandle 
+        });
+      }
+    }
+  }
 }));

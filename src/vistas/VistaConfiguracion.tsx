@@ -17,7 +17,6 @@ interface Dispositivo {
   tienda_id: string;
 }
 
-// 1. Aquí declaramos la interfaz
 interface DirectorioHandle {
   name: string;
   kind: string;
@@ -29,7 +28,6 @@ interface NavegadorExtendido {
     obtenerHardwareId?: () => Promise<string>;
     seleccionarCarpeta?: () => Promise<string>;
   };
-  // 2. Aquí la UTILIZAMOS indicando que la promesa devuelve un <DirectorioHandle>
   showDirectoryPicker?: (options?: { mode: string }) => Promise<DirectorioHandle>;
 }
 
@@ -48,17 +46,25 @@ export default function VistaConfiguracion() {
   const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
   const puedeEditarTicket = esDueño || (esSupervisor && trabajadorActivo?.permisos?.cambiarInfoTicket);
 
+  // Estados Locales para Datos de la Tienda
   const [inputNombre, setInputNombre] = useState(nombreTienda || "");
   const [inputMensaje, setInputMensaje] = useState(mensajeTicket || "");
   const [inputDireccion, setInputDireccion] = useState(direccionTienda || "");
   const [inputLogo, setInputLogo] = useState(logoTienda || "");
-  
-  const [guardado, setGuardado] = useState(false);
+  const [guardadoTienda, setGuardadoTienda] = useState(false);
+
+  // Estados Locales para Pagos y Atajos (Mejora con Botón de Guardar)
+  const [formPago, setFormPago] = useState({
+    teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago
+  });
+  const [cambiosPago, setCambiosPago] = useState(false);
+  const [guardadoPago, setGuardadoPago] = useState(false);
+  const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
+
   const [importando, setImportando] = useState(false);
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
-  const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
-  const [datosPago, setDatosPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
 
+  // Estados de Red Local
   const [ipLocalPC, setIpLocalPC] = useState("");
   const [inputIpConexion, setInputIpConexion] = useState(ipMaestro);
 
@@ -71,12 +77,24 @@ export default function VistaConfiguracion() {
   const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
   const suscripcionActiva = true;
 
+  // Cargar IP Local
   useEffect(() => {
     if (esMaestro && esAppEscritorio && win.apiLocal?.obtenerIpLocal) {
       win.apiLocal.obtenerIpLocal().then(setIpLocalPC);
     }
   }, [esMaestro, esAppEscritorio, win.apiLocal]);
 
+  // Sincronizar estado global de pagos con el formulario local si cambia en la nube
+  useEffect(() => {
+    if (!cambiosPago) {
+      setFormPago({
+        teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago
+      });
+      setTeclaTemporal(teclaCobro);
+    }
+  }, [teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago, cambiosPago]);
+
+  // Cargar Dispositivos
   useEffect(() => {
     const cargarDispositivos = async () => {
       if (!esDueño || !navigator.onLine) return;
@@ -125,12 +143,35 @@ export default function VistaConfiguracion() {
     setEditandoDispId(null);
   };
 
-  const manejarGuardarGeneral = (e: React.FormEvent) => {
+  const manejarGuardarTienda = (e: React.FormEvent) => {
     e.preventDefault();
     if (!puedeEditarTicket && !esDueño) return;
     actualizarDatosTienda(inputNombre, inputMensaje, inputDireccion, inputLogo);
-    setGuardado(true);
-    setTimeout(() => setGuardado(false), 2000);
+    setGuardadoTienda(true);
+    setTimeout(() => setGuardadoTienda(false), 2000);
+  };
+
+  const manejarGuardarPagos = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!esDueño) return;
+    await setTeclaCobro(teclaTemporal);
+    await actualizarDatosPago(formPago);
+    setCambiosPago(false);
+    setGuardadoPago(true);
+    setTimeout(() => setGuardadoPago(false), 2000);
+  };
+
+  const actualizarDatoPago = (campo: keyof typeof formPago, valor: string) => {
+    if (!esDueño) return;
+    setFormPago(prev => ({ ...prev, [campo]: valor }));
+    setCambiosPago(true);
+  };
+
+  const capturarTeclaPago = (campo: "teclaEfectivo" | "teclaTarjeta" | "teclaTransferencia", evento: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!esDueño) return;
+    evento.preventDefault();
+    const tecla = evento.key.length === 1 ? evento.key.toUpperCase() : evento.key;
+    actualizarDatoPago(campo, tecla);
   };
 
   const manejarLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +196,6 @@ export default function VistaConfiguracion() {
       return;
     }
 
-    // Usamos el objeto global explícitamente para evitar problemas de contexto en tiempo de ejecución
     const navegador = window as any;
     if (typeof navegador.showDirectoryPicker === 'function') {
       try {
@@ -167,7 +207,7 @@ export default function VistaConfiguracion() {
     } else {
       setAviso({ 
         titulo: "Función bloqueada por el navegador", 
-        mensaje: "La selección de carpetas locales requiere usar Chrome/Edge y estar en una conexión segura (localhost o HTTPS). Las IP locales (ej. 192.168.X.X) bloquean esta opción por seguridad." 
+        mensaje: "La selección de carpetas locales requiere usar Chrome/Edge y estar en una conexión segura." 
       });
     }
   };
@@ -187,28 +227,6 @@ export default function VistaConfiguracion() {
     } finally {
       setImportando(false);
     }
-  };
-
-  const capturarTeclaCobro = async (evento: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!esDueño) return;
-    evento.preventDefault();
-    const tecla = evento.key.length === 1 ? evento.key.toUpperCase() : evento.key;
-    setTeclaTemporal(tecla);
-    await setTeclaCobro(tecla);
-  };
-
-  const capturarTeclaPago = async (campo: "teclaEfectivo" | "teclaTarjeta" | "teclaTransferencia", evento: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!esDueño) return;
-    evento.preventDefault();
-    const tecla = evento.key.length === 1 ? evento.key.toUpperCase() : evento.key;
-    const nuevosDatos = { ...datosPago, [campo]: tecla };
-    setDatosPago(nuevosDatos);
-    await actualizarDatosPago(nuevosDatos);
-  };
-
-  const actualizarDatoPago = (campo: "bancoTransferencia" | "titularTransferencia" | "cuentaTransferencia" | "mensajePago", valor: string) => {
-    if (!esDueño) return;
-    setDatosPago((actual) => ({ ...actual, [campo]: valor }));
   };
 
   const descargarInstalador = () => setAviso({ titulo: "Descarga iniciada", mensaje: "El archivo instalador (.exe) comenzará a descargarse." });
@@ -253,7 +271,7 @@ export default function VistaConfiguracion() {
                 <Lock size={24} className="shrink-0" />
                 <div className="flex flex-col leading-tight">
                   <span>Sistema Encriptado Activo</span>
-                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500 mt-1">Estás utilizando la versión de Windows. Tu inventario y configuraciones están resguardados localmente con seguridad de grado militar.</span>
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500 mt-1">Estás utilizando la versión de Windows. Tu inventario y configuraciones están resguardados localmente con seguridad.</span>
                 </div>
               </div>
             ) : (
@@ -270,7 +288,7 @@ export default function VistaConfiguracion() {
           </div>
         </div>
 
-        {/* LÓGICA RED LOCAL (LAN) */}
+        {/* --- LÓGICA RED LOCAL (LAN) MEJORADA --- */}
         {esDueño && (
           <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2 bg-gradient-to-br from-indigo-50/50 to-transparent dark:from-indigo-950/20">
             <h2 className="text-lg font-bold flex items-center gap-2 text-indigo-700 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 pb-3">
@@ -308,7 +326,14 @@ export default function VistaConfiguracion() {
                 {esMaestro && ipLocalPC && (
                   <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
                     <span className="block text-[10px] uppercase font-bold text-indigo-500 tracking-wider mb-1">Escribe este código en tus otros equipos:</span>
-                    <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
+                    {ipLocalPC === "127.0.0.1" ? (
+                      <div className="mt-2 text-xs font-bold text-red-600 dark:text-red-400 flex flex-col items-center gap-1 bg-red-100/50 dark:bg-red-900/30 p-2 rounded-lg">
+                        <AlertTriangle size={16} />
+                        <span>Conéctate a una red Wi-Fi o router local para generar un código válido.</span>
+                      </div>
+                    ) : (
+                      <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -318,7 +343,10 @@ export default function VistaConfiguracion() {
                   <Smartphone size={24} />
                 </div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">Equipo Conectado (Cliente)</h3>
-                <p className="text-xs text-slate-500 mb-4 px-2">Usa esta opción en celulares o cajas secundarias. Escribe el código del Cerebro aquí.</p>
+                <p className="text-xs text-slate-500 mb-4 px-2">
+                  <strong className="text-emerald-700 dark:text-emerald-400 block mb-1">¿Cómo conectan los trabajadores?</strong>
+                  Inicia sesión temporalmente como Dueño en el celular/tablet, guarda el código aquí y cierra sesión. El equipo quedará vinculado.
+                </p>
                 
                 {esMaestro ? (
                   <button onClick={() => { setEsMaestro(false); window.location.reload(); }} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">
@@ -414,7 +442,7 @@ export default function VistaConfiguracion() {
             <Store size={20} className="text-emerald-600 dark:text-emerald-400" />
             Datos de la Tienda (Visible en Ticket)
           </h2>
-          <form onSubmit={manejarGuardarGeneral} className="flex flex-col gap-4">
+          <form onSubmit={manejarGuardarTienda} className="flex flex-col gap-4">
             <div className="flex gap-4 items-start">
               <div className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 overflow-hidden relative flex items-center justify-center bg-slate-50 dark:bg-slate-900">
                 {inputLogo ? (
@@ -458,38 +486,75 @@ export default function VistaConfiguracion() {
             </div>
             {(esDueño || puedeEditarTicket) && (
               <button type="submit" className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-medium transition-all text-sm">
-                {guardado ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />}
-                {guardado ? "Guardado" : "Guardar Cambios"}
+                {guardadoTienda ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />}
+                {guardadoTienda ? "Guardado" : "Guardar Cambios"}
               </button>
             )}
           </form>
         </div>
 
-        {/* --- ATAJOS Y MÉTODOS DE PAGO --- */}
+        {/* --- ATAJOS Y MÉTODOS DE PAGO MEJORADO --- */}
         <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 dark:border-slate-800 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">Atajos de teclado y Métodos de pago</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400">Selecciona el campo y presiona una tecla para asignar el atajo rápido.</p>
           
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex flex-col">
-              Cobro General
-              <input type="text" readOnly disabled={!esDueño} value={teclaTemporal} onKeyDown={capturarTeclaCobro} onFocus={(evento) => evento.currentTarget.select()} className="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-2 text-center text-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300 disabled:text-slate-500" />
-            </label>
-            {(["teclaEfectivo", "teclaTarjeta", "teclaTransferencia"] as const).map((campo) => (
-              <label key={campo} className="text-xs font-medium text-slate-600 dark:text-slate-300 flex flex-col">
-                {campo === "teclaEfectivo" ? "Efectivo" : campo === "teclaTarjeta" ? "Tarjeta" : "Transferencia"}
-                <input readOnly disabled={!esDueño} value={datosPago[campo]} onKeyDown={(evento) => capturarTeclaPago(campo, evento)} onFocus={(evento) => evento.currentTarget.select()} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center text-lg font-bold dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" />
+          <form onSubmit={manejarGuardarPagos} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex flex-col">
+                Cobro General
+                <input 
+                  type="text" readOnly disabled={!esDueño} 
+                  value={teclaTemporal} 
+                  onKeyDown={(e) => {
+                    e.preventDefault();
+                    setTeclaTemporal(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+                    setCambiosPago(true);
+                  }} 
+                  onFocus={(evento) => evento.currentTarget.select()} 
+                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-2 text-center text-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300 disabled:text-slate-500" 
+                />
               </label>
-            ))}
-          </div>
-          
-          <h3 className="pt-2 text-sm font-bold text-slate-900 dark:text-slate-100">Datos de transferencia</h3>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {(["bancoTransferencia", "titularTransferencia", "cuentaTransferencia"] as const).map((campo) => (
-              <input key={campo} disabled={!esDueño} value={datosPago[campo]} onChange={(evento) => actualizarDatoPago(campo, evento.target.value)} onBlur={() => actualizarDatosPago(datosPago)} placeholder={campo === "bancoTransferencia" ? "Banco" : campo === "titularTransferencia" ? "Titular (opcional)" : "Número de cuenta"} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" />
-            ))}
-          </div>
-          <input disabled={!esDueño} value={datosPago.mensajePago} onChange={(evento) => actualizarDatoPago("mensajePago", evento.target.value)} onBlur={() => actualizarDatosPago(datosPago)} placeholder="Mensaje después del pago" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" />
+              {(["teclaEfectivo", "teclaTarjeta", "teclaTransferencia"] as const).map((campo) => (
+                <label key={campo} className="text-xs font-medium text-slate-600 dark:text-slate-300 flex flex-col">
+                  {campo === "teclaEfectivo" ? "Efectivo" : campo === "teclaTarjeta" ? "Tarjeta" : "Transferencia"}
+                  <input 
+                    readOnly disabled={!esDueño} 
+                    value={formPago[campo]} 
+                    onKeyDown={(evento) => capturarTeclaPago(campo, evento)} 
+                    onFocus={(evento) => evento.currentTarget.select()} 
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center text-lg font-bold dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" 
+                  />
+                </label>
+              ))}
+            </div>
+            
+            <h3 className="pt-2 text-sm font-bold text-slate-900 dark:text-slate-100">Datos de transferencia</h3>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(["bancoTransferencia", "titularTransferencia", "cuentaTransferencia"] as const).map((campo) => (
+                <input 
+                  key={campo} disabled={!esDueño} 
+                  value={formPago[campo]} 
+                  onChange={(evento) => actualizarDatoPago(campo, evento.target.value)} 
+                  placeholder={campo === "bancoTransferencia" ? "Banco" : campo === "titularTransferencia" ? "Titular (opcional)" : "Número de cuenta"} 
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" 
+                />
+              ))}
+            </div>
+            <input 
+              disabled={!esDueño} 
+              value={formPago.mensajePago} 
+              onChange={(evento) => actualizarDatoPago("mensajePago", evento.target.value)} 
+              placeholder="Mensaje después del pago" 
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900 disabled:text-slate-500" 
+            />
+
+            {esDueño && cambiosPago && (
+              <button type="submit" className="self-end mt-2 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30 text-sm">
+                {guardadoPago ? <CheckCircle2 size={16} /> : <Save size={16} />}
+                {guardadoPago ? "Guardado" : "Guardar Cambios"}
+              </button>
+            )}
+          </form>
         </div>
 
         {/* --- ALMACENAMIENTO E IMPORTACIÓN --- */}

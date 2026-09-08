@@ -5,6 +5,9 @@ import { obtenerPendientesSync, eliminarPendienteSync } from "../servicios/db";
 import { cifrarPin } from "../utilidades/seguridad";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEstadoVentas } from "../estado/estadoVentas";
+import { useEstadoCaja } from "../estado/estadoCaja";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 
 export function useSincronizacion() {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
@@ -32,6 +35,8 @@ export function useSincronizacion() {
 
       const pendientes = await obtenerPendientesSync();
       if (pendientes.length === 0) return;
+
+      console.log(`Procesando ${pendientes.length} acciones pendientes (Sincronización Automática)...`);
 
       const { categorias } = useEstadoInventario.getState();
 
@@ -95,6 +100,56 @@ export function useSincronizacion() {
                 hora_salida: payload.horaSalida,
                 desconexiones: payload.desconexiones
               };
+            } else if (tabla === 'turnos_caja') {
+              dataUpsert = {
+                id: payload.id,
+                tienda_id: tiendaId,
+                trabajador_id: payload.trabajadorId,
+                nombre_trabajador: payload.nombreTrabajador,
+                fecha_inicio: payload.fechaInicio,
+                fecha_fin: payload.fechaFin,
+                fondo_inicial: payload.fondoInicial,
+                fondo_dejado: payload.fondoDejado,
+                ventas_calculadas: payload.ventasCalculadas,
+                nota_trabajador: payload.notaTrabajador,
+                nota_dueno: payload.notaDueno,
+                estatus: payload.estatus
+              };
+            } else if (tabla === 'ventas') {
+              if (operacion === 'AGREGAR') {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                  await supabase.from('ventas').insert({
+                    id: payload.id,
+                    tienda_id: tiendaId,
+                    vendedor_id: payload.vendedor_id || session.user.id,
+                    trabajador_nombre: payload.trabajador,
+                    subtotal: payload.subtotal,
+                    descuento: payload.descuento,
+                    total: payload.total,
+                    metodo_pago: payload.metodoPago,
+                    cancelada: payload.cancelada || false,
+                    created_at: payload.fecha
+                  });
+
+                  const detalles = payload.articulos.map((art: any) => ({
+                    venta_id: payload.id,
+                    producto_id: art.producto_id,
+                    nombre_producto: art.nombre,
+                    cantidad: art.cantidad,
+                    precio_unitario: art.precio,
+                    subtotal: art.subtotal,
+                    autorizacion_confirmada: art.autorizacion_confirmada || false
+                  }));
+                  await supabase.from('venta_detalles').insert(detalles);
+                }
+              } else if (operacion === 'ACTUALIZAR') {
+                await supabase.from('ventas').update({ cancelada: payload.cancelada }).eq('id', payload.id).eq('tienda_id', tiendaId);
+              }
+              dataUpsert = null; 
+            } else if (tabla === 'tiendas') {
+              await supabase.from('tiendas').update(payload).eq('id', tiendaId);
+              dataUpsert = null;
             }
 
             if (dataUpsert) {
@@ -126,7 +181,6 @@ export function useSincronizacion() {
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) return;
 
-      // Inyección silenciosa del estado en memoria
       canalTiempoReal = supabase.channel('sincronizacion-tienda')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'miembros_tienda', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoTrabajadores.getState().sincronizarTrabajador(payload);
@@ -136,6 +190,16 @@ export function useSincronizacion() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoInventario.getState().sincronizarCategoria(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoVentas.getState().sincronizarVenta(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'turnos_caja', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoCaja.getState().sincronizarTurno(payload);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tiendas', filter: `id=eq.${tiendaId}` }, (payload) => {
+          useEstadoCaja.getState().sincronizarTienda(payload);
+          useEstadoConfiguracion.getState().sincronizarConfiguracion(payload);
         })
         .subscribe();
     };
