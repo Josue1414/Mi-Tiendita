@@ -1,6 +1,6 @@
 // src/estado/estadoTrabajadores.ts
 import { create } from "zustand";
-import { guardarRegistro, obtenerRegistros, eliminarRegistro } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { cifrarPin, descifrarPin } from "../utilidades/seguridad";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
@@ -78,6 +78,7 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     try {
       let estadoTrabajadores: Trabajador[] = [];
 
+      // 1. Carga inicial rápida desde caché local (Offline-first)
       if (esEscritorio) {
         const data = await obtenerRegistros("trabajadores");
         if (data.length === 0) {
@@ -92,30 +93,15 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         set({ trabajadores: estadoTrabajadores, cargando: false });
       }
 
+      // 2. Sincronización inteligente con la nube (Diff y Purga)
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          if (esEscritorio && estadoTrabajadores.length > 0) {
-            const trabajadoresValidos = estadoTrabajadores.filter(t => t.id.length > 10);
-            
-            if (trabajadoresValidos.length > 0) {
-              const payload = trabajadoresValidos.map(t => ({
-                tienda_id: tiendaId,
-                usuario_id: t.id,
-                rol: t.rol,
-                nombre: t.nombre,
-                pin_hash: cifrarPin(t.pin),
-                activo: t.activo,
-                horario: t.horarioSemanal || null,
-                permisos: t.permisos || null
-              }));
-              await supabase.from('miembros_tienda').upsert(payload, { onConflict: 'tienda_id, usuario_id' });
-            }
-          }
-
+          // A) Leer de Supabase primero
           const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
+          
           if (miembrosNube) {
-            estadoTrabajadores = miembrosNube.map((m: any) => ({
+            const trabajadoresNube = miembrosNube.map((m: any) => ({
               id: m.usuario_id,
               nombre: m.nombre,
               rol: m.rol,
@@ -127,12 +113,23 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
               horarioSemanal: m.horario
             }));
             
+            // B) Reconciliación: Borrar locales que ya no existen en la nube
             if (esEscritorio) {
-              for (const t of estadoTrabajadores) {
+              const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
+              
+              for (const tLocal of estadoTrabajadores) {
+                if (!idsNube.has(tLocal.id)) {
+                  await eliminarRegistro("trabajadores", tLocal.id);
+                }
+              }
+
+              // C) Guardar/Actualizar registros de la nube en local
+              for (const t of trabajadoresNube) {
                 await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
               }
             }
-            set({ trabajadores: estadoTrabajadores, cargando: false });
+            
+            set({ trabajadores: trabajadoresNube, cargando: false });
           }
         } else if (!esEscritorio) {
           set({ cargando: false });
@@ -181,6 +178,8 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
             permisos: trabajador.permisos
           });
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'AGREGAR', payload: trabajador });
       }
     } catch (error) {
       console.error("Error al agregar trabajador:", error);
@@ -211,6 +210,8 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
             permisos: trabajador.permisos
           }).eq('tienda_id', tiendaId).eq('usuario_id', trabajador.id);
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ACTUALIZAR', payload: trabajador });
       }
     } catch (error) {
       console.error("Error al actualizar trabajador:", error);
@@ -227,6 +228,8 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         if (tiendaId) {
           await supabase.from('miembros_tienda').delete().eq('tienda_id', tiendaId).eq('usuario_id', id);
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ELIMINAR', payload: id });
       }
     } catch (error) {
       console.error("Error al eliminar trabajador:", error);

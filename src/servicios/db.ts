@@ -2,7 +2,15 @@
 import { openDB } from "idb";
 
 const DB_NOMBRE = "mitiendita_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incrementada para soportar nuevas tablas
+
+export interface PendienteSync {
+  id: string;
+  tabla: string;
+  operacion: 'AGREGAR' | 'ACTUALIZAR' | 'ELIMINAR';
+  payload: any;
+  timestamp: number;
+}
 
 // Define la interfaz de nuestro puente de Electron para TypeScript
 declare global {
@@ -27,15 +35,21 @@ const initDB = async () => {
       if (!db.objectStoreNames.contains("productos")) {
         db.createObjectStore("productos", { keyPath: "id" });
       }
+      if (!db.objectStoreNames.contains("categorias")) {
+        db.createObjectStore("categorias", { keyPath: "id" });
+      }
       if (!db.objectStoreNames.contains("ventas")) {
         db.createObjectStore("ventas", { keyPath: "id" });
+      }
+      // Nueva tabla para operaciones offline
+      if (!db.objectStoreNames.contains("pendientes_sync")) {
+        db.createObjectStore("pendientes_sync", { keyPath: "id" });
       }
     },
   });
 };
 
 export const guardarRegistro = async (tabla: string, dato: any) => {
-  // Si estamos en la App de Windows, delegamos la seguridad a Electron
   if (window.apiLocal) {
     const todosLosRegistros = await obtenerRegistros(tabla);
     const index = todosLosRegistros.findIndex((r: any) => r.id === dato.id);
@@ -50,19 +64,16 @@ export const guardarRegistro = async (tabla: string, dato: any) => {
     return;
   }
 
-  // Respaldo en navegador (IndexedDB)
   const db = await initDB();
   await db.put(tabla, dato);
 };
 
 export const obtenerRegistros = async (tabla: string) => {
-  // Leer desde la carpeta encriptada en Windows
   if (window.apiLocal) {
     const datos = await window.apiLocal.leerDatos(tabla);
     return datos;
   }
 
-  // Respaldo en navegador
   const db = await initDB();
   return db.getAll(tabla);
 };
@@ -77,4 +88,25 @@ export const eliminarRegistro = async (tabla: string, id: string) => {
 
   const db = await initDB();
   await db.delete(tabla, id);
+};
+
+// --- NUEVAS FUNCIONES PARA COLA DE SINCRONIZACIÓN OFFLINE ---
+
+export const registrarPendienteSync = async (pendiente: Omit<PendienteSync, 'id' | 'timestamp'>) => {
+  const registroCompleto: PendienteSync = {
+    ...pendiente,
+    id: crypto.randomUUID(),
+    timestamp: Date.now()
+  };
+  await guardarRegistro("pendientes_sync", registroCompleto);
+};
+
+export const obtenerPendientesSync = async (): Promise<PendienteSync[]> => {
+  const pendientes = await obtenerRegistros("pendientes_sync");
+  // Ordenar del más antiguo al más reciente para procesarlos en orden cronológico
+  return pendientes.sort((a: PendienteSync, b: PendienteSync) => a.timestamp - b.timestamp);
+};
+
+export const eliminarPendienteSync = async (id: string) => {
+  await eliminarRegistro("pendientes_sync", id);
 };

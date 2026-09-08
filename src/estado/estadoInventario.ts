@@ -1,7 +1,7 @@
 // src/estado/estadoInventario.ts
 import { create } from "zustand";
 import type { Categoria, Producto } from "../tipos/producto";
-import { guardarRegistro, obtenerRegistros, eliminarRegistro } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { CATEGORIAS_INICIALES, siguienteColor } from "../utilidades/coloresCategoria";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { useEstadoRed } from "./estadoRed";
@@ -90,6 +90,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
 
+      // 1. Carga inicial rápida desde caché local (Offline-first)
       if (esEscritorio) {
         const dataLocal = await obtenerRegistros("productos");
         productosEstado = (dataLocal as Producto[]).map((p) => ({ ...p, descuento_porcentaje: p.descuento_porcentaje ?? 0 }));
@@ -102,43 +103,40 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
       }
 
+      // 2. Sincronización inteligente con la nube (Diff y Purga)
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          if (esEscritorio) {
-            if (categoriasEstado.length > 0) {
-              const catPayload = categoriasEstado.map(c => ({ id: c.id, tienda_id: tiendaId, nombre: c.nombre, color: c.color }));
-              await supabase.from('categorias').upsert(catPayload, { onConflict: 'id' });
-            }
-            if (productosEstado.length > 0) {
-              const prodPayload = productosEstado.map(p => {
-                const mapped = mapearProductoASupabase(p, tiendaId);
-                const cat = categoriasEstado.find(c => c.nombre === p.categoria);
-                if (cat) (mapped as any).categoria_id = cat.id;
-                return mapped;
-              });
-              for (let i = 0; i < prodPayload.length; i += 500) {
-                await supabase.from('productos').upsert(prodPayload.slice(i, i + 500), { onConflict: 'id' });
-              }
-            }
-          }
-
+          // A) Leer de Supabase primero
           const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
           const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
 
-          if (catSupabase) {
-            categoriasEstado = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
-            if (esEscritorio) for (const cat of categoriasEstado) await guardarRegistro("categorias", cat);
-          }
-
-          if (prodSupabase) {
-            productosEstado = prodSupabase.map(p => {
-              const catAsociada = categoriasEstado.find(c => c.id === p.categoria_id);
+          if (catSupabase && prodSupabase) {
+            const categoriasNube = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
+            const productosNube = prodSupabase.map(p => {
+              const catAsociada = categoriasNube.find(c => c.id === p.categoria_id);
               return mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
             });
-            if (esEscritorio) for (const prod of productosEstado) await guardarRegistro("productos", prod);
+
+            // B) Reconciliación: Borrar locales que ya no existen en la nube
+            if (esEscritorio) {
+              const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
+              const idsProductosNube = new Set(productosNube.map(p => p.id));
+
+              for (const catLocal of categoriasEstado) {
+                if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
+              }
+              for (const prodLocal of productosEstado) {
+                if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
+              }
+
+              // C) Guardar/Actualizar registros válidos en local
+              for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
+              for (const prod of productosNube) await guardarRegistro("productos", prod);
+            }
+
+            set({ productos: productosNube, categorias: categoriasNube, cargando: false });
           }
-          set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
         } else {
           if (!esEscritorio) set({ cargando: false });
         }
@@ -171,6 +169,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         if (cat) (payload as any).categoria_id = cat.id;
         await supabase.from('productos').upsert(payload);
       }
+    } else if (esMaestro) {
+      // Registrar operación pendiente si estamos offline
+      await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: producto });
     }
   },
 
@@ -195,6 +196,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         if (cat) (payload as any).categoria_id = cat.id;
         await supabase.from('productos').upsert(payload);
       }
+    } else if (esMaestro) {
+      await registrarPendienteSync({ tabla: 'productos', operacion: 'ACTUALIZAR', payload: productoActualizado });
     }
   },
 
@@ -214,6 +217,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('productos').delete().eq('id', id).eq('tienda_id', tiendaId);
+    } else if (esMaestro) {
+      await registrarPendienteSync({ tabla: 'productos', operacion: 'ELIMINAR', payload: id });
     }
   },
 
@@ -247,6 +252,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('categorias').upsert({ id: nueva.id, tienda_id: tiendaId, nombre: nueva.nombre, color: nueva.color });
+    } else if (esMaestro) {
+      await registrarPendienteSync({ tabla: 'categorias', operacion: 'AGREGAR', payload: nueva });
     }
     return nueva;
   },
@@ -286,6 +293,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('categorias').delete().eq('id', id).eq('tienda_id', tiendaId);
+    } else if (esMaestro) {
+      await registrarPendienteSync({ tabla: 'categorias', operacion: 'ELIMINAR', payload: id });
     }
   },
 
@@ -312,6 +321,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     for (const producto of productosActualizados) {
       const productoAnterior = get().productos.find((p) => p.id === producto.id);
       if (productoAnterior?.stock_actual !== producto.stock_actual) {
+        // Al usar actualizarProducto, si estamos offline, se registrará la operación pendiente automáticamente
         await get().actualizarProducto(producto, true); 
       }
     }

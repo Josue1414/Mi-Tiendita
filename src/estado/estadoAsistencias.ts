@@ -1,6 +1,6 @@
 // src/estado/estadoAsistencias.ts
 import { create } from "zustand";
-import { guardarRegistro, obtenerRegistros } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 export interface RegistroAsistencia {
@@ -24,12 +24,12 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
 
   cargarAsistencias: async () => {
     try {
-      // 1. Carga desde almacenamiento local
+      // 1. Carga desde almacenamiento local (Offline-first)
       const dataLocal = await obtenerRegistros("asistencias");
       let asistenciasMapeadas = dataLocal as RegistroAsistencia[];
       set({ asistencias: asistenciasMapeadas });
 
-      // 2. Sincronización con la nube (Supabase)
+      // 2. Sincronización con la nube (Diff y Purga)
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
@@ -48,12 +48,20 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
               desconexiones: a.desconexiones
             }));
             
-            set({ asistencias: asistenciasNube });
-            
-            // Actualizar persistencia local con los datos más recientes
+            // Reconciliación: Borrar locales que ya no existen en la nube
+            const idsNube = new Set(asistenciasNube.map(a => a.id));
+            for (const asisLocal of asistenciasMapeadas) {
+              if (!idsNube.has(asisLocal.id)) {
+                await eliminarRegistro("asistencias", asisLocal.id);
+              }
+            }
+
+            // Actualizar persistencia local con los datos más recientes de la nube
             for (const asis of asistenciasNube) {
               await guardarRegistro("asistencias", asis);
             }
+
+            set({ asistencias: asistenciasNube });
           }
         }
       }
@@ -72,10 +80,12 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
     const registroExistente = asistencias.find((a) => a.id === idRegistro);
 
     let nuevoRegistro: RegistroAsistencia;
+    let operacionTipo: 'AGREGAR' | 'ACTUALIZAR' = 'AGREGAR';
 
     if (registroExistente) {
       // Ya había entrado hoy. Significa que se desconectó y volvió a entrar.
       nuevoRegistro = { ...registroExistente, horaSalida: null };
+      operacionTipo = 'ACTUALIZAR';
     } else {
       // Primera entrada del día
       nuevoRegistro = {
@@ -94,7 +104,7 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
       asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
     }));
 
-    // Guardado en la nube
+    // Guardado en la nube o en cola pendiente
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) {
@@ -108,6 +118,8 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
           desconexiones: nuevoRegistro.desconexiones
         }, { onConflict: 'id' });
       }
+    } else {
+      await registrarPendienteSync({ tabla: 'asistencias', operacion: operacionTipo, payload: nuevoRegistro });
     }
   },
 
@@ -134,7 +146,7 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
         asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
       }));
 
-      // Guardado en la nube
+      // Guardado en la nube o en cola pendiente
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
@@ -143,6 +155,8 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
             desconexiones: nuevoRegistro.desconexiones
           }).eq("id", nuevoRegistro.id).eq("tienda_id", tiendaId);
         }
+      } else {
+        await registrarPendienteSync({ tabla: 'asistencias', operacion: 'ACTUALIZAR', payload: nuevoRegistro });
       }
     }
   },

@@ -1,3 +1,4 @@
+// src/App.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoNavegacion, type SeccionApp } from "./estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "./estado/estadoTrabajadores";
@@ -7,8 +8,9 @@ import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "./estado/estadoAsistencias";
 import { useEstadoRed } from "./estado/estadoRed";
 import { conectarLAN } from "./servicios/socketCliente";
+import { useSincronizacion } from "./hooks/useSincronizacion";
 import { cn } from "./utilidades/utils";
-import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server } from "lucide-react";
+import { Sun, Moon, Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff } from "lucide-react";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -48,6 +50,7 @@ export default function App() {
   const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
   
   const { esMaestro, ipMaestro, conectadoLAN } = useEstadoRed();
+  const { estaEnLinea } = useSincronizacion();
   
   const [modoOscuro, setModoOscuro] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(true);
@@ -176,15 +179,22 @@ export default function App() {
           </button>
         </div>
 
+        {/* --- INDICADOR DE RED ACTUALIZADO --- */}
         <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10">
           <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold", 
+            estaEnLinea ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
             esMaestro ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" :
-            conectadoLAN ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : 
+            conectadoLAN ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : 
             "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
           )}>
-            {esMaestro ? <Server size={14} /> : <Wifi size={14} />}
+            {estaEnLinea ? <Cloud size={14} /> : esMaestro ? <Server size={14} /> : conectadoLAN ? <Wifi size={14} /> : <CloudOff size={14} />}
             {menuAbierto && (
-              <span>{esMaestro ? "Servidor Activo" : conectadoLAN ? "Conectado a PC" : "LAN Desconectado"}</span>
+              <span>
+                {estaEnLinea ? "Sincronizado a Internet" :
+                 esMaestro ? "Servidor Local (Sin Internet)" :
+                 conectadoLAN ? "LAN Conectado (Sin Internet)" :
+                 "Sin Conexión"}
+              </span>
             )}
           </div>
         </div>
