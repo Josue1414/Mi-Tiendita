@@ -1,3 +1,4 @@
+// src/hooks/useSincronizacion.ts
 import { useState, useEffect } from "react";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { obtenerPendientesSync, eliminarPendienteSync } from "../servicios/db";
@@ -7,10 +8,8 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 
 export function useSincronizacion() {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
-  const { trabajadorActivo, cargarTrabajadores } = useEstadoTrabajadores();
-  const { cargarProductos } = useEstadoInventario();
+  const { trabajadorActivo } = useEstadoTrabajadores();
 
-  // 1. Escuchar conexión a internet
   useEffect(() => {
     const handleOnline = () => setEstaEnLinea(true);
     const handleOffline = () => setEstaEnLinea(false);
@@ -24,7 +23,6 @@ export function useSincronizacion() {
     };
   }, []);
 
-  // 2. Procesar cola de pendientes cuando hay internet (Offline -> Online)
   useEffect(() => {
     const procesarColaPendientes = async () => {
       if (!estaEnLinea) return;
@@ -34,8 +32,6 @@ export function useSincronizacion() {
 
       const pendientes = await obtenerPendientesSync();
       if (pendientes.length === 0) return;
-
-      console.log(`Procesando ${pendientes.length} acciones pendientes (Sincronización Automática)...`);
 
       const { categorias } = useEstadoInventario.getState();
 
@@ -121,7 +117,6 @@ export function useSincronizacion() {
     }
   }, [estaEnLinea]);
 
-  // 3. Supabase Realtime (Tiempo Real entre la Nube y tu PC)
   useEffect(() => {
     let canalTiempoReal: any;
 
@@ -131,15 +126,16 @@ export function useSincronizacion() {
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) return;
 
+      // Inyección silenciosa del estado en memoria
       canalTiempoReal = supabase.channel('sincronizacion-tienda')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'miembros_tienda', filter: `tienda_id=eq.${tiendaId}` }, () => {
-          cargarTrabajadores(); 
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'miembros_tienda', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoTrabajadores.getState().sincronizarTrabajador(payload);
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'productos', filter: `tienda_id=eq.${tiendaId}` }, () => {
-          cargarProductos(); 
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'productos', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoInventario.getState().sincronizarProducto(payload);
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias', filter: `tienda_id=eq.${tiendaId}` }, () => {
-          cargarProductos();
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          useEstadoInventario.getState().sincronizarCategoria(payload);
         })
         .subscribe();
     };
@@ -149,7 +145,7 @@ export function useSincronizacion() {
     return () => {
       if (canalTiempoReal) supabase.removeChannel(canalTiempoReal);
     };
-  }, [estaEnLinea, trabajadorActivo, cargarTrabajadores, cargarProductos]);
+  }, [estaEnLinea, trabajadorActivo]);
 
   return { estaEnLinea };
 }

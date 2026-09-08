@@ -16,7 +16,7 @@ export interface PermisosTrabajador {
   hacerCancelaciones?: boolean;
   cambiarInfoTicket?: boolean;
   cambiarPrecios?: boolean;
-  verSalarios?: boolean; // <-- NUEVO PERMISO AGREGADO
+  verSalarios?: boolean;
 }
 
 export interface HorarioSemanal {
@@ -51,6 +51,7 @@ interface EstadoTrabajadores {
   agregarTrabajador: (trabajador: Trabajador) => Promise<void>;
   actualizarTrabajador: (trabajador: Trabajador) => Promise<void>;
   eliminarTrabajador: (id: string) => Promise<void>;
+  sincronizarTrabajador: (payload: any) => Promise<void>; // Nueva función para actualizaciones invisibles
 }
 
 const TRABAJADORES_INICIALES: Trabajador[] = [
@@ -78,7 +79,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     try {
       let estadoTrabajadores: Trabajador[] = [];
 
-      // 1. Carga inicial rápida desde caché local (Offline-first)
       if (esEscritorio) {
         const data = await obtenerRegistros("trabajadores");
         if (data.length === 0) {
@@ -93,11 +93,9 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         set({ trabajadores: estadoTrabajadores, cargando: false });
       }
 
-      // 2. Sincronización inteligente con la nube (Diff y Purga)
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          // A) Leer de Supabase primero
           const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
           
           if (miembrosNube) {
@@ -113,7 +111,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
               horarioSemanal: m.horario
             }));
             
-            // B) Reconciliación: Borrar locales que ya no existen en la nube
             if (esEscritorio) {
               const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
               
@@ -123,7 +120,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
                 }
               }
 
-              // C) Guardar/Actualizar registros de la nube en local
               for (const t of trabajadoresNube) {
                 await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
               }
@@ -233,6 +229,44 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
       }
     } catch (error) {
       console.error("Error al eliminar trabajador:", error);
+    }
+  },
+
+  // Maneja de forma silenciosa la sincronización desde el WebSocket
+  sincronizarTrabajador: async (payload: any) => {
+    const { eventType, new: nuevo, old: viejo } = payload;
+    const { trabajadores, trabajadorActivo } = get();
+
+    if (eventType === 'DELETE') {
+      if (esEscritorio) await eliminarRegistro("trabajadores", viejo.usuario_id);
+      set({ trabajadores: trabajadores.filter(t => t.id !== viejo.usuario_id) });
+    } else {
+      const trabajadorMapeado: Trabajador = {
+        id: nuevo.usuario_id,
+        nombre: nuevo.nombre,
+        rol: nuevo.rol,
+        pin: nuevo.pin_hash ? descifrarPin(nuevo.pin_hash) : "DU1234",
+        activo: nuevo.activo,
+        ventasRealizadas: 0,
+        ingresosGenerados: 0,
+        permisos: nuevo.permisos,
+        horarioSemanal: nuevo.horario
+      };
+
+      if (esEscritorio) {
+        await guardarRegistro("trabajadores", { ...trabajadorMapeado, pin: cifrarPin(trabajadorMapeado.pin) });
+      }
+
+      if (eventType === 'INSERT') {
+        if (!trabajadores.some(t => t.id === trabajadorMapeado.id)) {
+          set({ trabajadores: [...trabajadores, trabajadorMapeado] });
+        }
+      } else if (eventType === 'UPDATE') {
+        set({ 
+          trabajadores: trabajadores.map(t => t.id === trabajadorMapeado.id ? trabajadorMapeado : t),
+          trabajadorActivo: trabajadorActivo?.id === trabajadorMapeado.id ? trabajadorMapeado : trabajadorActivo
+        });
+      }
     }
   }
 }));

@@ -21,6 +21,8 @@ interface EstadoInventario {
   eliminarCategoria: (id: string, propagado?: boolean) => Promise<void>;
   descontarStock: (items: Array<{ producto_id: string; cantidad: number }>, propagado?: boolean) => Promise<void>;
   aplicarSincronizacionRemota: (accion: any) => void;
+  sincronizarProducto: (payload: any) => Promise<void>; // Nueva función
+  sincronizarCategoria: (payload: any) => Promise<void>; // Nueva función
 }
 
 const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
@@ -90,7 +92,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
 
-      // 1. Carga inicial rápida desde caché local (Offline-first)
       if (esEscritorio) {
         const dataLocal = await obtenerRegistros("productos");
         productosEstado = (dataLocal as Producto[]).map((p) => ({ ...p, descuento_porcentaje: p.descuento_porcentaje ?? 0 }));
@@ -103,11 +104,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
       }
 
-      // 2. Sincronización inteligente con la nube (Diff y Purga)
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          // A) Leer de Supabase primero
           const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
           const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
 
@@ -118,7 +117,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
               return mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
             });
 
-            // B) Reconciliación: Borrar locales que ya no existen en la nube
             if (esEscritorio) {
               const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
               const idsProductosNube = new Set(productosNube.map(p => p.id));
@@ -130,7 +128,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
                 if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
               }
 
-              // C) Guardar/Actualizar registros válidos en local
               for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
               for (const prod of productosNube) await guardarRegistro("productos", prod);
             }
@@ -170,7 +167,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         await supabase.from('productos').upsert(payload);
       }
     } else if (esMaestro) {
-      // Registrar operación pendiente si estamos offline
       await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: producto });
     }
   },
@@ -321,7 +317,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     for (const producto of productosActualizados) {
       const productoAnterior = get().productos.find((p) => p.id === producto.id);
       if (productoAnterior?.stock_actual !== producto.stock_actual) {
-        // Al usar actualizarProducto, si estamos offline, se registrará la operación pendiente automáticamente
         await get().actualizarProducto(producto, true); 
       }
     }
@@ -329,4 +324,79 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
     if (esMaestro && !propagado) (window as any).apiLocal.emitirAEsclavos({ tipo: 'DESCONTAR_STOCK', payload: items });
   },
+
+  // Sincronizaciones silenciosas desde la nube
+  sincronizarProducto: async (payload: any) => {
+    const { eventType, new: nuevo, old: viejo } = payload;
+    const { productos, categorias } = get();
+
+    if (eventType === 'DELETE') {
+      if (esEscritorio) await eliminarRegistro("productos", viejo.id);
+      set({ productos: productos.filter((p) => p.id !== viejo.id) });
+    } else {
+      const catAsociada = categorias.find((c) => c.id === nuevo.categoria_id);
+      const prodMapeado = mapearProductoDesdeSupabase(nuevo, catAsociada?.nombre || "");
+
+      if (esEscritorio) await guardarRegistro("productos", prodMapeado);
+
+      if (eventType === 'INSERT') {
+        if (!productos.some(p => p.id === prodMapeado.id)) {
+          set({ productos: [...productos, prodMapeado] });
+        }
+      } else if (eventType === 'UPDATE') {
+        set({ productos: productos.map((p) => (p.id === prodMapeado.id ? prodMapeado : p)) });
+      }
+    }
+  },
+
+  sincronizarCategoria: async (payload: any) => {
+    const { eventType, new: nuevo, old: viejo } = payload;
+    const { categorias, productos } = get();
+
+    if (eventType === 'DELETE') {
+      if (esEscritorio) await eliminarRegistro("categorias", viejo.id);
+      
+      const productosActualizados = productos.map((p) => {
+        const cat = categorias.find(c => c.id === viejo.id);
+        if (cat && p.categoria.trim().toLowerCase() === cat.nombre.trim().toLowerCase()) {
+          return { ...p, categoria: "" };
+        }
+        return p;
+      });
+      
+      for (const p of productosActualizados) {
+         const pAnterior = productos.find(x => x.id === p.id);
+         if (pAnterior?.categoria !== p.categoria) {
+            await get().actualizarProducto(p, true); 
+         }
+      }
+
+      set({ categorias: categorias.filter((c) => c.id !== viejo.id), productos: productosActualizados });
+    } else {
+      const catMapeada: Categoria = { id: nuevo.id, nombre: nuevo.nombre, color: nuevo.color };
+      if (esEscritorio) await guardarRegistro("categorias", catMapeada);
+
+      if (eventType === 'INSERT') {
+        if (!categorias.some(c => c.id === catMapeada.id)) {
+          set({ categorias: [...categorias, catMapeada] });
+        }
+      } else if (eventType === 'UPDATE') {
+        const oldCat = categorias.find(c => c.id === catMapeada.id);
+        let nuevosProductos = productos;
+        if (oldCat && oldCat.nombre !== catMapeada.nombre) {
+          nuevosProductos = productos.map((p) => p.categoria === oldCat.nombre ? { ...p, categoria: catMapeada.nombre } : p);
+          for (const p of nuevosProductos) {
+             const pAnterior = productos.find(x => x.id === p.id);
+             if (pAnterior?.categoria !== p.categoria) {
+                await get().actualizarProducto(p, true); 
+             }
+          }
+        }
+        set({ 
+          categorias: categorias.map((c) => c.id === catMapeada.id ? catMapeada : c),
+          productos: nuevosProductos
+        });
+      }
+    }
+  }
 }));
