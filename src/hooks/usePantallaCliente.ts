@@ -1,11 +1,14 @@
 // src/hooks/usePantallaCliente.ts
 import { useEffect, useState, useCallback } from "react";
 import type { ItemCarrito } from "../estado/estadoCarrito";
+import type { Producto } from "../tipos/producto";
 
 export type MensajePantalla = 
   | { tipo: "ACTUALIZAR_CARRITO"; items: ItemCarrito[]; total: number; descuento: number }
   | { tipo: "ACTUALIZAR_PAGO"; metodoPago: string; datosTransferencia?: DatosTransferencia }
   | { tipo: "COBRO_EXITOSO"; total: number; cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia }
+  | { tipo: "MOSTRAR_PRODUCTO_CLIENTE"; producto: Producto }
+  | { tipo: "QUITAR_PRODUCTO_CLIENTE" }
   | { tipo: "LIMPIAR" };
 
 export interface DatosTransferencia {
@@ -29,6 +32,7 @@ export function useEmisorPantallaCliente() {
 export function useReceptorPantallaCliente() {
   const [datosCarrito, setDatosCarrito] = useState<{items: ItemCarrito[], total: number, descuento: number; metodoPago: string; datosTransferencia?: DatosTransferencia}>({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
   const [mensajeExito, setMensajeExito] = useState<{total: number, cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia} | null>(null);
+  const [productoEnPantalla, setProductoEnPantalla] = useState<Producto | null>(null);
 
   useEffect(() => {
     const bc = new BroadcastChannel(CANAL);
@@ -41,8 +45,13 @@ export function useReceptorPantallaCliente() {
         if (msj.items.length > 0) setMensajeExito(null);
       } else if (msj.tipo === "ACTUALIZAR_PAGO") {
         setDatosCarrito((actual) => ({ ...actual, metodoPago: msj.metodoPago, datosTransferencia: msj.datosTransferencia }));
+      } else if (msj.tipo === "MOSTRAR_PRODUCTO_CLIENTE") {
+        setProductoEnPantalla(msj.producto);
+      } else if (msj.tipo === "QUITAR_PRODUCTO_CLIENTE") {
+        setProductoEnPantalla(null);
       } else if (msj.tipo === "COBRO_EXITOSO") {
         setMensajeExito({ total: msj.total, cambio: msj.cambio, metodoPago: msj.metodoPago || "EFECTIVO", mensajePago: msj.mensajePago || "Pago realizado. Gracias por su compra, vuelva pronto.", datosTransferencia: msj.datosTransferencia });
+        setProductoEnPantalla(null);
         // Mantener la confirmación visible unos segundos antes de volver al inicio.
         setTimeout(() => {
           setMensajeExito(null);
@@ -50,6 +59,7 @@ export function useReceptorPantallaCliente() {
         }, 2500);
       } else if (msj.tipo === "LIMPIAR") {
         setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
+        setProductoEnPantalla(null);
         setMensajeExito(null);
       }
     };
@@ -57,5 +67,5 @@ export function useReceptorPantallaCliente() {
     return () => bc.close();
   }, []);
 
-  return { datosCarrito, mensajeExito };
+  return { datosCarrito, mensajeExito, productoEnPantalla };
 }

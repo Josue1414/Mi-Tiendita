@@ -1,8 +1,9 @@
 // src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
-import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark } from "lucide-react";
+import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
+import { precioVenta, type Producto } from "../tipos/producto";
 
 type Densidad = "compacta" | "normal" | "amplia";
 type Tema = "verde" | "claro" | "oscuro" | "grafito";
@@ -15,7 +16,7 @@ const estilosTema: Record<Tema, string> = {
 };
 
 export default function VistaPantallaCliente() {
-  const { datosCarrito, mensajeExito } = useReceptorPantallaCliente();
+  const { datosCarrito, mensajeExito, productoEnPantalla } = useReceptorPantallaCliente();
   const [hora, setHora] = useState("");
   const [opcionesAbiertas, setOpcionesAbiertas] = useState(false);
   const [densidad, setDensidad] = useState<Densidad>("compacta");
@@ -34,6 +35,53 @@ export default function VistaPantallaCliente() {
   const textoTotal = compacto ? "text-4xl" : densidad === "normal" ? "text-5xl" : "text-6xl";
   const temaClaro = tema === "claro";
   const transferenciaActiva = datosCarrito.metodoPago === "TRANSFERENCIA" && datosCarrito.datosTransferencia;
+
+  const renderProductoDetalle = (producto: Producto) => {
+    const precio = precioVenta(producto);
+
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 animate-in fade-in">
+        <div className={`w-full max-w-3xl rounded-3xl border p-6 shadow-2xl ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/40"}`}>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-[180px,1fr]">
+            <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950/50 p-2">
+              <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-40 w-full rounded-xl object-cover" />
+            </div>
+            <div className="flex flex-col justify-between">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide bg-emerald-500 text-white">{producto.categoria || "Sin categoría"}</span>
+                  <h2 className="mt-3 text-3xl font-black leading-tight">{producto.nombre}</h2>
+                </div>
+                <div className="text-4xl font-black text-emerald-400">${precio.toFixed(2)}</div>
+              </div>
+
+              <div className={`mt-4 rounded-2xl border p-4 ${temaClaro ? "border-slate-200 bg-slate-50 text-slate-700" : "border-white/10 bg-black/30 text-slate-200"}`}>
+                <p className="text-sm font-medium leading-relaxed">{producto.descripcion || "Sin descripción disponible para este producto."}</p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2 border border-emerald-500/30">
+                  <Tag size={16} className="text-emerald-400" />
+                  <span className="text-xs font-bold uppercase opacity-70">Código</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2 border border-emerald-500/30">
+                  <Layers size={16} className="text-amber-400" />
+                  <span className="text-xs font-bold uppercase opacity-70">Stock</span>
+                </div>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/10 px-3 py-2 font-mono text-sm">{producto.codigo_barras || "N/A"}</div>
+                <div className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold">
+                  {producto.controla_stock ? `${producto.stock_actual} ${producto.unidad}` : "Sin control"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={`w-screen h-screen flex flex-col select-none overflow-hidden ${estilosTema[tema]}`}>
@@ -87,6 +135,8 @@ export default function VistaPantallaCliente() {
             <p className="text-xl opacity-75">Total pagado: ${mensajeExito.total.toFixed(2)}</p>
             <p className="max-w-xl text-base text-emerald-200">{mensajeExito.mensajePago}</p>
           </div>
+        ) : productoEnPantalla ? (
+          renderProductoDetalle(productoEnPantalla)
         ) : transferenciaActiva ? (
           <div className="flex h-full min-h-0 flex-col items-center justify-start gap-3 pt-6 text-center sm:gap-4 sm:pt-10 animate-in fade-in slide-in-from-bottom-4">
             <div className={`p-4 rounded-full ${temaClaro ? "bg-emerald-100 text-emerald-600" : "bg-emerald-900/30 text-emerald-400"}`}>

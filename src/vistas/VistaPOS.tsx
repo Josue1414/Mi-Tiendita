@@ -7,7 +7,7 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion"; 
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera } from "lucide-react";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
@@ -21,6 +21,8 @@ import ModalAutorizacion from "../componentes/ui/ModalAutorizacion";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import { imprimirTicket } from "../utilidades/impresion";
 import PanelEscaner from "../componentes/pos/PanelEscaner";
+import PanelCamaraEscaner from "../componentes/pos/PanelCamaraEscaner";
+import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
 
 export default function VistaPOS() {
   const { productos, categorias, descontarStock } = useEstadoInventario();
@@ -52,8 +54,9 @@ export default function VistaPOS() {
     const preferencia = localStorage.getItem(claveImpresion);
     return preferencia === null ? !window.matchMedia("(max-width: 1023px)").matches : preferencia === "true";
   });
-  const [modoVista, setModoVista] = useState<"cuadricula" | "escaner">("cuadricula");
+  const [modoVista, setModoVista] = useState<"cuadricula" | "escaner" | "camara">("cuadricula");
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
+  const [productoDescripcion, setProductoDescripcion] = useState<Producto | null>(null);
 
   // Estados para la restricción de cancelación
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
@@ -107,20 +110,12 @@ export default function VistaPOS() {
   };
 
   const manejarClickProducto = (producto: Producto) => {
-    setProductoEnfoque(producto); 
+    setProductoEnfoque(producto);
     if (producto.requiere_autorizacion) {
       setProductoAutorizacion(producto);
       return;
     }
     continuarAgregado(producto);
-  };
-
-  const manejarDobleClicCarrito = (productoId: string) => {
-    const producto = productos.find(p => p.id === productoId);
-    if (producto) {
-      setProductoEnfoque(producto);
-      setModoVista("escaner");
-    }
   };
 
   const continuarAgregado = (producto: Producto, evidencia?: string) => {
@@ -146,7 +141,7 @@ export default function VistaPOS() {
     if (bloqueadoPorFondo) return;
     const producto = productos.find((p) => p.codigo_barras === codigo);
     if (!producto) {
-      setAviso({ titulo: "Código no encontrado", mensaje: `No existe un producto registrado con el código ${codigo}.` });
+      setAviso({ titulo: "Producto no encontrado", mensaje: `El producto con código ${codigo} no está en el inventario.` });
       return;
     }
     setBusqueda("");
@@ -243,6 +238,178 @@ export default function VistaPOS() {
     setDescuento(num, nuevoTipo);
   };
 
+  const renderCarrito = (modo: "lateral" | "camara" = "lateral") => (
+    <div className={modo === "lateral" ? "w-full md:w-[min(35%,380px)] flex flex-col gap-4 shrink-0" : "w-full flex flex-col gap-4 shrink-0 mt-3"}>
+      <div className={cn("efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] md:h-full border border-slate-200/50 dark:border-white/10", modo === "camara" && "min-h-[280px]")}>
+        <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100">
+          <ShoppingCart size={20} className="text-emerald-600 dark:text-emerald-400" />
+          Ticket de Venta
+        </h2>
+
+        <div className="flex-1 min-h-[100px] overflow-y-auto flex flex-col gap-2 pr-1">
+          {items.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <ShoppingCart size={40} className="opacity-20 mb-1" />
+              <p className="text-sm">El carrito está vacío</p>
+            </div>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                onDoubleClick={() => {
+                  const producto = productos.find((p) => p.id === item.producto_id);
+                  if (producto) setProductoDescripcion(producto);
+                }}
+                className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors"
+                title="Doble clic para ver descripción"
+              >
+                <ImagenLocal
+                  nombreArchivo={item.imagen_url}
+                  nombreProducto={item.nombre}
+                  className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-white"
+                />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-xs leading-tight line-clamp-2 pr-2">
+                      {item.nombre}
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                      ${item.subtotal.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-auto pt-1">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
+                    </span>
+
+                    <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => {
+                          const decremento = (item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1;
+                          const nuevaCantidad = item.cantidad - decremento;
+                          if (nuevaCantidad <= 0) {
+                            manejarCancelacion(() => actualizarCantidad(item.id, nuevaCantidad));
+                          } else {
+                            actualizarCantidad(item.id, nuevaCantidad);
+                          }
+                        }}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="text-xs font-semibold w-9 text-center text-slate-900 dark:text-slate-100 tabular-nums">
+                        {(item.unidad === "KG" || item.unidad === "LITRO") ? item.cantidad.toFixed(3) : item.cantidad}
+                      </span>
+                      <button
+                        onClick={() => actualizarCantidad(item.id, item.cantidad + ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))}
+                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 font-medium">
+              <Tag size={14} /> Descuento
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-white/10">
+                <button onClick={() => cambiarTipoDescuento("MONTO")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "MONTO" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>$</button>
+                <button onClick={() => cambiarTipoDescuento("PORCENTAJE")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "PORCENTAJE" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>%</button>
+              </div>
+              <div className="relative w-20">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-bold">
+                  {tipoDescuento === "MONTO" ? "$" : "%"}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step={tipoDescuento === "MONTO" ? "1" : "5"}
+                  value={inputDescuento}
+                  onChange={aplicarDescuento}
+                  placeholder="0"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-6 pr-2 py-1.5 text-right outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {descuento > 0 && (
+            <div className="flex justify-between items-end px-1 opacity-70">
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">Subtotal</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 line-through">
+                ${subtotal.toFixed(2)}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-end px-1">
+            <span className="text-slate-500 dark:text-slate-400 text-base font-medium">Total</span>
+            <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+              ${total.toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between px-1 mt-1">
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-emerald-600 transition-colors select-none">
+              <input
+                type="checkbox"
+                checked={impresionAutomatica}
+                onChange={e => {
+                  const valor = e.target.checked;
+                  setImpresionAutomatica(valor);
+                  localStorage.setItem(claveImpresion, String(valor));
+                }}
+                className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+              />
+              <Printer size={13} /> Imprimir automático
+            </label>
+
+            {ventas.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const ultimaVenta = [...ventas].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+                  imprimirTicket(ultimaVenta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
+                }}
+                className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
+              >
+                <History size={13} /> Imprimir último
+              </button>
+            )}
+          </div>
+
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => manejarCancelacion(() => { limpiarCarrito(); setInputDescuento(""); setProductoEnfoque(null); })}
+              disabled={items.length === 0}
+              className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-100 dark:border-red-900/50"
+              title="Vaciar Carrito"
+            >
+              <Trash2 size={20} />
+            </button>
+            <button
+              onClick={() => setModalCobroAbierto(true)}
+              disabled={items.length === 0}
+              className="flex-1 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-emerald-600/30 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            >
+              <CreditCard size={20} />
+              Cobrar ({teclaCobro})
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (bloqueadoPorFondo) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50">
@@ -313,6 +480,7 @@ export default function VistaPOS() {
       />
       
       <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo="advertencia" alCerrar={() => setAviso(null)} />
+      <ModalDescripcionProducto abierto={Boolean(productoDescripcion)} producto={productoDescripcion} alCerrar={() => setProductoDescripcion(null)} />
       
       <ModalAutorizacion
         abierto={Boolean(productoAutorizacion)}
@@ -379,6 +547,13 @@ export default function VistaPOS() {
             >
               <ScanBarcode size={20} />
             </button>
+            <button
+              onClick={() => setModoVista("camara")}
+              className={cn("p-2 rounded-lg flex items-center justify-center transition-all", modoVista === "camara" ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600" : "text-slate-500 hover:text-slate-900 dark:hover:text-white")}
+              title="Cámara Escáner"
+            >
+              <Camera size={20} />
+            </button>
           </div>
         </div>
 
@@ -425,7 +600,7 @@ export default function VistaPOS() {
                   key={producto.id}
                   onClick={() => { if (esVistaMovil) setProductoEnfoque(producto); }}
                   onDoubleClick={() => { if (!esVistaMovil) manejarClickProducto(producto); }}
-                  title={esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar"}
+                  title={esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar al carrito"}
                   className={cn("efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]", seleccionado && "ring-2 ring-emerald-500")}
                 >
                   <ImagenLocal 
@@ -459,180 +634,19 @@ export default function VistaPOS() {
               })}
             </div>
           </>
-        ) : (
+        ) : modoVista === "escaner" ? (
           <PanelEscaner producto={productoEnfoque} />
+        ) : (
+          <div className="flex h-full flex-col gap-3 min-h-[320px]">
+            <div className="w-[180px] max-w-[180px] self-center rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 p-2 shadow-sm">
+              <PanelCamaraEscaner alDetectar={alEscanear} className="w-full" />
+            </div>
+            {renderCarrito("camara")}
+          </div>
         )}
       </div>
 
-      <div className="w-full md:w-[min(35%,380px)] flex flex-col gap-4 shrink-0">
-        <div className="efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] md:h-full border border-slate-200/50 dark:border-white/10">
-          
-          <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100">
-            <ShoppingCart size={20} className="text-emerald-600 dark:text-emerald-400" />
-            Ticket de Venta
-          </h2>
-
-          <div className="flex-1 min-h-[100px] overflow-y-auto flex flex-col gap-2 pr-1">
-            {items.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
-                <ShoppingCart size={40} className="opacity-20 mb-1" />
-                <p className="text-sm">El carrito está vacío</p>
-              </div>
-            ) : (
-              items.map((item) => (
-                <div 
-                  key={item.id} 
-                  onDoubleClick={() => manejarDobleClicCarrito(item.producto_id)}
-                  className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors"
-                  title="Doble clic para ver en escáner"
-                >
-                  <ImagenLocal 
-                    nombreArchivo={item.imagen_url} 
-                    nombreProducto={item.nombre} 
-                    className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-white" 
-                  />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <span className="font-medium text-slate-900 dark:text-slate-100 text-xs leading-tight line-clamp-2 pr-2">
-                        {item.nombre}
-                      </span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                        ${item.subtotal.toFixed(2)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-auto pt-1">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
-                      </span>
-                      
-                      <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <button 
-                          onClick={() => {
-                            const decremento = (item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1;
-                            const nuevaCantidad = item.cantidad - decremento;
-                            if (nuevaCantidad <= 0) {
-                              manejarCancelacion(() => actualizarCantidad(item.id, nuevaCantidad));
-                            } else {
-                              actualizarCantidad(item.id, nuevaCantidad);
-                            }
-                          }} 
-                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                        >
-                          <Minus size={12} />
-                        </button>
-                        <span className="text-xs font-semibold w-9 text-center text-slate-900 dark:text-slate-100 tabular-nums">
-                          {(item.unidad === "KG" || item.unidad === "LITRO") ? item.cantidad.toFixed(3) : item.cantidad}
-                        </span>
-                        <button 
-                          onClick={() => actualizarCantidad(item.id, item.cantidad + ((item.unidad === "KG" || item.unidad === "LITRO") ? 0.050 : 1))} 
-                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
-            
-            <div className="flex justify-between items-center px-1">
-              <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 font-medium">
-                <Tag size={14} /> Descuento
-              </span>
-              <div className="flex items-center gap-2">
-                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-white/10">
-                  <button onClick={() => cambiarTipoDescuento("MONTO")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "MONTO" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>$</button>
-                  <button onClick={() => cambiarTipoDescuento("PORCENTAJE")} className={cn("px-2 py-0.5 text-xs rounded-md font-bold transition-colors", tipoDescuento === "PORCENTAJE" ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm" : "text-slate-500 dark:text-slate-400")}>%</button>
-                </div>
-                <div className="relative w-20">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-bold">
-                    {tipoDescuento === "MONTO" ? "$" : "%"}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step={tipoDescuento === "MONTO" ? "1" : "5"}
-                    value={inputDescuento}
-                    onChange={aplicarDescuento}
-                    placeholder="0"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg pl-6 pr-2 py-1.5 text-right outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm font-medium"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {descuento > 0 && (
-              <div className="flex justify-between items-end px-1 opacity-70">
-                <span className="text-slate-500 dark:text-slate-400 text-xs font-medium">Subtotal</span>
-                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 line-through">
-                  ${subtotal.toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            <div className="flex justify-between items-end px-1">
-              <span className="text-slate-500 dark:text-slate-400 text-base font-medium">Total</span>
-              <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                ${total.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between px-1 mt-1">
-              <label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-emerald-600 transition-colors select-none">
-                <input 
-                  type="checkbox" 
-                  checked={impresionAutomatica} 
-                  onChange={e => {
-                    const valor = e.target.checked;
-                    setImpresionAutomatica(valor);
-                    localStorage.setItem(claveImpresion, String(valor));
-                  }}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" 
-                />
-                <Printer size={13} /> Imprimir automático
-              </label>
-
-              {ventas.length > 0 && (
-                <button 
-                  type="button"
-                  onClick={() => {
-                    const ultimaVenta = [...ventas].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-                    imprimirTicket(ultimaVenta, nombreTienda, mensajeTicket, direccionTienda, logoTienda);
-                  }}
-                  className="text-[11px] font-bold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
-                >
-                  <History size={13} /> Imprimir último
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 mt-1">
-              <button 
-                onClick={() => manejarCancelacion(() => { limpiarCarrito(); setInputDescuento(""); setProductoEnfoque(null); })}
-                disabled={items.length === 0}
-                className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-red-100 dark:border-red-900/50"
-                title="Vaciar Carrito"
-              >
-                <Trash2 size={20} />
-              </button>
-              <button 
-                onClick={() => setModalCobroAbierto(true)}
-                disabled={items.length === 0}
-                className="flex-1 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-emerald-600/30 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
-              >
-                <CreditCard size={20} />
-                Cobrar ({teclaCobro})
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      {modoVista !== "camara" && renderCarrito("lateral")}
     </div>
   );
 }

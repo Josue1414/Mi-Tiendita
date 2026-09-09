@@ -10,7 +10,7 @@ import { useEstadoRed } from "./estado/estadoRed";
 import { conectarLAN } from "./servicios/socketCliente";
 import { useSincronizacion } from "./hooks/useSincronizacion";
 import { cn } from "./utilidades/utils";
-import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, MonitorPlay, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff } from "lucide-react";
+import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff, MonitorPlay } from "lucide-react";
 import { claseTemaVisual, EVENTO_TEMA, obtenerTemaVisual, type TemaVisual } from "./utilidades/temas";
 
 import VistaInventario from "./vistas/VistaInventario";
@@ -128,6 +128,16 @@ export default function App() {
     { id: "historial", icono: History, texto: "Historial de Ventas" },
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
     { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
+    { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
+  ] as const;
+
+  const menusMovilesOperativos = [
+    { id: "inventario", icono: Package, texto: "Inventario" },
+    { id: "stock-bajo", icono: AlertTriangle, texto: "Stock" },
+    { id: "historial", icono: History, texto: "Historial" },
+    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
+    { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
+    { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
   ] as const;
   
   const alertasStock = productos.filter(tieneAlertaStock).length;
@@ -139,7 +149,10 @@ export default function App() {
   ] as const;
 
   const esAdmin = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
-  const menusMoviles = [...menusOperativos, ...(esAdmin ? menusAdmin : [])];
+  const esVistaMovil = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
+  const menusMoviles = esVistaMovil
+    ? [...menusMovilesOperativos, ...(esAdmin ? menusAdmin : [])]
+    : [...menusOperativos, ...(esAdmin ? menusAdmin : [])];
   const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
 
   const confirmarCerrarSesion = async () => {
@@ -217,11 +230,17 @@ export default function App() {
             {menuAbierto && <p className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Operaciones</p>}
             {menusOperativos.map((menu) => {
               const Icono = menu.icono;
-              const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+              const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
               const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
 
               return (
-                <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={!menuAbierto ? menu.texto : undefined}
+                <button key={menu.id} onClick={() => {
+                  if (menu.id === "pantalla-cliente") {
+                    abrirPantallaCliente();
+                    return;
+                  }
+                  setSeccionActual(menu.id as SeccionApp);
+                }} title={!menuAbierto ? menu.texto : undefined}
                   className={cn("w-full flex items-center gap-3 p-2.5 rounded-xl transition-all font-medium mb-1",
                     activo ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
                     !menuAbierto && "justify-center px-0"
@@ -270,14 +289,6 @@ export default function App() {
         </nav>
 
         <div className="p-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-2 shrink-0">
-          <button onClick={abrirPantallaCliente} title={!menuAbierto ? "Pantalla Cliente" : undefined}
-            className={cn("flex items-center gap-3 p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-colors w-full font-medium shadow-md",
-              !menuAbierto && "justify-center px-0"
-            )}>
-            <MonitorPlay size={18} className="shrink-0" />
-            {menuAbierto && <span>Pantalla Cliente</span>}
-          </button>
-          
           <button onClick={() => setMostrarModalSalida(true)} title={!menuAbierto ? "Cerrar Sesión Local" : undefined}
             className={cn("flex items-center gap-3 p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors w-full",
               !menuAbierto && "justify-center px-0"
@@ -294,10 +305,16 @@ export default function App() {
             <div className="flex min-w-max items-center gap-1 px-2 py-2">
           {menusMoviles.slice(0, puntoEscaneo).map((menu) => {
           const Icono = menu.icono;
-          const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+          const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
           const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
           return (
-            <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
+            <button key={menu.id} onClick={() => {
+              if (menu.id === "pantalla-cliente") {
+                abrirPantallaCliente();
+                return;
+              }
+              setSeccionActual(menu.id as SeccionApp);
+            }} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
               {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
@@ -313,17 +330,22 @@ export default function App() {
             <div className="flex min-w-max items-center gap-1 px-2 py-2">
           {menusMoviles.slice(puntoEscaneo).map((menu) => {
           const Icono = menu.icono;
-          const activo = seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto");
+          const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
           const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
           return (
-            <button key={menu.id} onClick={() => setSeccionActual(menu.id as SeccionApp)} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
+            <button key={menu.id} onClick={() => {
+              if (menu.id === "pantalla-cliente") {
+                abrirPantallaCliente();
+                return;
+              }
+              setSeccionActual(menu.id as SeccionApp);
+            }} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
               {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
             </button>
           );
           })}
-          <button onClick={abrirPantallaCliente} title="Pantalla Cliente" className="flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10"><MonitorPlay size={18} /><span>Pantalla</span></button>
           <button onClick={() => setMostrarModalSalida(true)} title="Cerrar Sesión" className="flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"><LogOut size={18} /><span>Salir</span></button>
             </div>
           </div>
