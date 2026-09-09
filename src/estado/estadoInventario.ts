@@ -92,6 +92,42 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
 
+      const tiendaId = await obtenerTiendaIdActual();
+
+      if (navigator.onLine && tiendaId) {
+        const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
+        const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
+
+        if (catSupabase && prodSupabase) {
+          const categoriasNube = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
+          const productosNube = prodSupabase.map(p => {
+            const catAsociada = categoriasNube.find(c => c.id === p.categoria_id);
+            return mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
+          });
+
+          if (esEscritorio) {
+            const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
+            const idsProductosNube = new Set(productosNube.map(p => p.id));
+
+            const categoriasLocal = await obtenerRegistros("categorias");
+            const productosLocal = await obtenerRegistros("productos");
+
+            for (const catLocal of categoriasLocal) {
+              if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
+            }
+            for (const prodLocal of productosLocal) {
+              if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
+            }
+
+            for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
+            for (const prod of productosNube) await guardarRegistro("productos", prod);
+          }
+
+          set({ productos: productosNube, categorias: categoriasNube, cargando: false });
+          return;
+        }
+      }
+
       if (esEscritorio) {
         const dataLocal = await obtenerRegistros("productos");
         productosEstado = (dataLocal as Producto[]).map((p) => ({ ...p, descuento_porcentaje: p.descuento_porcentaje ?? 0 }));
@@ -102,42 +138,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
           for (const cat of categoriasEstado) await guardarRegistro("categorias", cat);
         }
         set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
-      }
-
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
-          const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
-
-          if (catSupabase && prodSupabase) {
-            const categoriasNube = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
-            const productosNube = prodSupabase.map(p => {
-              const catAsociada = categoriasNube.find(c => c.id === p.categoria_id);
-              return mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
-            });
-
-            if (esEscritorio) {
-              const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
-              const idsProductosNube = new Set(productosNube.map(p => p.id));
-
-              for (const catLocal of categoriasEstado) {
-                if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
-              }
-              for (const prodLocal of productosEstado) {
-                if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
-              }
-
-              for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
-              for (const prod of productosNube) await guardarRegistro("productos", prod);
-            }
-
-            set({ productos: productosNube, categorias: categoriasNube, cargando: false });
-          }
-        } else {
-          if (!esEscritorio) set({ cargando: false });
-        }
-      } else if (!esEscritorio) {
+      } else if (!navigator.onLine) {
+        set({ cargando: false });
+      } else {
         set({ cargando: false });
       }
     } catch (error) {

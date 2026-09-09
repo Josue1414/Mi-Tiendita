@@ -49,12 +49,65 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   cargarCaja: async () => {
     set({ cargando: true });
     try {
-      let turnosEstado: TurnoCaja[] = [];
+      const tiendaId = await obtenerTiendaIdActual();
 
-      // 1. Carga Local
+      if (navigator.onLine && tiendaId) {
+        const { data: turnosNube } = await supabase
+          .from('turnos_caja')
+          .select('*')
+          .eq('tienda_id', tiendaId)
+          .order('fecha_inicio', { ascending: false });
+
+        const { data: tiendaData } = await supabase
+          .from('tiendas')
+          .select('forzar_recepcion_caja, requerir_pin_cancelacion, fondo_base_actual, nota_general_dueno')
+          .eq('id', tiendaId)
+          .single();
+
+        if (turnosNube && tiendaData) {
+          const turnosMapeados: TurnoCaja[] = turnosNube.map((t: any) => ({
+            id: t.id,
+            trabajadorId: t.trabajador_id,
+            nombreTrabajador: t.nombre_trabajador,
+            fechaInicio: t.fecha_inicio,
+            fechaFin: t.fecha_fin,
+            fondoInicial: t.fondo_inicial,
+            fondoDejado: t.fondo_dejado,
+            ventasCalculadas: t.ventas_calculadas,
+            notaTrabajador: t.nota_trabajador || "",
+            notaDueno: t.nota_dueno || "",
+            estatus: t.estatus
+          }));
+
+          const nuevasConfigs = {
+            forzarRecepcionCaja: tiendaData.forzar_recepcion_caja,
+            requerirPinCancelacion: tiendaData.requerir_pin_cancelacion,
+            fondoBaseActual: Number(tiendaData.fondo_base_actual ?? get().fondoBaseActual),
+            notaGeneralDueno: tiendaData.nota_general_dueno ?? get().notaGeneralDueno
+          };
+
+          if (esEscritorio) {
+            const turnosLocal = await obtenerRegistros("turnos_caja");
+            const idsNube = new Set(turnosMapeados.map(t => t.id));
+            for (const tLocal of turnosLocal) {
+              if (!idsNube.has(tLocal.id)) await eliminarRegistro("turnos_caja", tLocal.id);
+            }
+            for (const t of turnosMapeados) {
+              await guardarRegistro("turnos_caja", t);
+            }
+
+            await guardarRegistro("config_caja", { id: 'config_caja_1', ...get(), ...nuevasConfigs });
+          }
+
+          set({ turnos: turnosMapeados, ...nuevasConfigs, cargando: false });
+          return;
+        }
+      }
+
+      let turnosEstado: TurnoCaja[] = [];
       const dataTurnos = await obtenerRegistros("turnos_caja");
       turnosEstado = (dataTurnos as TurnoCaja[]).sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
-      
+
       const configLocal = await obtenerRegistros("config_caja");
       if (configLocal && configLocal.length > 0) {
         const conf = configLocal[0];
@@ -62,62 +115,13 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
           fondoBaseActual: conf.fondoBaseActual ?? 1000,
           notaGeneralDueno: conf.notaGeneralDueno ?? "",
           forzarRecepcionCaja: conf.forzarRecepcionCaja ?? false,
-          requerirPinCancelacion: conf.requerirPinCancelacion ?? false
+          requerirPinCancelacion: conf.requerirPinCancelacion ?? false,
+          turnos: turnosEstado,
+          cargando: false
         });
+      } else {
+        set({ turnos: turnosEstado, cargando: false });
       }
-      
-      set({ turnos: turnosEstado, cargando: !navigator.onLine && !esEscritorio });
-
-      // 2. Sincronización con Nube
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          // A) Traer turnos
-          const { data: turnosNube } = await supabase.from('turnos_caja').select('*').eq('tienda_id', tiendaId).order('fecha_inicio', { ascending: false });
-          if (turnosNube) {
-            const turnosMapeados: TurnoCaja[] = turnosNube.map((t: any) => ({
-              id: t.id,
-              trabajadorId: t.trabajador_id,
-              nombreTrabajador: t.nombre_trabajador,
-              fechaInicio: t.fecha_inicio,
-              fechaFin: t.fecha_fin,
-              fondoInicial: t.fondo_inicial,
-              fondoDejado: t.fondo_dejado,
-              ventasCalculadas: t.ventas_calculadas,
-              notaTrabajador: t.nota_trabajador || "",
-              notaDueno: t.nota_dueno || "",
-              estatus: t.estatus
-            }));
-
-            if (esEscritorio) {
-              const idsNube = new Set(turnosMapeados.map(t => t.id));
-              for (const tLocal of turnosEstado) {
-                if (!idsNube.has(tLocal.id)) await eliminarRegistro("turnos_caja", tLocal.id);
-              }
-              for (const t of turnosMapeados) {
-                await guardarRegistro("turnos_caja", t);
-              }
-            }
-            set({ turnos: turnosMapeados });
-          }
-
-          // B) Traer config de tienda
-          const { data: tiendaData } = await supabase.from('tiendas').select('forzar_recepcion_caja, requerir_pin_cancelacion, fondo_base_actual, nota_general_dueno').eq('id', tiendaId).single();
-          if (tiendaData) {
-            const nuevasConfigs = {
-              forzarRecepcionCaja: tiendaData.forzar_recepcion_caja,
-              requerirPinCancelacion: tiendaData.requerir_pin_cancelacion,
-              fondoBaseActual: Number(tiendaData.fondo_base_actual ?? get().fondoBaseActual),
-              notaGeneralDueno: tiendaData.nota_general_dueno ?? get().notaGeneralDueno
-            };
-            set(nuevasConfigs);
-            if (esEscritorio) {
-              await guardarRegistro("config_caja", { id: 'config_caja_1', ...get(), ...nuevasConfigs });
-            }
-          }
-        }
-      }
-      set({ cargando: false });
     } catch (error) {
       console.error("Error al cargar caja:", error);
       set({ cargando: false });

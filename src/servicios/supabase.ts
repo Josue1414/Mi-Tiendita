@@ -50,6 +50,28 @@ const obtenerIdentificadorDispositivo = async () => {
   return identificador;
 };
 
+const obtenerNombreDispositivoProximo = async (tiendaId: string, hardwareId: string) => {
+  const baseNombre = hardwareId.startsWith('web-') ? 'Navegador Web' : 'PC Local';
+
+  const { data: dispositivos, error } = await supabase
+    .from('dispositivos_vinculados')
+    .select('nombre_dispositivo')
+    .eq('tienda_id', tiendaId);
+
+  if (error) throw error;
+
+  const usados = new Set((dispositivos ?? []).map((d: { nombre_dispositivo: string }) => d.nombre_dispositivo));
+  let contador = 1;
+  let nombre = baseNombre;
+
+  while (usados.has(nombre)) {
+    contador += 1;
+    nombre = `${baseNombre} ${contador}`;
+  }
+
+  return nombre;
+};
+
 export const registrarDispositivoActual = async (tienda: { id: string; max_dispositivos: number; nombre?: string }) => {
   const hardwareId = await obtenerIdentificadorDispositivo();
   const { data: existente, error: errorConsulta } = await supabase
@@ -79,7 +101,7 @@ export const registrarDispositivoActual = async (tienda: { id: string; max_dispo
     throw new Error(`Límite de ${tienda.max_dispositivos} dispositivo(s) alcanzado en "${tienda.nombre || 'esta tienda'}".`);
   }
 
-  const nombre = hardwareId.startsWith('web-') ? 'Navegador Web' : 'PC Local';
+  const nombre = await obtenerNombreDispositivoProximo(tienda.id, hardwareId);
   const { data: nuevo, error: errorAlta } = await supabase
     .from('dispositivos_vinculados')
     .insert({ tienda_id: tienda.id, hardware_id: hardwareId, nombre_dispositivo: nombre })

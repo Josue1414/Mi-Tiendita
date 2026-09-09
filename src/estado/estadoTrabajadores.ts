@@ -79,6 +79,44 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     try {
       let estadoTrabajadores: Trabajador[] = [];
 
+      const tiendaId = await obtenerTiendaIdActual();
+
+      if (navigator.onLine && tiendaId) {
+        const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
+
+        if (miembrosNube) {
+          const trabajadoresNube = miembrosNube.map((m: any) => ({
+            id: m.usuario_id,
+            nombre: m.nombre,
+            rol: m.rol,
+            pin: m.pin_hash ? descifrarPin(m.pin_hash) : "DU1234",
+            activo: m.activo,
+            ventasRealizadas: 0,
+            ingresosGenerados: 0,
+            permisos: m.permisos,
+            horarioSemanal: m.horario
+          }));
+
+          if (esEscritorio) {
+            const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
+            const tLocal = await obtenerRegistros("trabajadores");
+
+            for (const t of tLocal) {
+              if (!idsNube.has(t.id)) {
+                await eliminarRegistro("trabajadores", t.id);
+              }
+            }
+
+            for (const t of trabajadoresNube) {
+              await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
+            }
+          }
+
+          set({ trabajadores: trabajadoresNube, cargando: false });
+          return;
+        }
+      }
+
       if (esEscritorio) {
         const data = await obtenerRegistros("trabajadores");
         if (data.length === 0) {
@@ -91,46 +129,9 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           estadoTrabajadores = (data as Trabajador[]).map((t) => ({ ...t, pin: descifrarPin(t.pin) }));
         }
         set({ trabajadores: estadoTrabajadores, cargando: false });
-      }
-
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
-          
-          if (miembrosNube) {
-            const trabajadoresNube = miembrosNube.map((m: any) => ({
-              id: m.usuario_id,
-              nombre: m.nombre,
-              rol: m.rol,
-              pin: m.pin_hash ? descifrarPin(m.pin_hash) : "DU1234", 
-              activo: m.activo,
-              ventasRealizadas: 0, 
-              ingresosGenerados: 0,
-              permisos: m.permisos,
-              horarioSemanal: m.horario
-            }));
-            
-            if (esEscritorio) {
-              const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
-              
-              for (const tLocal of estadoTrabajadores) {
-                if (!idsNube.has(tLocal.id)) {
-                  await eliminarRegistro("trabajadores", tLocal.id);
-                }
-              }
-
-              for (const t of trabajadoresNube) {
-                await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
-              }
-            }
-            
-            set({ trabajadores: trabajadoresNube, cargando: false });
-          }
-        } else if (!esEscritorio) {
-          set({ cargando: false });
-        }
-      } else if (!esEscritorio) {
+      } else if (!navigator.onLine) {
+        set({ cargando: false });
+      } else {
         set({ cargando: false });
       }
     } catch (error) {

@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
+const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
+
 export interface RegistroAsistencia {
   id: string; // Formato: trabajadorId_YYYY-MM-DD
   trabajadorId: string;
@@ -25,31 +27,27 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
 
   cargarAsistencias: async () => {
     try {
-      // 1. Carga desde almacenamiento local (Offline-first)
-      const dataLocal = await obtenerRegistros("asistencias");
-      let asistenciasMapeadas = dataLocal as RegistroAsistencia[];
-      set({ asistencias: asistenciasMapeadas });
+      const tiendaId = await obtenerTiendaIdActual();
 
-      // 2. Sincronización con la nube (Diff y Purga)
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          const { data: nubeData, error } = await supabase
-            .from("asistencias")
-            .select("*")
-            .eq("tienda_id", tiendaId);
+      if (navigator.onLine && tiendaId) {
+        const { data: nubeData, error } = await supabase
+          .from("asistencias")
+          .select("*")
+          .eq("tienda_id", tiendaId);
 
-          if (!error && nubeData) {
-            const asistenciasNube: RegistroAsistencia[] = nubeData.map((a: any) => ({
-              id: a.id,
-              trabajadorId: a.trabajador_id,
-              fecha: a.fecha,
-              horaEntrada: a.hora_entrada,
-              horaSalida: a.hora_salida,
-              desconexiones: a.desconexiones
-            }));
-            
-            // Reconciliación: Borrar locales que ya no existen en la nube
+        if (!error && nubeData) {
+          const asistenciasNube: RegistroAsistencia[] = nubeData.map((a: any) => ({
+            id: a.id,
+            trabajadorId: a.trabajador_id,
+            fecha: a.fecha,
+            horaEntrada: a.hora_entrada,
+            horaSalida: a.hora_salida,
+            desconexiones: a.desconexiones
+          }));
+
+          if (esEscritorio) {
+            const dataLocal = await obtenerRegistros("asistencias");
+            const asistenciasMapeadas = dataLocal as RegistroAsistencia[];
             const idsNube = new Set(asistenciasNube.map(a => a.id));
             for (const asisLocal of asistenciasMapeadas) {
               if (!idsNube.has(asisLocal.id)) {
@@ -57,15 +55,19 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
               }
             }
 
-            // Actualizar persistencia local con los datos más recientes de la nube
             for (const asis of asistenciasNube) {
               await guardarRegistro("asistencias", asis);
             }
-
-            set({ asistencias: asistenciasNube });
           }
+
+          set({ asistencias: asistenciasNube });
+          return;
         }
       }
+
+      const dataLocal = await obtenerRegistros("asistencias");
+      const asistenciasMapeadas = dataLocal as RegistroAsistencia[];
+      set({ asistencias: asistenciasMapeadas });
     } catch (error) {
       console.error("Error al cargar asistencias:", error);
     }

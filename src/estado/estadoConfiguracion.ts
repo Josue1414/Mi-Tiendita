@@ -66,6 +66,42 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   cargarConfiguracion: async () => {
     set({ cargando: true });
     try {
+      const tiendaId = await obtenerTiendaIdActual();
+
+      if (navigator.onLine && tiendaId) {
+        const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
+
+        if (tiendaNube) {
+          const estadoActualizado = {
+            ...CONFIG_INICIAL,
+            nombreTienda: tiendaNube.nombre || CONFIG_INICIAL.nombreTienda,
+            mensajeTicket: tiendaNube.mensaje_ticket ?? CONFIG_INICIAL.mensajeTicket,
+            direccionTienda: tiendaNube.direccion_tienda ?? CONFIG_INICIAL.direccionTienda,
+            teclaCobro: tiendaNube.tecla_cobro ?? CONFIG_INICIAL.teclaCobro,
+            teclaEfectivo: tiendaNube.tecla_efectivo ?? CONFIG_INICIAL.teclaEfectivo,
+            teclaTarjeta: tiendaNube.tecla_tarjeta ?? CONFIG_INICIAL.teclaTarjeta,
+            teclaTransferencia: tiendaNube.tecla_transferencia ?? CONFIG_INICIAL.teclaTransferencia,
+            mensajePago: tiendaNube.mensaje_pago || CONFIG_INICIAL.mensajePago,
+            bancoTransferencia: tiendaNube.banco_transferencia || "",
+            titularTransferencia: tiendaNube.titular_transferencia || "",
+            cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
+            id: CONFIG_ID
+          };
+
+          if (esEscritorio) {
+            const data = await obtenerRegistros("configuracion");
+            if (data.length === 0) {
+              await guardarRegistro("configuracion", estadoActualizado);
+            } else {
+              await guardarRegistro("configuracion", estadoActualizado);
+            }
+          }
+
+          set({ ...estadoActualizado, cargando: false });
+          return;
+        }
+      }
+
       let estadoLocal = { ...CONFIG_INICIAL };
 
       if (esEscritorio) {
@@ -75,40 +111,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         } else {
           estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
         }
-        set({ ...estadoLocal, cargando: false });
       }
 
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          
-          const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
-          
-          if (tiendaNube) {
-            const estadoActualizado = {
-              ...estadoLocal,
-              nombreTienda: tiendaNube.nombre || estadoLocal.nombreTienda,
-              mensajeTicket: tiendaNube.mensaje_ticket ?? estadoLocal.mensajeTicket,
-              direccionTienda: tiendaNube.direccion_tienda ?? estadoLocal.direccionTienda,
-              teclaCobro: tiendaNube.tecla_cobro ?? estadoLocal.teclaCobro,
-              teclaEfectivo: tiendaNube.tecla_efectivo ?? estadoLocal.teclaEfectivo,
-              teclaTarjeta: tiendaNube.tecla_tarjeta ?? estadoLocal.teclaTarjeta,
-              teclaTransferencia: tiendaNube.tecla_transferencia ?? estadoLocal.teclaTransferencia,
-              mensajePago: tiendaNube.mensaje_pago || estadoLocal.mensajePago,
-              bancoTransferencia: tiendaNube.banco_transferencia || "",
-              titularTransferencia: tiendaNube.titular_transferencia || "",
-              cuentaTransferencia: tiendaNube.cuenta_transferencia || ""
-            };
-            
-            if (esEscritorio) await guardarRegistro("configuracion", estadoActualizado);
-            set({ ...estadoActualizado, cargando: false });
-          }
-        } else if (!esEscritorio) {
-          set({ cargando: false });
-        }
-      } else if (!esEscritorio) {
-        set({ cargando: false });
-      }
+      set({ ...estadoLocal, cargando: false });
     } catch (error) {
       console.error("Error al cargar configuracion:", error);
       set({ cargando: false });

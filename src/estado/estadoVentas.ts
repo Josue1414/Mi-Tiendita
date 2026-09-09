@@ -37,62 +37,60 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     try {
       let estadoVentas: Venta[] = [];
 
-      // 1. Carga Local (Offline-first)
+      const tiendaId = await obtenerTiendaIdActual();
+
+      if (navigator.onLine && tiendaId) {
+        const { data: ventasNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .order('created_at', { ascending: false });
+
+        if (!error && ventasNube) {
+          const ventasMapeadas: Venta[] = ventasNube.map(v => ({
+            id: v.id,
+            fecha: v.created_at,
+            trabajador: v.trabajador_nombre,
+            vendedor_id: v.vendedor_id,
+            subtotal: v.subtotal,
+            descuento: v.descuento,
+            total: v.total,
+            metodoPago: v.metodo_pago,
+            cancelada: v.cancelada,
+            articulos: v.venta_detalles.map((d: any) => ({
+              producto_id: d.producto_id,
+              nombre: d.nombre_producto,
+              cantidad: d.cantidad,
+              precio: d.precio_unitario,
+              subtotal: d.subtotal,
+              autorizacion_confirmada: d.autorizacion_confirmada
+            }))
+          }));
+
+          if (esEscritorio) {
+            const idsNube = new Set(ventasMapeadas.map(v => v.id));
+            const ventasLocal = await obtenerRegistros("ventas");
+
+            for (const vLocal of ventasLocal) {
+              if (!idsNube.has(vLocal.id)) await eliminarRegistro("ventas", vLocal.id);
+            }
+
+            for (const v of ventasMapeadas) {
+              await guardarRegistro("ventas", v);
+            }
+          }
+
+          set({ ventas: ventasMapeadas, cargando: false });
+          return;
+        }
+      }
+
+      // 1. Carga Local (fallback offline)
       const dataLocal = await obtenerRegistros("ventas");
       estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
 
-      // 2. Sincronización con Nube (Diff y Purga)
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          const { data: ventasNube, error } = await supabase
-            .from('ventas')
-            .select('*, venta_detalles(*)')
-            .eq('tienda_id', tiendaId)
-            .order('created_at', { ascending: false });
-
-          if (!error && ventasNube) {
-            const ventasMapeadas: Venta[] = ventasNube.map(v => ({
-              id: v.id,
-              fecha: v.created_at,
-              trabajador: v.trabajador_nombre,
-              vendedor_id: v.vendedor_id,
-              subtotal: v.subtotal,
-              descuento: v.descuento,
-              total: v.total,
-              metodoPago: v.metodo_pago,
-              cancelada: v.cancelada,
-              articulos: v.venta_detalles.map((d: any) => ({
-                producto_id: d.producto_id,
-                nombre: d.nombre_producto,
-                cantidad: d.cantidad,
-                precio: d.precio_unitario,
-                subtotal: d.subtotal,
-                autorizacion_confirmada: d.autorizacion_confirmada
-              }))
-            }));
-
-            if (esEscritorio) {
-              const idsNube = new Set(ventasMapeadas.map(v => v.id));
-              
-              for (const vLocal of estadoVentas) {
-                if (!idsNube.has(vLocal.id)) await eliminarRegistro("ventas", vLocal.id);
-              }
-
-              for (const v of ventasMapeadas) {
-                await guardarRegistro("ventas", v);
-              }
-            }
-
-            set({ ventas: ventasMapeadas, cargando: false });
-          }
-        } else {
-          set({ cargando: false });
-        }
-      } else {
-        set({ cargando: false });
-      }
+      if (!navigator.onLine) set({ cargando: false });
     } catch (error) {
       console.error("Error al cargar ventas:", error);
       set({ cargando: false });
