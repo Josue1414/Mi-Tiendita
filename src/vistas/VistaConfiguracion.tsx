@@ -73,6 +73,8 @@ export default function VistaConfiguracion() {
 
   const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
   const [miHwid, setMiHwid] = useState<string>("");
+  const [cerebroActual, setCerebroActual] = useState<Dispositivo | null>(null);
+  const [copiado, setCopiado] = useState(false);
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
@@ -132,7 +134,21 @@ export default function VistaConfiguracion() {
       if (!tiendaId) return;
 
       const { data } = await supabase.from('dispositivos_vinculados').select('*').eq('tienda_id', tiendaId);
-      if (data) setDispositivos(data as Dispositivo[]);
+      if (data) {
+        const listado = data as Dispositivo[];
+        setDispositivos(listado);
+        const cerebros = listado.filter((d) => d.es_cerebro);
+        if (cerebros.length > 1) {
+          setAviso({
+            titulo: "Conflicto de PC cerebro",
+            mensaje: "Hay más de una PC marcada como cerebro para esta tienda. Elige una sola en la configuración y libera la otra para evitar duplicados en el almacenamiento cifrado."
+          });
+        } else if (cerebros.length === 1) {
+          setCerebroActual(cerebros[0]);
+        } else {
+          setCerebroActual(null);
+        }
+      }
 
       if (esAppEscritorio && win.apiLocal?.obtenerHardwareId) {
         const hw = await win.apiLocal.obtenerHardwareId();
@@ -220,6 +236,27 @@ export default function VistaConfiguracion() {
     const lector = new FileReader();
     lector.onloadend = () => setInputLogo(lector.result as string);
     lector.readAsDataURL(archivo);
+  };
+
+  const copiarEnlaceLocal = async () => {
+    if (!ipLocalPC) {
+      setAviso({ titulo: "Sin enlace local", mensaje: "Primero habilita una dirección IP local en esta PC cerebro o usa la aplicación nativa." });
+      return;
+    }
+
+    const protocolo = window.location.protocol || "http:";
+    const puerto = window.location.port || "5173";
+    const base = `${protocolo}//${ipLocalPC}${puerto ? `:${puerto}` : ""}`;
+    const enlace = `${base}/?cliente=true`;
+
+    try {
+      await navigator.clipboard.writeText(enlace);
+      setCopiado(true);
+      setAviso({ titulo: "Enlace local copiado", mensaje: `${enlace}` });
+      setTimeout(() => setCopiado(false), 1800);
+    } catch (error) {
+      setAviso({ titulo: "No se pudo copiar", mensaje: `Copia manualmente este enlace: ${enlace}` });
+    }
   };
 
   const seleccionarCarpeta = async () => {
@@ -362,6 +399,21 @@ export default function VistaConfiguracion() {
               <strong> Convierte esta PC en el "Cerebro" (Servidor)</strong> con un solo clic, y conecta tus otros dispositivos ingresando el código de conexión.
             </p>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Cerebro registrado</span>
+                <span className="mt-1 block text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {cerebroActual ? `${cerebroActual.nombre_dispositivo} (${cerebroActual.hardware_id.substring(0, 12)}...)` : "Sin cerebro configurado"}
+                </span>
+              </div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Estado LAN</span>
+                <span className="mt-1 block text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {conectadoLAN ? "Conectado" : "Sin conexión LAN"}
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", esMaestro ? "border-indigo-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-indigo-500/20" : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-70 hover:opacity-100")}>
                 <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 rounded-full flex items-center justify-center mb-3">
@@ -386,14 +438,22 @@ export default function VistaConfiguracion() {
 
                 {esMaestro && ipLocalPC && (
                   <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-                    <span className="block text-[10px] uppercase font-bold text-indigo-500 tracking-wider mb-1">Escribe este código en tus otros equipos:</span>
+                    <span className="block text-[10px] uppercase font-bold text-indigo-500 tracking-wider mb-1">Escribe este código o comparte este enlace local:</span>
                     {ipLocalPC === "127.0.0.1" ? (
                       <div className="mt-2 text-xs font-bold text-red-600 dark:text-red-400 flex flex-col items-center gap-1 bg-red-100/50 dark:bg-red-900/30 p-2 rounded-lg">
                         <AlertTriangle size={16} />
                         <span>Conéctate a una red Wi-Fi o router local para generar un código válido.</span>
                       </div>
                     ) : (
-                      <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-slate-600 dark:text-slate-300 break-all">http://{ipLocalPC}:{window.location.port || "5173"}/?cliente=true</span>
+                          <button onClick={copiarEnlaceLocal} className="shrink-0 rounded-lg border border-indigo-300 px-3 py-1 text-[10px] font-black text-indigo-700 hover:bg-indigo-100 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/40">
+                            {copiado ? "Copiado" : "Copiar"}
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
