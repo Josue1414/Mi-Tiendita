@@ -2,23 +2,28 @@
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEstadoCaja } from "../estado/estadoCaja";
 import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer, Ban } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { imprimirTicket } from "../utilidades/impresion";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
+import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import { cn } from "../utilidades/utils";
 
 export default function VistaHistorialVentas() {
   const { ventas, cancelarVenta } = useEstadoVentas();
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda } = useEstadoConfiguracion();
   const { trabajadorActivo } = useEstadoTrabajadores();
-  
+  const { requerirPinCancelacion } = useEstadoCaja();
+
   const [busqueda, setBusqueda] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [pagina, setPagina] = useState(1);
   const [ventaSeleccionada, setVentaSeleccionada] = useState<string | null>(null);
   const [confirmarCancelacion, setConfirmarCancelacion] = useState<{abierto: boolean, id: string}>({ abierto: false, id: "" });
+  const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
+  const [ventaPendienteCancelacion, setVentaPendienteCancelacion] = useState<string | null>(null);
   const porPagina = 10;
 
   // Permisos
@@ -45,9 +50,41 @@ export default function VistaHistorialVentas() {
     setConfirmarCancelacion({ abierto: false, id: "" });
   };
 
+  const iniciarCancelacionConValidacion = (id: string) => {
+    const esAutorizado = esDueño || esSupervisor;
+    if (!requerirPinCancelacion || esAutorizado) {
+      cancelarVenta(id);
+      return;
+    }
+
+    setVentaPendienteCancelacion(id);
+    setModalPinCancelacion(true);
+  };
+
+  const confirmarCancelacionConPin = () => {
+    if (ventaPendienteCancelacion) {
+      cancelarVenta(ventaPendienteCancelacion);
+    }
+    setModalPinCancelacion(false);
+    setVentaPendienteCancelacion(null);
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-6 animate-in fade-in duration-300">
       
+      <ModalConfirmacionPin
+        abierto={modalPinCancelacion}
+        titulo="Autorización Requerida"
+        mensaje="Ingresa el PIN de un Dueño o Supervisor para autorizar esta cancelación de venta."
+        labelPin="PIN de Autorización"
+        validarAutorizacion={true}
+        alConfirmar={confirmarCancelacionConPin}
+        alCerrar={() => {
+          setModalPinCancelacion(false);
+          setVentaPendienteCancelacion(null);
+        }}
+      />
+
       <ModalConfirmacion
         abierto={confirmarCancelacion.abierto}
         titulo="Cancelar Venta / Devolución"
@@ -156,7 +193,11 @@ export default function VistaHistorialVentas() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setConfirmarCancelacion({ abierto: true, id: venta.id });
+                              if (!requerirPinCancelacion || esDueño || esSupervisor) {
+                                setConfirmarCancelacion({ abierto: true, id: venta.id });
+                              } else {
+                                iniciarCancelacionConValidacion(venta.id);
+                              }
                             }}
                             className="p-1.5 flex items-center justify-center text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg hover:text-red-600 dark:hover:text-red-400 transition-colors"
                             title="Cancelar Venta / Devolución"

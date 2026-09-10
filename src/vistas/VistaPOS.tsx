@@ -150,28 +150,6 @@ export default function VistaPOS() {
 
   useEscanerCodigoBarras(alEscanear);
 
-  const generarIdTicket = () => {
-    const ahora = new Date();
-    const yy = ahora.getFullYear().toString().slice(-2);
-    const mm = (ahora.getMonth() + 1).toString().padStart(2, '0');
-    const dd = ahora.getDate().toString().padStart(2, '0');
-
-    const letraRandom = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
-    const alfanumRandom = () => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      return chars.charAt(Math.floor(Math.random() * chars.length));
-    };
-
-    const l1 = letraRandom();
-    const l2 = letraRandom() + letraRandom();
-    
-    let resto = "";
-    for(let i=0; i<5; i++) {
-      resto += alfanumRandom();
-    }
-    return `${yy}${l1}${mm}${l2}${dd}${resto}`;
-  };
-
   const confirmarVenta = async (metodoPago: string) => {
     if (!trabajadorActivo) return;
 
@@ -179,7 +157,7 @@ export default function VistaPOS() {
       await descontarStock(items);
       
       const nuevaVenta = {
-        id: generarIdTicket(),
+        id: crypto.randomUUID(),
         fecha: new Date().toISOString(),
         trabajador: trabajadorActivo.nombre, 
         articulos: items,
