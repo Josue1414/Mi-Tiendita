@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Scale, X, Check, Usb} from "lucide-react";
 import { useBascula } from "../../hooks/useBascula";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import type { Producto } from "../../tipos/producto";
 
 interface PropsModalPeso {
@@ -12,7 +13,14 @@ interface PropsModalPeso {
 }
 
 export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: PropsModalPeso) {
-  const { pesoActual, basculaConectada, conectarBascula, desconectarBascula } = useBascula();
+  const { basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato, basculaUnidad } = useEstadoConfiguracion();
+  const { pesoActual, basculaConectada, conectarBascula, desconectarBascula } = useBascula({
+    modelo: basculaModelo,
+    puerto: basculaPuerto,
+    baudRate: basculaBaudRate,
+    formato: basculaFormato,
+    unidad: basculaUnidad,
+  });
   const [pesoManual, setPesoManual] = useState<string>("");
 
   // Desconectar la báscula automáticamente cuando se cierra el modal para liberar el puerto USB

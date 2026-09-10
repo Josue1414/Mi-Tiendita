@@ -5,9 +5,12 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, KeyRound, Laptop } from "lucide-react";
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
+import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
+
+const CLAVE_EMAIL_SAAS = "mi_tienda_remember_email";
 
 export default function VistaLogin() {
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
@@ -41,32 +44,40 @@ export default function VistaLogin() {
 
   useEffect(() => {
     const validarSesionPrevia = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        const tiendaId = localStorage.getItem("tienda_id");
+        if (tiendaId) {
+          const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento').eq('id', tiendaId).single();
+          if (tienda) {
+            const registro = await registrarDispositivoActual(tienda);
+            setNombrePC(registro.dispositivo.nombre_dispositivo);
+          }
+        }
+        setCuentaSaaSLogueada(true);
+        return;
+      }
+
       if (window.apiLocal && !navigator.onLine) {
         setModoOfflineInfo(true);
         const validacion = await window.apiLocal.validarSuscripcionOffline();
         if (validacion.activo) {
-          setCuentaSaaSLogueada(true); 
+          setCuentaSaaSLogueada(true);
         } else {
           setErrorSaaS(validacion.error || "Sin acceso. Conéctate a internet.");
         }
         return;
       }
 
-      if (navigator.onLine) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const tiendaId = localStorage.getItem("tienda_id");
-          if (tiendaId) {
-            const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento').eq('id', tiendaId).single();
-            if (tienda) {
-              const registro = await registrarDispositivoActual(tienda);
-              setNombrePC(registro.dispositivo.nombre_dispositivo);
-            }
-          }
-          setCuentaSaaSLogueada(true);
-        }
-      }
+      if (!navigator.onLine) return;
+
+      // Se restaura la sesión de Supabase por la sesión persistida del cliente.
+      // No se guarda la contraseña en el navegador para evitar riesgo de fuga.
+      // Si la sesión del navegador no existe, la petición continúa con la autenticación del owner.
+      return;
     };
+
     validarSesionPrevia();
   }, []);
 
@@ -119,7 +130,7 @@ export default function VistaLogin() {
     setCargandoSaaS(true);
     setErrorSaaS("");
     setMensajeExito("");
-    
+
     try {
       if (!navigator.onLine) throw new Error("No hay conexión a internet para validar el pago.");
 
@@ -129,12 +140,14 @@ export default function VistaLogin() {
       });
       if (authError) throw authError;
 
+      localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
+
       const { data: miembrosData, error: miembroError } = await supabase
         .from('miembros_tienda')
         .select('tiendas(id, nombre, fecha_vencimiento, max_dispositivos)')
         .eq('usuario_id', authData.user?.id)
         .eq('activo', true);
-      
+
       if (miembroError || !miembrosData || miembrosData.length === 0) {
         throw new Error("No tienes ninguna tienda vinculada o tu acceso fue revocado.");
       }
@@ -211,6 +224,7 @@ export default function VistaLogin() {
   const manejarRegresoCuenta = async () => {
     if (navigator.onLine) await supabase.auth.signOut();
     localStorage.removeItem("tienda_id");
+    localStorage.removeItem(CLAVE_EMAIL_SAAS);
     setCuentaSaaSLogueada(false);
     setEmailSaaS("");
     setPasswordSaaS("");
@@ -276,37 +290,16 @@ export default function VistaLogin() {
               </div>
             </div>
           ) : modoRecuperacion ? (
-            <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
-              <button onClick={() => { setModoRecuperacion(false); setErrorSaaS(""); setMensajeExito(""); }} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <ArrowLeft size={20} />
-              </button>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                <KeyRound className="text-emerald-600" /> Recuperar Contraseña
-              </h2>
-              <p className="text-xs text-slate-500 mb-6">Ingresa el correo electrónico asociado a tu cuenta y te enviaremos un enlace para restablecerla.</p>
-              
-              <form onSubmit={manejarRecuperacion} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
-                  <input type="email" required autoFocus value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
-                </div>
-
-                {errorSaaS && (
-                  <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
-                    {errorSaaS}
-                  </p>
-                )}
-                {mensajeExito && (
-                  <p className="text-emerald-600 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-                    {mensajeExito}
-                  </p>
-                )}
-
-                <button type="submit" disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
-                  {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Enviando...</> : "Enviar Instrucciones"}
-                </button>
-              </form>
-            </div>
+            <VistaRecuperacionPassword
+              emailSaaS={emailSaaS}
+              setEmailSaaS={setEmailSaaS}
+              errorSaaS={errorSaaS}
+              mensajeExito={mensajeExito}
+              cargandoSaaS={cargandoSaaS}
+              modoOfflineInfo={modoOfflineInfo}
+              onRecuperar={manejarRecuperacion}
+              onVolver={() => { setModoRecuperacion(false); setErrorSaaS(""); setMensajeExito(""); }}
+            />
           ) : (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-300">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center justify-between">
@@ -317,7 +310,7 @@ export default function VistaLogin() {
               <form onSubmit={manejarLoginSaaS} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
-                  <input type="email" required autoFocus value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
+                  <input type="email" required autoFocus autoComplete="username" value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
                 </div>
                 
                 <div>
@@ -326,6 +319,7 @@ export default function VistaLogin() {
                     <input 
                       type={mostrarPassword ? "text" : "password"} 
                       required 
+                      autoComplete="new-password"
                       value={passwordSaaS} 
                       onChange={(e) => setPasswordSaaS(e.target.value)} 
                       disabled={modoOfflineInfo} 

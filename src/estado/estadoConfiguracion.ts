@@ -23,6 +23,11 @@ export interface Configuracion {
   cuentaTransferencia: string;
   mensajePago: string;
   correoDueno: string;
+  basculaModelo: string;
+  basculaPuerto: string;
+  basculaBaudRate: string;
+  basculaFormato: string;
+  basculaUnidad: string;
 }
 
 interface EstadoConfiguracion extends Configuracion {
@@ -33,6 +38,7 @@ interface EstadoConfiguracion extends Configuracion {
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
   actualizarDatosPago: (datos: Partial<Configuracion>) => Promise<void>;
+  actualizarDatosBascula: (modelo: string, puerto: string, baudRate: string, formato: string, unidad: string) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
   sincronizarConfiguracion: (payload: any) => Promise<void>; // <-- NUEVO: Para tiempo real
 }
@@ -57,6 +63,11 @@ const CONFIG_INICIAL: Configuracion = {
   cuentaTransferencia: "",
   mensajePago: "Pago realizado. Gracias por su compra, vuelva pronto.",
   correoDueno: "",
+  basculaModelo: "Ohaus Valor 2000",
+  basculaPuerto: "USB",
+  basculaBaudRate: "9600",
+  basculaFormato: "serial",
+  basculaUnidad: "kg",
 };
 
 export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => ({
@@ -222,6 +233,34 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       }
     } catch (error) {
       console.error("Error al guardar datos de pago:", error);
+    }
+  },
+
+  actualizarDatosBascula: async (modelo, puerto, baudRate, formato, unidad) => {
+    try {
+      const configBase = get();
+      const nuevaConfig = {
+        ...configBase,
+        basculaModelo: modelo,
+        basculaPuerto: puerto,
+        basculaBaudRate: baudRate,
+        basculaFormato: formato,
+        basculaUnidad: unidad
+      };
+
+      if (esEscritorio) {
+        await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      }
+
+      set({
+        basculaModelo: modelo,
+        basculaPuerto: puerto,
+        basculaBaudRate: baudRate,
+        basculaFormato: formato,
+        basculaUnidad: unidad
+      });
+    } catch (error) {
+      console.error("Error al guardar la configuración de la báscula:", error);
     }
   },
 

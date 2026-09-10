@@ -100,7 +100,7 @@ create table if not exists public.productos (
 );
 
 create table if not exists public.ventas (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   tienda_id uuid not null references public.tiendas(id) on delete cascade,
   vendedor_id uuid not null,
   trabajador_nombre text not null,
@@ -117,7 +117,7 @@ ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS cancelada boolean not null de
 
 create table if not exists public.venta_detalles (
   id uuid primary key default gen_random_uuid(),
-  venta_id uuid not null references public.ventas(id) on delete cascade,
+  venta_id text not null references public.ventas(id) on delete cascade,
   producto_id uuid references public.productos(id) on delete set null,
   nombre_producto text not null,
   cantidad numeric(12,3) not null check (cantidad > 0),
@@ -230,11 +230,19 @@ begin
 
   perform pg_advisory_xact_lock(hashtext(p_tienda_id::text));
 
-  if p_es_cerebro and exists (
-    select 1 from public.dispositivos_vinculados
-    where tienda_id = p_tienda_id and es_cerebro and hardware_id <> p_hardware_id
-  ) then
-    return false;
+  if p_es_cerebro then
+    update public.dispositivos_vinculados
+    set es_cerebro = false,
+        ultimo_acceso = now()
+    where tienda_id = p_tienda_id
+      and es_cerebro = true
+      and hardware_id <> p_hardware_id;
+  else
+    update public.dispositivos_vinculados
+    set es_cerebro = false,
+        ultimo_acceso = now()
+    where tienda_id = p_tienda_id
+      and hardware_id = p_hardware_id;
   end if;
 
   insert into public.dispositivos_vinculados (tienda_id, hardware_id, es_cerebro, ultimo_acceso)

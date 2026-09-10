@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle, Laptop, Pencil, X, Network, Server, Smartphone, Wifi, WifiOff, Sun, Moon, Palette } from "lucide-react";
+import { Store, HardDrive, FolderOpen, Save, Info, CheckCircle2, MonitorDown, FileSpreadsheet, Lock, Image as ImageIcon, Trash2, AlertTriangle, Laptop, Pencil, X, Network, Server, Smartphone, Wifi, WifiOff, Sun, Moon, Palette, Scale } from "lucide-react";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { leerProductosExcel } from "../servicios/importadorProductos";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoRed } from "../estado/estadoRed";
 import ModalAviso from "../componentes/ui/ModalAviso";
+import ModalConfirmacionDesvincularEquipo from "../componentes/ui/ModalConfirmacionDesvincularEquipo";
 import { cn } from "../utilidades/utils";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { establecerRolCerebro } from "../servicios/cerebroTienda";
@@ -35,10 +36,11 @@ interface NavegadorExtendido {
 }
 
 export default function VistaConfiguracion() {
-  const { 
+  const {
     nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, direccionTienda, logoTienda,
     teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
-    actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago
+    basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato, basculaUnidad,
+    actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago, actualizarDatosBascula
   } = useEstadoConfiguracion();
 
   const { productos, agregarProducto } = useEstadoInventario();
@@ -66,6 +68,7 @@ export default function VistaConfiguracion() {
 
   const [importando, setImportando] = useState(false);
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
+  const [confirmacionDesvincular, setConfirmacionDesvincular] = useState<{ abierto: boolean; equipo: Dispositivo | null }>({ abierto: false, equipo: null });
 
   // Estados de Red Local
   const [ipLocalPC, setIpLocalPC] = useState("");
@@ -174,16 +177,42 @@ export default function VistaConfiguracion() {
     return () => { supabase.removeChannel(canalDispositivos); };
   }, [esDueño, esAppEscritorio, win.apiLocal]);
 
-  const desvincularEquipo = async (id: string, esMiEquipo: boolean) => {
+  const abrirDesvinculacion = (equipo: Dispositivo, esMiEquipo: boolean) => {
     if (esMiEquipo) {
       setAviso({ titulo: "Acción no permitida", mensaje: "No puedes eliminar el equipo desde el cual estás conectado actualmente." });
       return;
     }
-    if (!confirm("¿Estás seguro de desvincular este equipo?")) return;
-    
-    const { error } = await supabase.from('dispositivos_vinculados').delete().eq('id', id);
-    if (!error) setDispositivos(prev => prev.filter(d => d.id !== id));
-    else setAviso({ titulo: "Error", mensaje: "No se pudo desvincular el equipo." });
+
+    setConfirmacionDesvincular({ abierto: true, equipo });
+  };
+
+  const desvincularEquipo = async (id: string, esMiEquipo: boolean, nuevoCerebroId?: string) => {
+    if (esMiEquipo) {
+      setAviso({ titulo: "Acción no permitida", mensaje: "No puedes eliminar el equipo desde el cual estás conectado actualmente." });
+      return;
+    }
+
+    const equipo = dispositivos.find((d) => d.id === id);
+    if (!equipo) return;
+
+    try {
+      if (equipo.es_cerebro && nuevoCerebroId) {
+        const { error: errorNuevoCerebro } = await supabase.from('dispositivos_vinculados').update({ es_cerebro: true }).eq('id', nuevoCerebroId);
+        if (errorNuevoCerebro) {
+          throw new Error("No se pudo transferir el rol de cerebro al equipo seleccionado.");
+        }
+      }
+
+      const { error } = await supabase.from('dispositivos_vinculados').delete().eq('id', id);
+      if (error) throw error;
+
+      setDispositivos(prev => prev.filter(d => d.id !== id));
+      setAviso({ titulo: "Equipo desvinculado", mensaje: "El equipo fue eliminado correctamente." });
+    } catch (error: any) {
+      setAviso({ titulo: "Error", mensaje: error.message || "No se pudo desvincular el equipo." });
+    } finally {
+      setConfirmacionDesvincular({ abierto: false, equipo: null });
+    }
   };
 
   const guardarNombreEquipo = async (id: string, hardwareId: string) => {
@@ -310,6 +339,16 @@ export default function VistaConfiguracion() {
   return (
     <div className="w-full h-full flex flex-col p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
       <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo={aviso?.titulo === "Importación completada" ? "exito" : "advertencia"} alCerrar={() => setAviso(null)} />
+      <ModalConfirmacionDesvincularEquipo
+        abierto={confirmacionDesvincular.abierto}
+        equipo={confirmacionDesvincular.equipo}
+        dispositivos={dispositivos}
+        alCerrar={() => setConfirmacionDesvincular({ abierto: false, equipo: null })}
+        alConfirmar={async (nuevoCerebroId?: string) => {
+          if (!confirmacionDesvincular.equipo) return;
+          await desvincularEquipo(confirmacionDesvincular.equipo.id, confirmacionDesvincular.equipo.hardware_id === miHwid, nuevoCerebroId);
+        }}
+      />
       
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
@@ -345,6 +384,68 @@ export default function VistaConfiguracion() {
             );
           })}
         </div>
+      </section>
+
+      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+        <details open className="group">
+          <summary className="cursor-pointer list-none flex items-center justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
+            <span className="flex items-center gap-2"><Scale size={20} className="text-emerald-600 dark:text-emerald-400" />Báscula y peso</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">Acordeón</span>
+          </summary>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Modelo</span>
+              <select value={basculaModelo} onChange={(e) => actualizarDatosBascula(e.target.value, basculaPuerto, basculaBaudRate, basculaFormato, basculaUnidad)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+                <option>Ohaus Valor 2000</option>
+                <option>Ohaus Scout Pro</option>
+                <option>Ohaus CS Series</option>
+                <option>Mettler Toledo PB</option>
+                <option>Adam Equipment</option>
+                <option>CAS SW-1</option>
+                <option>Sartorius</option>
+                <option>A&D Weighing</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Puerto</span>
+              <select value={basculaPuerto} onChange={(e) => actualizarDatosBascula(basculaModelo, e.target.value, basculaBaudRate, basculaFormato, basculaUnidad)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+                <option>USB</option>
+                <option>Serial COM</option>
+                <option>Bluetooth</option>
+                <option>TCP/IP</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Baud</span>
+              <select value={basculaBaudRate} onChange={(e) => actualizarDatosBascula(basculaModelo, basculaPuerto, e.target.value, basculaFormato, basculaUnidad)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+                <option>9600</option>
+                <option>19200</option>
+                <option>38400</option>
+                <option>57600</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Formato</span>
+              <select value={basculaFormato} onChange={(e) => actualizarDatosBascula(basculaModelo, basculaPuerto, basculaBaudRate, e.target.value, basculaUnidad)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+                <option>serial</option>
+                <option>text</option>
+                <option>csv</option>
+                <option>scale</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Unidad</span>
+              <select value={basculaUnidad} onChange={(e) => actualizarDatosBascula(basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato, e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+                <option>kg</option>
+                <option>g</option>
+                <option>lb</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+            Soporte recomendado: modelos con salida serial/texto tipo <span className="font-mono">kg</span>, <span className="font-mono">0.000</span> y puerto USB virtual COM. Elije el modelo con el mismo protocolo de texto para evitar lecturas vacías.
+          </div>
+        </details>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
@@ -547,7 +648,7 @@ export default function VistaConfiguracion() {
                       <span className="text-[10px] text-slate-400 mt-0.5">Último acceso: {new Date(disp.ultimo_acceso).toLocaleDateString('es-MX')}</span>
                     </div>
                     <button 
-                      onClick={() => desvincularEquipo(disp.id, esMiEquipo)} 
+                      onClick={() => abrirDesvinculacion(disp, esMiEquipo)} 
                       className="p-2 mt-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Desvincular equipo"
                     >
                       <Trash2 size={18} />

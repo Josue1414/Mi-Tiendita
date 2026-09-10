@@ -6,6 +6,26 @@ import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
+const mapearVentaDesdeSupabase = (v: any): Venta => ({
+  id: v.id,
+  fecha: v.created_at,
+  trabajador: v.trabajador_nombre,
+  vendedor_id: v.vendedor_id,
+  subtotal: v.subtotal,
+  descuento: v.descuento,
+  total: v.total,
+  metodoPago: v.metodo_pago,
+  cancelada: v.cancelada,
+  articulos: (v.venta_detalles ?? []).map((d: any) => ({
+    producto_id: d.producto_id,
+    nombre: d.nombre_producto,
+    cantidad: d.cantidad,
+    precio: d.precio_unitario,
+    subtotal: d.subtotal,
+    autorizacion_confirmada: d.autorizacion_confirmada
+  }))
+});
+
 export interface Venta {
   id: string;
   fecha: string;
@@ -47,25 +67,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           .order('created_at', { ascending: false });
 
         if (!error && ventasNube) {
-          const ventasMapeadas: Venta[] = ventasNube.map(v => ({
-            id: v.id,
-            fecha: v.created_at,
-            trabajador: v.trabajador_nombre,
-            vendedor_id: v.vendedor_id,
-            subtotal: v.subtotal,
-            descuento: v.descuento,
-            total: v.total,
-            metodoPago: v.metodo_pago,
-            cancelada: v.cancelada,
-            articulos: v.venta_detalles.map((d: any) => ({
-              producto_id: d.producto_id,
-              nombre: d.nombre_producto,
-              cantidad: d.cantidad,
-              precio: d.precio_unitario,
-              subtotal: d.subtotal,
-              autorizacion_confirmada: d.autorizacion_confirmada
-            }))
-          }));
+          const ventasMapeadas: Venta[] = ventasNube.map(mapearVentaDesdeSupabase);
 
           if (esEscritorio) {
             const idsNube = new Set(ventasMapeadas.map(v => v.id));
@@ -186,9 +188,23 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
       }
       set({ ventas: actualizadas });
     } else if (eventType === 'INSERT') {
-      // Si insertan desde otra PC, disparamos una recarga rápida solo de esta tabla para traer los detalles, 
-      // o podríamos aislar la petición a esa sola venta para no recargar todo
-      get().cargarVentas();
+      try {
+        const tiendaId = await obtenerTiendaIdActual();
+        const { data: ventaNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .eq('id', nuevo.id)
+          .maybeSingle();
+
+        if (!error && ventaNube) {
+          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
+          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
+          set({ ventas: ventas.some((v) => v.id === ventaMapeada.id) ? ventas : [ventaMapeada, ...ventas] });
+        }
+      } catch (error) {
+        console.warn('No se pudo sincronizar silenciosamente una venta remota:', error);
+      }
     }
   }
 }));
