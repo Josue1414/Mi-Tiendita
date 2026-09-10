@@ -172,10 +172,38 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }
   },
 
-  // Sincronización silenciosa para WebSockets
+  // Sincronización silenciosa para WebSockets y Supabase Realtime
   sincronizarVenta: async (payload: any) => {
-    const { eventType, new: nuevo, old: viejo } = payload;
+    const { eventType, new: nuevo, old: viejo, table } = payload;
     const { ventas } = get();
+
+    // Si llega un detalle de venta, reconstruimos la venta completa desde la cabecera
+    // usando el venta_id del detalle para que el historial muestre el asiento de venta
+    // con sus artículos al instante en todas las pantallas.
+    if (table === 'venta_detalles') {
+      const ventaId = eventType === 'DELETE' ? viejo.venta_id : nuevo.venta_id;
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) return;
+
+      try {
+        const { data: ventaNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .eq('id', ventaId)
+          .maybeSingle();
+
+        if (!error && ventaNube) {
+          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
+          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
+          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
+          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
+        }
+      } catch (error) {
+        console.warn('No se pudo reconstruir la venta desde un detalle remoto:', error);
+      }
+      return;
+    }
 
     if (eventType === 'DELETE') {
       if (esEscritorio) await eliminarRegistro("ventas", viejo.id);
@@ -200,7 +228,8 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         if (!error && ventaNube) {
           const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
           if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
-          set({ ventas: ventas.some((v) => v.id === ventaMapeada.id) ? ventas : [ventaMapeada, ...ventas] });
+          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
+          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
         }
       } catch (error) {
         console.warn('No se pudo sincronizar silenciosamente una venta remota:', error);

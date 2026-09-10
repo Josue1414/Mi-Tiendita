@@ -215,6 +215,9 @@ export function useSincronizacion() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoVentas.getState().sincronizarVenta(payload);
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'venta_detalles' }, (payload) => {
+          useEstadoVentas.getState().sincronizarVenta(payload);
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'turnos_caja', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoCaja.getState().sincronizarTurno(payload);
         })
