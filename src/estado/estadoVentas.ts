@@ -110,7 +110,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         
         if (tiendaId && session) {
           venta.vendedor_id = session.user.id;
-          await supabase.from('ventas').insert({
+          const { error: errorVenta } = await supabase.from('ventas').insert({
             id: venta.id,
             tienda_id: tiendaId,
             vendedor_id: session.user.id,
@@ -122,6 +122,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             cancelada: false,
             created_at: venta.fecha
           });
+          if (errorVenta) throw errorVenta;
 
           const detalles = venta.articulos.map(art => ({
             venta_id: venta.id,
@@ -134,7 +135,8 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             evidencia_nombre_archivo_local: null 
           }));
 
-          await supabase.from('venta_detalles').insert(detalles);
+          const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
+          if (errorDetalles) throw errorDetalles;
         }
       } else {
         // Encolar para cuando regrese el internet

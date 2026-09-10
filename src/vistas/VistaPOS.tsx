@@ -12,7 +12,7 @@ import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
-import { cn, generarIdCompra } from "../utilidades/utils";
+import { cn } from "../utilidades/utils";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import { colorConAlpha, colorTextoSobre } from "../utilidades/coloresCategoria";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
@@ -157,7 +157,7 @@ export default function VistaPOS() {
       await descontarStock(items);
       
       const nuevaVenta = {
-        id: generarIdCompra(),
+        id: crypto.randomUUID(),
         fecha: new Date().toISOString(),
         vendedor_id: trabajadorActivo.id,
         trabajador: trabajadorActivo.nombre,
