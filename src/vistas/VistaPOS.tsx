@@ -159,6 +159,7 @@ export default function VistaPOS() {
       const nuevaVenta = {
         id: generarIdCompra(),
         fecha: new Date().toISOString(),
+        vendedor_id: trabajadorActivo.id,
         trabajador: trabajadorActivo.nombre,
         articulos: items,
         subtotal,

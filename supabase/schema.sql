@@ -1,3 +1,4 @@
+-- supabase/schema.sql
 create table if not exists public.tiendas (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
@@ -290,7 +291,8 @@ drop policy if exists ventas_miembro_select on public.ventas;
 create policy ventas_miembro_select on public.ventas for select using (tienda_id in (select public.mis_tiendas()));
 
 drop policy if exists ventas_miembro_insert on public.ventas;
-create policy ventas_miembro_insert on public.ventas for insert with check (tienda_id in (select public.mis_tiendas()) and vendedor_id = auth.uid());
+-- (CORREGIDO) Se eliminó la validación estricta de vendedor_id = auth.uid() para permitir el registro por trabajadores sin cuenta dueña.
+create policy ventas_miembro_insert on public.ventas for insert with check (tienda_id in (select public.mis_tiendas()));
 
 drop policy if exists ventas_admin_update on public.ventas;
 create policy ventas_admin_update on public.ventas for update using (public.es_dueno_o_supervisor(tienda_id));
