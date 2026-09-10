@@ -299,8 +299,11 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
   descontarStock: async (items, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
-    
-    if (!esMaestro && !propagado) {
+
+    // En Web/Navegador la propagación LAN no existe. Si el cliente no es
+    // escritorio y tampoco es el maestro, debe continuar con el flujo normal
+    // y persistir el descuento en Supabase/IndexedDB, no cortar la transacción.
+    if (!esMaestro && !propagado && esEscritorio) {
       emitirAccionMaestro({ tipo: 'DESCONTAR_STOCK', payload: items });
       const productosActualizados = get().productos.map((producto) => {
         const item = items.find((entrada) => entrada.producto_id === producto.id);
@@ -316,16 +319,18 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       if (!item || !producto.controla_stock) return producto;
       return { ...producto, stock_actual: Math.max(0, producto.stock_actual - item.cantidad) };
     });
-    
+
     for (const producto of productosActualizados) {
       const productoAnterior = get().productos.find((p) => p.id === producto.id);
       if (productoAnterior?.stock_actual !== producto.stock_actual) {
-        await get().actualizarProducto(producto, true); 
+        await get().actualizarProducto(producto, true);
       }
     }
     set({ productos: productosActualizados });
 
-    if (esMaestro && !propagado) (window as any).apiLocal.emitirAEsclavos({ tipo: 'DESCONTAR_STOCK', payload: items });
+    if (esMaestro && !propagado && esEscritorio) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'DESCONTAR_STOCK', payload: items });
+    }
   },
 
   // Sincronizaciones silenciosas desde la nube
