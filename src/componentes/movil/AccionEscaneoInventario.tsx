@@ -1,3 +1,4 @@
+// src/hooks/useEscanerCodigoBarras.ts
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, ExternalLink, Minus, Package, Plus, Save, X } from "lucide-react";

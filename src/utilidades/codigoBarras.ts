@@ -159,10 +159,30 @@ export function escapeHtml(texto: string): string {
 
 // Reemplaza esta función dentro de tu archivo src/utilidades/codigoBarras.ts
 export const imprimirEtiqueta = ({ nombre, codigo, precio }: { nombre: string, codigo: string, precio: number }) => {
-  const ventana = window.open('', 'PRINT', 'height=400,width=600');
+  const ventana = window.open('', 'PRINT', 'height=600,width=800');
   if (!ventana) return;
 
   const svgCode = svgCodigoBarras(codigo);
+
+  // Leemos la configuración guardada (por defecto usamos la medida estándar de ticket/etiqueta pequeña)
+  const tamanioGuardado = localStorage.getItem('config_tamanio_impresora') || "50x25mm";
+
+  // Ajustes dinámicos según el tamaño seleccionado en Configuración
+  let ancho = "50mm";
+  let alto = "25mm";
+  let fontSizeTitulo = "9px";
+  let fontSizePrecio = "11px";
+
+  if (tamanioGuardado === "58mm") {
+    ancho = "58mm"; alto = "40mm";
+    fontSizeTitulo = "12px"; fontSizePrecio = "14px";
+  } else if (tamanioGuardado === "80mm") {
+    ancho = "80mm"; alto = "40mm";
+    fontSizeTitulo = "14px"; fontSizePrecio = "16px";
+  } else if (tamanioGuardado === "100x150mm") {
+    ancho = "100mm"; alto = "150mm"; // Ojo: Este es tamaño de guía de envío, muy grande para un producto
+    fontSizeTitulo = "20px"; fontSizePrecio = "24px";
+  }
 
   const html = `
     <!DOCTYPE html>
@@ -170,16 +190,16 @@ export const imprimirEtiqueta = ({ nombre, codigo, precio }: { nombre: string, c
       <head>
         <title>Etiqueta de Producto</title>
         <style>
-          /* Forzamos el tamaño de impresión estándar para etiquetas (50x25mm) */
           @page {
-            size: 50mm 25mm;
+            size: ${ancho} ${alto};
             margin: 0;
           }
           body {
             margin: 0;
-            padding: 0;
-            width: 50mm;
-            height: 25mm;
+            padding: 2mm;
+            width: calc(${ancho} - 4mm);
+            height: calc(${alto} - 4mm);
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -189,33 +209,34 @@ export const imprimirEtiqueta = ({ nombre, codigo, precio }: { nombre: string, c
             overflow: hidden;
           }
           .producto {
-            font-size: 9px;
+            font-size: ${fontSizeTitulo};
             font-weight: bold;
             text-align: center;
-            width: 95%;
+            width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-top: 2px;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
             color: black;
           }
           .codigo-container {
-            width: 90%;
-            height: 12mm; /* Fija la altura del código de barras */
+            width: 95%;
+            flex-grow: 1;
             display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 0;
           }
           .codigo-container svg {
             width: 100%;
             height: 100%;
+            max-height: 100%;
           }
           .precio {
-            font-size: 11px;
+            font-size: ${fontSizePrecio};
             font-weight: 900;
             text-align: center;
-            margin-top: 1px;
+            margin-top: 2px;
             color: black;
           }
         </style>
@@ -232,8 +253,9 @@ export const imprimirEtiqueta = ({ nombre, codigo, precio }: { nombre: string, c
   ventana.document.close();
   ventana.focus();
   
+  // Damos medio segundo para que el SVG se renderice antes de lanzar la ventana de impresión
   setTimeout(() => {
     ventana.print();
     ventana.close();
-  }, 300);
+  }, 500);
 };

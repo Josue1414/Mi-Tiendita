@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalCodigoBarras.tsx
 import { useMemo } from "react";
 import { Printer, X } from "lucide-react";
 import { imprimirEtiqueta, svgCodigoBarras } from "../../utilidades/codigoBarras";

@@ -1,4 +1,3 @@
-// electron/preload.cjs
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('apiLocal', {
@@ -8,6 +7,16 @@ contextBridge.exposeInMainWorld('apiLocal', {
   obtenerHardwareId: () => ipcRenderer.invoke('obtener-hardware-id'),
   validarSuscripcionOffline: () => ipcRenderer.invoke('validar-suscripcion-offline'),
   sincronizarReloj: (fechaVencimiento) => ipcRenderer.invoke('sincronizar-reloj', fechaVencimiento),
+
+  // Funciones de hardware (Báscula, Escáner, Impresora)
+  escucharPeticionDispositivos: (callback) => {
+    // Escucha el evento emitido desde main.cjs cuando se solicita hardware
+    ipcRenderer.on('mostrar-lista-dispositivos', (event, datos) => callback(datos));
+  },
+  confirmarDispositivo: (idDispositivo) => {
+    // Envía la elección de vuelta a main.cjs
+    ipcRenderer.invoke('confirmar-dispositivo', idDispositivo);
+  },
 
   // Funciones de sincronización LAN
   obtenerIpLocal: () => ipcRenderer.invoke('obtener-ip-local'),

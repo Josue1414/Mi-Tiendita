@@ -1,3 +1,5 @@
+// src/componentes/ui/ModalAviso.tsx
+import { useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 
 interface PropsModalAviso {
@@ -21,6 +23,19 @@ const colores = {
 };
 
 export default function ModalAviso({ abierto, titulo, mensaje, tipo = "info", alCerrar }: PropsModalAviso) {
+  useEffect(() => {
+    if (!abierto) return;
+
+    const manejarTecla = (evento: KeyboardEvent) => {
+      if (evento.key === "Enter") {
+        alCerrar();
+      }
+    };
+
+    window.addEventListener("keydown", manejarTecla);
+    return () => window.removeEventListener("keydown", manejarTecla);
+  }, [abierto, alCerrar]);
+
   if (!abierto) return null;
   const Icono = iconos[tipo];
 

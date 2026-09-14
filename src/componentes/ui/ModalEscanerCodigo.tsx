@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Barcode, Camera, X } from "lucide-react";
+import { useEscanerCodigoBarras } from "../../hooks/useEscanerCodigoBarras";
 
 interface PropsModalEscanerCodigo {
   abierto: boolean;
@@ -17,6 +18,12 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
   const [escaneando, setEscaneando] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
 
+  // Permite que el modal intercepte el escáner físico directamente y se cierre solo
+  useEscanerCodigoBarras((codigo) => {
+    alDetectar(codigo);
+    alCerrar();
+  }, abierto);
+
   const enviarCodigoManual = () => {
     const codigo = codigoManual.trim();
     if (codigo.length < 4) {
@@ -24,6 +31,7 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
       return;
     }
     alDetectar(codigo);
+    alCerrar(); // Se agregó el cierre tras el envío manual
   };
 
   useEffect(() => {

@@ -27,6 +27,7 @@ import VistaPerfil from "./vistas/VistaPerfil";
 import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
 import AccionEscaneoInventario from "./componentes/movil/AccionEscaneoInventario";
+import ModalSeleccionDispositivo from "./componentes/ui/ModalSeleccionDispositivo";
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   pos: VistaPOS,
@@ -167,6 +168,9 @@ export default function App() {
   return (
     <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
       
+      {/* Modal global de selección de hardware */}
+      <ModalSeleccionDispositivo />
+
       {mostrarModalSalida && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 flex flex-col items-center text-center">

@@ -28,6 +28,13 @@ export interface Configuracion {
   basculaBaudRate: string;
   basculaFormato: string;
   basculaUnidad: string;
+  escanerModelo: string;
+  escanerFabricante: string;
+  escanerDriver: string;
+  escanerTipo: string;
+  escanerPuerto: string;
+  escanerDetectado: boolean;
+  escanerMensaje: string;
 }
 
 interface EstadoConfiguracion extends Configuracion {
@@ -39,6 +46,15 @@ interface EstadoConfiguracion extends Configuracion {
   setTeclaCobro: (tecla: string) => Promise<void>;
   actualizarDatosPago: (datos: Partial<Configuracion>) => Promise<void>;
   actualizarDatosBascula: (modelo: string, puerto: string, baudRate: string, formato: string, unidad: string) => Promise<void>;
+  actualizarDatosEscaner: (
+    modelo: string,
+    fabricante: string,
+    driver: string,
+    tipo: string,
+    puerto: string,
+    detectado: boolean,
+    mensaje: string,
+  ) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
   sincronizarConfiguracion: (payload: any) => Promise<void>; // <-- NUEVO: Para tiempo real
 }
@@ -68,6 +84,13 @@ const CONFIG_INICIAL: Configuracion = {
   basculaBaudRate: "9600",
   basculaFormato: "serial",
   basculaUnidad: "kg",
+  escanerModelo: "Zebra DS2208",
+  escanerFabricante: "Zebra",
+  escanerDriver: "USB HID",
+  escanerTipo: "Teclado HID",
+  escanerPuerto: "USB",
+  escanerDetectado: false,
+  escanerMensaje: "No se detectó un escáner habilitado. Configure el modelo manualmente.",
 };
 
 export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => ({
@@ -261,6 +284,38 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       });
     } catch (error) {
       console.error("Error al guardar la configuración de la báscula:", error);
+    }
+  },
+
+  actualizarDatosEscaner: async (modelo, fabricante, driver, tipo, puerto, detectado, mensaje) => {
+    try {
+      const configBase = get();
+      const nuevaConfig = {
+        ...configBase,
+        escanerModelo: modelo,
+        escanerFabricante: fabricante,
+        escanerDriver: driver,
+        escanerTipo: tipo,
+        escanerPuerto: puerto,
+        escanerDetectado: detectado,
+        escanerMensaje: mensaje
+      };
+
+      if (esEscritorio) {
+        await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      }
+
+      set({
+        escanerModelo: modelo,
+        escanerFabricante: fabricante,
+        escanerDriver: driver,
+        escanerTipo: tipo,
+        escanerPuerto: puerto,
+        escanerDetectado: detectado,
+        escanerMensaje: mensaje
+      });
+    } catch (error) {
+      console.error("Error al guardar la configuración del escáner:", error);
     }
   },
 

@@ -13,6 +13,7 @@ import ModalCodigoBarras from "../componentes/ui/ModalCodigoBarras";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
+import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
 
 export default function VistaInventario() {
   const { productos, categorias, eliminarProducto, actualizarProducto, agregarCategoria, eliminarCategoria } = useEstadoInventario();
@@ -26,17 +27,31 @@ export default function VistaInventario() {
   const [escanerCamaraAbierto, setEscanerCamaraAbierto] = useState(false);
   const [confirmacion, setConfirmacion] = useState<{ abierto: boolean, titulo: string, mensaje: string, accion: () => void }>({ abierto: false, titulo: "", mensaje: "", accion: () => {} });
   
+  // Nuevos estados para manejar los códigos escaneados
+  const [codigoNoEncontrado, setCodigoNoEncontrado] = useState<string | null>(null);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  
   const cerrarEscanerCamara = useCallback(() => setEscanerCamaraAbierto(false), []);
-  const aplicarCodigoCamara = useCallback((codigo: string) => { setBusqueda(codigo); setCategoriaActiva("todas"); }, []);
 
   const alEscanear = useCallback((codigo: string) => {
     setBusqueda(codigo);
     setCategoriaActiva("todas");
-  }, []);
+    const encontrado = productos.find((p) => p.codigo_barras.trim() === codigo.trim());
+    if (encontrado) {
+      setProductoSeleccionado(encontrado);
+    } else {
+      setCodigoNoEncontrado(codigo);
+    }
+  }, [productos]);
+
+  const aplicarCodigoCamara = useCallback((codigo: string) => {
+    setEscanerCamaraAbierto(false);
+    alEscanear(codigo);
+  }, [alEscanear]);
 
   useEscanerCodigoBarras(alEscanear);
 
-  // Permisos Corregidos
+  // Permisos
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
   
@@ -122,6 +137,52 @@ export default function VistaInventario() {
       />
       <ModalCodigoBarras producto={productoEtiqueta} alCerrar={() => setProductoEtiqueta(null)} />
       <ModalEscanerCodigo abierto={escanerCamaraAbierto} alCerrar={cerrarEscanerCamara} alDetectar={aplicarCodigoCamara} />
+      
+      {/* Nuevo Componente Modal de Descripción Dinámico */}
+      <ModalDescripcionProducto
+        abierto={Boolean(productoSeleccionado)}
+        producto={productoSeleccionado}
+        alCerrar={() => setProductoSeleccionado(null)}
+        puedeEditar={puedeEditar}
+        puedeEliminar={puedeEliminar}
+        puedeAjustarStock={puedeAjustarStock}
+        alEditar={() => {
+          if (productoSeleccionado) setSeccionActual("nuevo-producto", productoSeleccionado.id);
+          setProductoSeleccionado(null);
+        }}
+        alEliminar={() => {
+          if (productoSeleccionado) solicitarEliminarProducto(productoSeleccionado);
+          setProductoSeleccionado(null);
+        }}
+        alAjustarStock={() => {
+          if (productoSeleccionado) ajustarStock(productoSeleccionado);
+          setProductoSeleccionado(null);
+        }}
+        alVerCodigoBarras={() => {
+          setProductoEtiqueta(productoSeleccionado);
+        }}
+      />
+
+      {/* Modal Código No Encontrado */}
+      {codigoNoEncontrado && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onClick={() => setCodigoNoEncontrado(null)}>
+          <div className="w-full max-w-sm rounded-2xl border border-amber-200 bg-white p-5 shadow-2xl dark:border-amber-800/40 dark:bg-slate-900" onClick={(evento) => evento.stopPropagation()}>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              <Camera size={22} />
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">Código no encontrado</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No tenemos registrado el código <strong>{codigoNoEncontrado}</strong>. ¿Deseas agregarlo como un nuevo producto?</p>
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setCodigoNoEncontrado(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-600 dark:border-white/10 dark:text-slate-300 transition-colors">Cancelar</button>
+              <button type="button" onClick={() => {
+                localStorage.setItem("codigo_producto_pendiente", codigoNoEncontrado);
+                setCodigoNoEncontrado(null);
+                setSeccionActual("nuevo-producto");
+              }} className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 transition-colors">Crear producto</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3 mb-4">
         <div>

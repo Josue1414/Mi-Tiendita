@@ -1,3 +1,4 @@
+// src/hooks/useEscanerCodigoBarras.ts
 import { useEffect } from "react";
 
 export function useEscanerCodigoBarras(

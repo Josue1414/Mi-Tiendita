@@ -1,4 +1,3 @@
-// electron/main.cjs
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -13,6 +12,9 @@ const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
 const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32); 
 const IV_LENGTH = 16;
 let ioServidor;
+
+// Variable global para pausar la conexión hasta que React responda
+let dispositivoCallback = null;
 
 function encriptar(texto) {
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -94,11 +96,9 @@ function iniciarServidorLAN() {
   ioServidor.on('connection', (socket) => {
     console.log('Dispositivo esclavo conectado:', socket.id);
     
-    // Interceptar acciones de los clientes (celulares/PCs secundarias)
     socket.on('accion-esclavo', (data) => {
       const wins = BrowserWindow.getAllWindows();
       if (wins.length > 0) {
-        // Enviar a la vista React de la PC maestra para procesar y guardar en BD local
         wins[0].webContents.send('accion-de-esclavo', data);
       }
     });
@@ -138,13 +138,37 @@ app.whenReady().then(() => {
   }
 
   app.on('web-contents-created', (event, webContents) => {
-    webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
-      event.preventDefault();
-      if (portList && portList.length > 0) callback(portList[0].portId);
-      else callback(''); 
+    // 1. Autorizar APIs de hardware
+    webContents.session.setPermissionCheckHandler((wc, permission) => {
+      return permission === 'serial' || permission === 'usb';
     });
-    webContents.session.setPermissionCheckHandler((webContents, permission) => permission === 'serial');
-    webContents.session.setDevicePermissionHandler((details) => details.deviceType === 'serial');
+    webContents.session.setDevicePermissionHandler((details) => {
+      return details.deviceType === 'serial' || details.deviceType === 'usb';
+    });
+
+    // 2. Interceptar peticiones Web Serial (Básculas)
+    webContents.session.on('select-serial-port', (event, portList, wc, callback) => {
+      event.preventDefault();
+      dispositivoCallback = callback;
+      wc.send('mostrar-lista-dispositivos', { tipo: 'serial', lista: portList });
+    });
+
+    // 3. Interceptar peticiones WebUSB (Escáneres e Impresoras)
+    webContents.session.on('select-usb-device', (event, details, callback) => {
+      event.preventDefault();
+      dispositivoCallback = callback;
+      // Enviamos la ventana actual a React para que muestre el modal
+      webContents.send('mostrar-lista-dispositivos', { tipo: 'usb', lista: details.deviceList });
+    });
+  });
+
+  // 4. Recibir la elección del usuario desde React
+  ipcMain.handle('confirmar-dispositivo', (event, idDispositivo) => {
+    if (dispositivoCallback) {
+      // idDispositivo será el ID seleccionado, o un string vacío si el usuario canceló
+      dispositivoCallback(idDispositivo);
+      dispositivoCallback = null;
+    }
   });
 
   ipcMain.handle('imprimir-silencioso', async (event, htmlContent) => {
