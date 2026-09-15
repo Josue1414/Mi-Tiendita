@@ -1,4 +1,3 @@
-// src/componentes/ui/ModalCobro.tsx
 import { useState, useEffect, useRef } from "react";
 import { Check, X, Banknote, CreditCard, ArrowRightLeft } from "lucide-react";
 import { cn } from "../../utilidades/utils";
@@ -28,7 +27,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
   useEffect(() => {
     if (estaAbierto) {
       setMetodoPago("EFECTIVO");
-      // Corrección: Forzar exactamente 2 decimales para evitar números largos
+      // Forzar exactamente 2 decimales para evitar números largos
       setCantidadRecibida(total.toFixed(2));
       window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
     }
@@ -43,6 +42,14 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
     const manejarTecla = (evento: KeyboardEvent) => {
       const objetivo = evento.target as HTMLElement | null;
       const tecla = evento.key.toLowerCase();
+
+      // NUEVO: Limpiar todo el campo con la tecla Delete (Suprimir)
+      if (tecla === "delete") {
+        evento.preventDefault();
+        setCantidadRecibida("");
+        return;
+      }
+
       if (tecla === teclaCobro.toLowerCase()) {
         evento.preventDefault();
         if (esValido) {
@@ -51,7 +58,9 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         }
         return;
       }
+      
       if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
+      
       if (tecla === teclaEfectivo.toLowerCase()) {
         setMetodoPago("EFECTIVO");
         alCambiarMetodoPago("EFECTIVO");
@@ -65,6 +74,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         alCambiarMetodoPago("TRANSFERENCIA");
       }
     };
+    
     window.addEventListener("keydown", manejarTecla);
     return () => window.removeEventListener("keydown", manejarTecla);
   }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCambiarMetodoPago]);
@@ -153,7 +163,12 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         {metodoPago === "EFECTIVO" && (
           <div className="flex flex-col gap-1 animate-in slide-in-from-top-2">
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Cantidad recibida</label>
+              <label className="flex justify-between items-center text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <span>Cantidad recibida</span>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded tracking-wide">
+                  [Delete] para borrar todo
+                </span>
+              </label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
                 <input
@@ -169,7 +184,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
               </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-5 gap-1.5 mt-1">
               {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
                 <button
                   key={billete}

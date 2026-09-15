@@ -108,13 +108,35 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
     const archivo = evento.target.files?.[0];
     evento.target.value = "";
     if (!archivo) return;
+    
     setImportando(true);
     try {
       const nuevos = await leerProductosExcel(archivo, productos);
-      for (const producto of nuevos) await agregarProducto(producto);
-      setAviso({ titulo: nuevos.length > 0 ? "Importación completada" : "Sin productos nuevos", mensaje: nuevos.length > 0 ? `Se importaron ${nuevos.length} productos.` : "Sin filas nuevas." });
+      
+      // Lógica anticlonación: Filtramos para evitar duplicar nombres existentes
+      const nombresExistentes = new Set(productos.map(p => p.nombre.trim().toLowerCase()));
+      const productosAImportar = nuevos.filter(p => !nombresExistentes.has(p.nombre.trim().toLowerCase()));
+      const omitidos = nuevos.length - productosAImportar.length;
+
+      for (const producto of productosAImportar) {
+        await agregarProducto(producto);
+      }
+      
+      let mensajeFinal = productosAImportar.length > 0 
+        ? `Se importaron ${productosAImportar.length} productos correctamente.` 
+        : "No se encontró ningún producto nuevo.";
+        
+      if (omitidos > 0) {
+        mensajeFinal += ` Se omitieron ${omitidos} producto(s) porque el nombre ya existía en tu inventario.`;
+      }
+
+      setAviso({ 
+        titulo: productosAImportar.length > 0 ? "Importación completada" : "Sin productos nuevos", 
+        mensaje: mensajeFinal 
+      });
+      
     } catch {
-      setAviso({ titulo: "Error", mensaje: "Verifica que sea un Excel válido." });
+      setAviso({ titulo: "Error", mensaje: "Verifica que sea un documento Excel válido (.xlsx o .xls)." });
     } finally {
       setImportando(false);
     }
@@ -165,6 +187,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
         <h2 className="text-lg font-bold border-b border-slate-200 pb-3">Atajos y Métodos de pago</h2>
+         <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs border border-blue-100"><Info size={18} className="shrink-0" /><p>No se recomienda usar la tecla Enter, ya que crea conflictos con el lector escáner.</p></div>
         <form onSubmit={manejarGuardarPagos} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <label className="text-xs font-bold text-emerald-700 flex flex-col">
@@ -204,12 +227,29 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
         <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 pb-3"><FileSpreadsheet size={20} className="text-emerald-600" /> Importar Excel</h2>
+        
+        {/* Nueva guía de importación mejorada */}
+        <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 rounded-xl text-sm border border-emerald-200 dark:border-emerald-800/30">
+          <Info size={20} className="shrink-0 mt-0.5" />
+          <div className="flex flex-col gap-2">
+            <p>Sube un archivo Excel (.xlsx o .xls) con tu catálogo de productos. El sistema <strong>ignorará automáticamente</strong> los productos cuyo nombre ya exista en tu inventario para no duplicar información.</p>
+            <div>
+              <strong className="block text-xs uppercase tracking-wider mb-1 mt-2 text-emerald-700 dark:text-emerald-400">Columnas en la fila de encabezado de tu Excel:</strong>
+              <ul className="list-disc list-inside text-xs space-y-1 opacity-90">
+                <li><strong>Obligatorias:</strong> Nombre, Precio</li>
+                <li><strong>Opcionales:</strong> Código de Barras (se autogenera si está vacío), Categoría, Unidad (PZA, KG, LITRO), Stock, Costo, Descripción</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {esDueño && (
           importando ? (
             <div className="w-full mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200"><div className="flex justify-between text-xs mb-2"><span>Importando...</span><span className="text-emerald-600 animate-pulse">Espera</span></div><div className="w-full bg-slate-200 rounded-full h-2"><div className="bg-emerald-500 h-2 w-full animate-pulse"></div></div></div>
           ) : (
-            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-md hover:bg-emerald-700">
-              <FileSpreadsheet size={16} /> Elegir archivo Excel <input type="file" accept=".xlsx,.xls" onChange={importarExcel} disabled={!esDueño} className="hidden" />
+            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white shadow-md hover:bg-emerald-700 transition-colors">
+              <FileSpreadsheet size={18} /> Seleccionar archivo y subir
+              <input type="file" accept=".xlsx,.xls" onChange={importarExcel} disabled={!esDueño} className="hidden" />
             </label>
           )
         )}

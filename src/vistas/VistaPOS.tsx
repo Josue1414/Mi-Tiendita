@@ -574,13 +574,24 @@ export default function VistaPOS() {
                 const final = precioVenta(producto);
                 const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
                 const seleccionado = esVistaMovil && productoEnfoque?.id === producto.id;
+                
+                // NUEVA LÓGICA: Determinar estado del stock para aplicar color
+                const esAgotado = producto.controla_stock && producto.stock_actual <= 0;
+                const esBajoStock = producto.controla_stock && producto.stock_actual <= producto.stock_minimo && producto.stock_actual > 0;
+
                 return (
                 <div
                   key={producto.id}
                   onClick={() => { if (esVistaMovil) setProductoEnfoque(producto); }}
                   onDoubleClick={() => { if (!esVistaMovil) manejarClickProducto(producto); }}
                   title={esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar al carrito"}
-                  className={cn("efecto-cristal p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform border border-slate-200/50 dark:border-white/10 relative overflow-hidden group gap-2 min-h-[105px]", seleccionado && "ring-2 ring-emerald-500")}
+                  className={cn(
+                    "p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform border relative overflow-hidden group gap-2 min-h-[105px]", 
+                    seleccionado && "ring-2 ring-emerald-500",
+                    esAgotado ? "bg-red-50/80 border-red-300 dark:bg-red-950/40 dark:border-red-800/60" :
+                    esBajoStock ? "bg-amber-50/80 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800/60" :
+                    "efecto-cristal border-slate-200/50 dark:border-white/10"
+                  )}
                 >
                   <ImagenLocal 
                     nombreArchivo={producto.imagen_url} 
