@@ -1,4 +1,3 @@
-// src/vistas/VistaCorteCaja.tsx
 import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
@@ -11,7 +10,6 @@ export default function VistaCorteCaja() {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { ventas } = useEstadoVentas();
   
-  // Limpiamos del hook las funciones y variables que no se usan en esta vista
   const { 
     fondoBaseActual, notaGeneralDueno, turnos, forzarRecepcionCaja, requerirPinCancelacion, cargando,
     cargarCaja, actualizarConfiguracion, abrirTurno, cerrarTurno, obtenerTurnoActivo 
@@ -42,8 +40,16 @@ export default function VistaCorteCaja() {
 
   const esDueñoOSupervisor = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
-  const hoyStr = new Date().toISOString().slice(0, 10);
-  const turnosDeHoy = useMemo(() => turnos.filter(t => t.fechaInicio.startsWith(hoyStr)), [turnos, hoyStr]);
+  
+  // SOLUCIÓN: Calcular "hoy" basándonos en la zona horaria local, como en el Panel Principal
+  const esMismoDia = (fechaISO: string) => {
+    if (!fechaISO) return false;
+    const f = new Date(fechaISO);
+    const hoy = new Date();
+    return f.getDate() === hoy.getDate() && f.getMonth() === hoy.getMonth() && f.getFullYear() === hoy.getFullYear();
+  };
+
+  const turnosDeHoy = useMemo(() => turnos.filter(t => esMismoDia(t.fechaInicio)), [turnos]);
 
   const turnoCerradoHoy = useMemo(() => {
     return turnosDeHoy.find(t => t.trabajadorId === trabajadorActivo?.id && t.estatus === "CERRADO");
@@ -56,9 +62,10 @@ export default function VistaCorteCaja() {
     setTimeout(() => setAjustesGuardados(false), 2000);
   };
 
+  // SOLUCIÓN: Filtrar las ventas globales exactamente como en el panel y restar las canceladas
   const ventasTotalesHoy = useMemo(() => {
-    return ventas.filter(v => v.fecha.startsWith(hoyStr)).reduce((acc, v) => acc + v.total, 0);
-  }, [ventas, hoyStr]);
+    return ventas.filter(v => esMismoDia(v.fecha) && !v.cancelada).reduce((acc, v) => acc + (v.total || 0), 0);
+  }, [ventas]);
 
   const manejarAbrirTurno = async () => {
     if (!trabajadorActivo) return;
@@ -69,15 +76,17 @@ export default function VistaCorteCaja() {
   const metricasTurno = useMemo(() => {
     if (!turnoActivo) return { totalVendido: 0, cantAutorizaciones: 0, totalAutorizado: 0 };
     
+    // Al filtrar las ventas del turno, excluimos las canceladas para que el cálculo sea preciso
     const ventasDelTurno = ventas.filter(v => 
       v.trabajador === turnoActivo.nombreTrabajador && 
       v.fecha >= turnoActivo.fechaInicio && 
-      (!turnoActivo.fechaFin || v.fecha <= turnoActivo.fechaFin)
+      (!turnoActivo.fechaFin || v.fecha <= turnoActivo.fechaFin) &&
+      !v.cancelada
     );
 
-    const totalVendido = ventasDelTurno.reduce((acc, v) => acc + v.total, 0);
-    const articulosAutorizados = ventasDelTurno.flatMap(v => v.articulos.filter(a => a.autorizacion_confirmada));
-    const totalAutorizado = articulosAutorizados.reduce((acc, a) => acc + a.subtotal, 0);
+    const totalVendido = ventasDelTurno.reduce((acc, v) => acc + (v.total || 0), 0);
+    const articulosAutorizados = ventasDelTurno.flatMap(v => (v.articulos || []).filter(a => a.autorizacion_confirmada));
+    const totalAutorizado = articulosAutorizados.reduce((acc, a) => acc + (a.subtotal || 0), 0);
 
     return { totalVendido, cantAutorizaciones: articulosAutorizados.length, totalAutorizado };
   }, [turnoActivo, ventas]);

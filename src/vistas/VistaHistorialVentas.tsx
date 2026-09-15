@@ -1,4 +1,3 @@
-// src/vistas/VistaHistorialVentas.tsx
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
@@ -33,7 +32,9 @@ export default function VistaHistorialVentas() {
 
   const ventasFiltradas = useMemo(() => ventas.filter((v) => {
     const fecha = v.fecha.slice(0, 10);
-    const textoCoincide = v.id.toLowerCase().includes(busqueda.toLowerCase()) || v.trabajador.toLowerCase().includes(busqueda.toLowerCase());
+    // Agregamos un fallback || "" para evitar errores si v.id o v.trabajador llegan a ser undefined
+    const textoCoincide = (v.id || "").toLowerCase().includes(busqueda.toLowerCase()) || 
+                          (v.trabajador || "").toLowerCase().includes(busqueda.toLowerCase());
     return textoCoincide && (!fechaInicio || fecha >= fechaInicio) && (!fechaFin || fecha <= fechaFin);
   }), [ventas, busqueda, fechaInicio, fechaFin]);
   
@@ -41,7 +42,7 @@ export default function VistaHistorialVentas() {
   const ventasPagina = ventasFiltradas.slice((pagina - 1) * porPagina, pagina * porPagina);
 
   // Solo sumar ventas que NO estén canceladas
-  const ingresosTotales = ventasFiltradas.reduce((acc, v) => v.cancelada ? acc : acc + v.total, 0);
+  const ingresosTotales = ventasFiltradas.reduce((acc, v) => v.cancelada ? acc : acc + (v.total || 0), 0);
 
   const manejarCancelacion = () => {
     if(confirmarCancelacion.id) {
@@ -164,16 +165,16 @@ export default function VistaHistorialVentas() {
                       {new Date(venta.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td className={cn("p-3 font-mono text-[11px] text-slate-500", venta.cancelada && "line-through")}>{venta.id}</td>
-                    <td className="p-3 text-xs">{venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim()}</td>
-                    <td className="p-3 text-center text-xs">{venta.articulos.length}</td>
-                    <td className={cn("p-3 text-right text-xs", venta.cancelada && "line-through text-slate-400")}>${venta.subtotal.toFixed(2)}</td>
-                    <td className="p-3 text-right text-xs text-red-500">{venta.descuento > 0 ? `-$${venta.descuento.toFixed(2)}` : "-"}</td>
-                    <td className={cn("p-3 text-right font-bold text-sm", venta.cancelada ? "text-red-500/70 line-through" : "text-emerald-600 dark:text-emerald-400")}>${venta.total.toFixed(2)}</td>
+                    <td className="p-3 text-xs">{(venta.trabajador || "Cajero").replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim()}</td>
+                    <td className="p-3 text-center text-xs">{venta.articulos?.length || 0}</td>
+                    <td className={cn("p-3 text-right text-xs", venta.cancelada && "line-through text-slate-400")}>${(venta.subtotal || 0).toFixed(2)}</td>
+                    <td className="p-3 text-right text-xs text-red-500">{(venta.descuento || 0) > 0 ? `-$${venta.descuento.toFixed(2)}` : "-"}</td>
+                    <td className={cn("p-3 text-right font-bold text-sm", venta.cancelada ? "text-red-500/70 line-through" : "text-emerald-600 dark:text-emerald-400")}>${(venta.total || 0).toFixed(2)}</td>
                     <td className="p-3 text-center">
                       {venta.cancelada ? (
                         <span className="px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-md text-[10px] font-bold uppercase">Cancelada</span>
                       ) : (
-                        <span className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded-md text-[10px] font-bold tracking-wide uppercase">{venta.metodoPago}</span>
+                        <span className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded-md text-[10px] font-bold tracking-wide uppercase">{venta.metodoPago || "EFECTIVO"}</span>
                       )}
                     </td>
                     <td className="p-3 text-center">
@@ -212,9 +213,10 @@ export default function VistaHistorialVentas() {
                     <tr className="bg-emerald-50/60 dark:bg-emerald-950/20">
                       <td colSpan={9} className="px-5 py-3">
                         <div className="flex flex-wrap gap-2">
-                          {venta.articulos.map((articulo) => (
-                            <span key={articulo.id} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
-                              <strong>{articulo.nombre}</strong> · {articulo.cantidad} {articulo.unidad.toLowerCase()} · ${articulo.subtotal.toFixed(2)}
+                          {/* Agregamos el fallback a (articulo.unidad || 'PZA').toLowerCase() */}
+                          {(venta.articulos || []).map((articulo) => (
+                            <span key={articulo.id || crypto.randomUUID()} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
+                              <strong>{articulo.nombre}</strong> · {articulo.cantidad} {(articulo.unidad || 'PZA').toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}
                               {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
                             </span>
                           ))}

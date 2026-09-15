@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoNavegacion, type SeccionApp } from "./estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "./estado/estadoTrabajadores";
@@ -138,10 +137,12 @@ export default function App() {
     { id: "historial", icono: History, texto: "Historial" },
     { id: "caja", icono: Wallet, texto: "Corte de Caja" },
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
-    { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
   ] as const;
   
-  const alertasStock = productos.filter(tieneAlertaStock).length;
+  // Cálculo dividido de alertas
+  const productosConAlerta = productos.filter(tieneAlertaStock);
+  const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
+  const alertasPorTerminar = productosConAlerta.length - alertasAgotados;
 
   const menusAdmin = [
     { id: "panel", icono: LayoutDashboard, texto: "Panel Principal" },
@@ -151,9 +152,12 @@ export default function App() {
 
   const esAdmin = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
   const esVistaMovil = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
+  
+  const menuPantallaCliente = { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" };
   const menusMoviles = esVistaMovil
-    ? [...menusMovilesOperativos, ...(esAdmin ? menusAdmin : [])]
+    ? [...menusMovilesOperativos, ...(esAdmin ? menusAdmin : []), menuPantallaCliente]
     : [...menusOperativos, ...(esAdmin ? menusAdmin : [])];
+    
   const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
 
   const confirmarCerrarSesion = async () => {
@@ -168,7 +172,6 @@ export default function App() {
   return (
     <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
       
-      {/* Modal global de selección de hardware */}
       <ModalSeleccionDispositivo />
 
       {mostrarModalSalida && (
@@ -209,7 +212,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* --- INDICADOR DE RED ACTUALIZADO --- */}
         <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10">
           <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold", 
             estaEnLinea ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
@@ -235,8 +237,7 @@ export default function App() {
             {menusOperativos.map((menu) => {
               const Icono = menu.icono;
               const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
-              const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
-
+              
               return (
                 <button key={menu.id} onClick={() => {
                   if (menu.id === "pantalla-cliente") {
@@ -252,19 +253,36 @@ export default function App() {
                   
                   <div className="relative flex items-center justify-center shrink-0">
                     <Icono size={18} />
-                    {!menuAbierto && tieneAlerta && (
+                    {/* Alertas cuando el menú está colapsado */}
+                    {!menuAbierto && menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
+                      <span className="absolute -top-2 -left-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm border border-emerald-50 dark:border-slate-950">
+                        {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
+                      </span>
+                    )}
+                    {!menuAbierto && menu.id === "stock-bajo" && alertasAgotados > 0 && (
                       <span className="absolute -top-2 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm border border-emerald-50 dark:border-slate-950">
-                        {alertasStock > 99 ? "99+" : alertasStock}
+                        {alertasAgotados > 99 ? "99+" : alertasAgotados}
                       </span>
                     )}
                   </div>
                   
-                  {menuAbierto && <span className="flex-1 text-left truncate">{menu.texto}</span>}
-                  
-                  {menuAbierto && tieneAlerta && (
-                    <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
-                      {alertasStock > 99 ? "99+" : alertasStock}
-                    </span>
+                  {/* Alertas cuando el menú está abierto */}
+                  {menuAbierto && (
+                    <div className="flex-1 flex items-center gap-2 truncate text-left">
+                      {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
+                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white shadow-sm">
+                          {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
+                        </span>
+                      )}
+                      
+                      <span className="truncate">{menu.texto}</span>
+                      
+                      {menu.id === "stock-bajo" && alertasAgotados > 0 && (
+                        <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
+                          {alertasAgotados > 99 ? "99+" : alertasAgotados}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </button>
               );
@@ -310,7 +328,7 @@ export default function App() {
           {menusMoviles.slice(0, puntoEscaneo).map((menu) => {
           const Icono = menu.icono;
           const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
-          const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
+          
           return (
             <button key={menu.id} onClick={() => {
               if (menu.id === "pantalla-cliente") {
@@ -321,7 +339,18 @@ export default function App() {
             }} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
-              {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
+              
+              {/* Alertas móviles (Izquierda y Derecha) */}
+              {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
+                <span className="absolute left-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
+                </span>
+              )}
+              {menu.id === "stock-bajo" && alertasAgotados > 0 && (
+                <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasAgotados > 99 ? "99+" : alertasAgotados}
+                </span>
+              )}
             </button>
           );
           })}
@@ -335,7 +364,7 @@ export default function App() {
           {menusMoviles.slice(puntoEscaneo).map((menu) => {
           const Icono = menu.icono;
           const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
-          const tieneAlerta = menu.id === "stock-bajo" && alertasStock > 0;
+          
           return (
             <button key={menu.id} onClick={() => {
               if (menu.id === "pantalla-cliente") {
@@ -346,7 +375,18 @@ export default function App() {
             }} title={menu.texto} className={cn("relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold", activo ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/10")}>
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
-              {tieneAlerta && <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{alertasStock > 99 ? "99+" : alertasStock}</span>}
+
+              {/* Alertas móviles (Izquierda y Derecha) */}
+              {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
+                <span className="absolute left-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
+                </span>
+              )}
+              {menu.id === "stock-bajo" && alertasAgotados > 0 && (
+                <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasAgotados > 99 ? "99+" : alertasAgotados}
+                </span>
+              )}
             </button>
           );
           })}

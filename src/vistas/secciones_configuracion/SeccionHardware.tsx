@@ -171,7 +171,7 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
               <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Modelo</span>
               <select value={formBascula.modelo} onChange={(e) => {
                 const elegido = modelosBascula.find((item) => item.modelo === e.target.value) ?? modelosBascula[0];
-                setFormBascula({ ...formBascula, modelo: elegido.modelo, puerto: elegido.puerto, baudRate: elegido.baudRate, formato: elegido.formato, unidad: elegido.unidad, detectado: true, mensaje: `Báscula ${elegido.modelo} seleccionada.` });
+                setFormBascula({ ...formBascula, modelo: elegido.modelo, puerto: elegido.puerto, baudRate: elegido.baudRate, formato: elegido.formato, unidad: elegido.unidad, detectado: false, mensaje: `Modelo ${elegido.modelo} seleccionado. Haz clic en detectar.` });
               }} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
                 {modelosBascula.map((item) => <option key={item.id}>{item.modelo}</option>)}
               </select>
@@ -232,9 +232,9 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
               <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Modelo</span>
               <select value={formEscaner.modelo} onChange={(e) => {
                 const elegido = modelosDisponibles.find((item) => item.modelo === e.target.value) ?? modelosDisponibles[0];
-                const siguiente = { ...elegido, detectado: true, mensaje: `Escáner ${elegido.modelo} configurado manualmente.` };
+                const siguiente = { ...elegido, detectado: false, mensaje: `Modelo ${elegido.modelo} seleccionado. Haz clic en detectar.` };
                 setFormEscaner({ ...formEscaner, ...siguiente });
-                actualizarDatosEscaner(siguiente.modelo, siguiente.fabricante, siguiente.driver, siguiente.tipo, siguiente.puerto, true, siguiente.mensaje);
+                actualizarDatosEscaner(siguiente.modelo, siguiente.fabricante, siguiente.driver, siguiente.tipo, siguiente.puerto, false, siguiente.mensaje);
               }} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
                 {modelosDisponibles.map((item) => <option key={item.id}>{item.modelo}</option>)}
               </select>
@@ -292,7 +292,7 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
               <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Modelo</span>
               <select value={formImpresora.modelo} onChange={(e) => {
                 const elegido = modelosImpresora.find((item) => item.modelo === e.target.value) ?? modelosImpresora[0];
-                setFormImpresora({ ...formImpresora, modelo: elegido.modelo, fabricante: elegido.fabricante, puerto: elegido.puerto, tamanio: elegido.tamanio, detectado: true, mensaje: `Impresora ${elegido.modelo} configurada manualmente.` });
+                setFormImpresora({ ...formImpresora, modelo: elegido.modelo, fabricante: elegido.fabricante, puerto: elegido.puerto, tamanio: elegido.tamanio, detectado: false, mensaje: `Modelo ${elegido.modelo} seleccionado. Haz clic en detectar.` });
               }} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
                 {modelosImpresora.map((item) => <option key={item.id}>{item.modelo}</option>)}
               </select>

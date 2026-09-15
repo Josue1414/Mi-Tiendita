@@ -10,21 +10,23 @@ export const imprimirTicket = async (
 ) => {
   let htmlArticulos = '';
   venta.articulos.forEach(art => {
+    // Agregamos (art.unidad || 'PZA') y protecciones (art.precio || 0) para evitar que valores indefinidos rompan la aplicación
     htmlArticulos += `
       <tr>
         <td style="padding-top: 6px; padding-bottom: 2px;">${art.cantidad}</td>
         <td style="padding-top: 6px; padding-bottom: 2px; padding-left: 5px;">${art.nombre}</td>
-        <td style="padding-top: 6px; padding-bottom: 2px; text-align: right;">$${art.subtotal.toFixed(2)}</td>
+        <td style="padding-top: 6px; padding-bottom: 2px; text-align: right;">$${(art.subtotal || 0).toFixed(2)}</td>
       </tr>
       <tr>
         <td colspan="3" style="font-size: 10px; color: #555; padding-left: 15px;">
-          $${art.precio.toFixed(2)} x ${art.unidad.toLowerCase()}
+          $${(art.precio || 0).toFixed(2)} x ${(art.unidad || 'PZA').toLowerCase()}
         </td>
       </tr>
     `;
   });
 
-  const nombreCajero = venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim();
+  // Protegemos la variable por si en ventas muy antiguas no existía el nombre del trabajador
+  const nombreCajero = venta.trabajador ? venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim() : "Cajero";
 
   // Se prepara el HTML del logo y la dirección si existen
   const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" style="max-width: 150px; max-height: 80px;" /></div>` : '';
@@ -83,13 +85,13 @@ export const imprimirTicket = async (
           <div class="divider"></div>
           
           ${venta.descuento > 0 ? `
-          <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span><span>$${venta.subtotal.toFixed(2)}</span></div>
-          <div style="display: flex; justify-content: space-between;"><span>Descuento:</span><span>-$${venta.descuento.toFixed(2)}</span></div>
+          <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span><span>$${(venta.subtotal || 0).toFixed(2)}</span></div>
+          <div style="display: flex; justify-content: space-between;"><span>Descuento:</span><span>-$${(venta.descuento || 0).toFixed(2)}</span></div>
           ` : ''}
           
           <div class="bold" style="display: flex; justify-content: space-between; font-size: 16px; margin-top: 8px;">
             <span>TOTAL:</span>
-            <span>$${venta.total.toFixed(2)}</span>
+            <span>$${(venta.total || 0).toFixed(2)}</span>
           </div>
           
           <div style="margin-top: 10px; font-size: 11px;">Pago realizado con: ${venta.metodoPago}</div>

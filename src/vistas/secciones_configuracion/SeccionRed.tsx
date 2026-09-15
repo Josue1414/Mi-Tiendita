@@ -154,7 +154,10 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   return (
     <>
       <ModalConfirmacionDesvincularEquipo
-        abierto={confirmacionDesvincular.abierto} equipo={confirmacionDesvincular.equipo} dispositivos={dispositivos}
+        abierto={confirmacionDesvincular.abierto} 
+        equipo={confirmacionDesvincular.equipo} 
+        
+        dispositivos={dispositivos.filter(d => !d.hardware_id.startsWith("web-"))}
         alCerrar={() => setConfirmacionDesvincular({ abierto: false, equipo: null })}
         alConfirmar={async (nuevoCerebroId?: string) => {
           if (!confirmacionDesvincular.equipo) return;
