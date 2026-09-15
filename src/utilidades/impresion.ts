@@ -100,19 +100,46 @@ export const imprimirTicket = async (
     </html>
   `;
 
+  // Intentar impresión silenciosa en entorno de escritorio (Electron)
   if (typeof window !== 'undefined' && (window as any).apiLocal && (window as any).apiLocal.imprimirSilencioso) {
-    await (window as any).apiLocal.imprimirSilencioso(html);
-    return;
+    try {
+      await (window as any).apiLocal.imprimirSilencioso(html);
+      return;
+    } catch (error) {
+      console.error("Error en impresión silenciosa:", error);
+      // Si falla la API local, el código continuará con la impresión web estándar como respaldo.
+    }
   }
 
-  const ventana = window.open('', 'PRINT', 'height=600,width=400');
-  if (!ventana) return;
-  ventana.document.write(html);
-  ventana.document.close();
-  ventana.focus();
+  // Creación de iframe oculto para impresión web segura (evita bloqueadores de pop-ups)
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const contentWindow = iframe.contentWindow;
+  if (!contentWindow) return;
+
+  const doc = contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  contentWindow.focus();
   
+  // Pequeño retraso para que el navegador procese el documento antes de lanzar la ventana de impresión
   setTimeout(() => {
-    ventana.print();
-    ventana.close();
+    contentWindow.print();
+    
+    // Limpieza del DOM eliminando el iframe tras la interacción
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 1000);
   }, 300);
 };

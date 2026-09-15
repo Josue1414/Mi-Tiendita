@@ -1,35 +1,46 @@
 // src/vistas/VistaCorteCaja.tsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoCaja } from "../estado/estadoCaja";
-import { Wallet, CheckCircle, ShieldCheck, Ban, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound } from "lucide-react";
+import { Wallet, CheckCircle, ShieldCheck, Ban, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2 } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 
 export default function VistaCorteCaja() {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { ventas } = useEstadoVentas();
+  
+  // Limpiamos del hook las funciones y variables que no se usan en esta vista
   const { 
-    fondoBaseActual, notaGeneralDueno, turnos, forzarRecepcionCaja, requerirPinCancelacion,
-    actualizarConfiguracion, abrirTurno, cerrarTurno, obtenerTurnoActivo, setForzarRecepcionCaja, setRequerirPinCancelacion
+    fondoBaseActual, notaGeneralDueno, turnos, forzarRecepcionCaja, requerirPinCancelacion, cargando,
+    cargarCaja, actualizarConfiguracion, abrirTurno, cerrarTurno, obtenerTurnoActivo 
   } = useEstadoCaja();
 
-  // Estados Dueño/Supervisor
-  const [inputFondo, setInputFondo] = useState<number>(fondoBaseActual);
+  const [inputFondo, setInputFondo] = useState<number | "">(fondoBaseActual);
   const [inputNotaGeneral, setInputNotaGeneral] = useState<string>(notaGeneralDueno);
+  const [inputForzar, setInputForzar] = useState<boolean>(forzarRecepcionCaja);
+  const [inputRequerir, setInputRequerir] = useState<boolean>(requerirPinCancelacion);
   const [ajustesGuardados, setAjustesGuardados] = useState(false);
 
-  // Estados Trabajador
   const [fondoDejado, setFondoDejado] = useState<number | "">("");
   const [notaCierre, setNotaCierre] = useState<string>("");
   const [modoCierre, setModoCierre] = useState(false);
   const [doblarTurno, setDoblarTurno] = useState(false);
   const [modalPinAbierto, setModalPinAbierto] = useState(false);
 
-  // Validación que permite a DUEÑO y SUPERVISOR ver la interfaz de administración
+  useEffect(() => {
+    cargarCaja();
+  }, [cargarCaja]);
+
+  useEffect(() => {
+    setInputFondo(fondoBaseActual);
+    setInputNotaGeneral(notaGeneralDueno);
+    setInputForzar(forzarRecepcionCaja);
+    setInputRequerir(requerirPinCancelacion);
+  }, [fondoBaseActual, notaGeneralDueno, forzarRecepcionCaja, requerirPinCancelacion]);
+
   const esDueñoOSupervisor = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
-  
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
   const hoyStr = new Date().toISOString().slice(0, 10);
   const turnosDeHoy = useMemo(() => turnos.filter(t => t.fechaInicio.startsWith(hoyStr)), [turnos, hoyStr]);
@@ -38,9 +49,9 @@ export default function VistaCorteCaja() {
     return turnosDeHoy.find(t => t.trabajadorId === trabajadorActivo?.id && t.estatus === "CERRADO");
   }, [turnosDeHoy, trabajadorActivo]);
 
-  const manejarGuardarConfiguracion = (e: React.FormEvent) => {
+  const manejarGuardarConfiguracion = async (e: React.FormEvent) => {
     e.preventDefault();
-    actualizarConfiguracion(inputFondo, inputNotaGeneral);
+    await actualizarConfiguracion(Number(inputFondo), inputNotaGeneral, inputForzar, inputRequerir);
     setAjustesGuardados(true);
     setTimeout(() => setAjustesGuardados(false), 2000);
   };
@@ -49,9 +60,9 @@ export default function VistaCorteCaja() {
     return ventas.filter(v => v.fecha.startsWith(hoyStr)).reduce((acc, v) => acc + v.total, 0);
   }, [ventas, hoyStr]);
 
-  const manejarAbrirTurno = () => {
+  const manejarAbrirTurno = async () => {
     if (!trabajadorActivo) return;
-    abrirTurno(trabajadorActivo.id, trabajadorActivo.nombre, fondoBaseActual);
+    await abrirTurno(trabajadorActivo.id, trabajadorActivo.nombre, fondoBaseActual);
     setDoblarTurno(false);
   };
 
@@ -71,10 +82,10 @@ export default function VistaCorteCaja() {
     return { totalVendido, cantAutorizaciones: articulosAutorizados.length, totalAutorizado };
   }, [turnoActivo, ventas]);
 
-  const manejarCerrarTurno = (e: React.FormEvent) => {
+  const manejarCerrarTurno = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!turnoActivo || fondoDejado === "") return;
-    cerrarTurno(turnoActivo.id, Number(fondoDejado), metricasTurno.totalVendido, notaCierre);
+    await cerrarTurno(turnoActivo.id, Number(fondoDejado), metricasTurno.totalVendido, notaCierre);
     setModoCierre(false);
     setFondoDejado("");
     setNotaCierre("");
@@ -82,10 +93,17 @@ export default function VistaCorteCaja() {
 
   if (!trabajadorActivo) return null;
 
+  if (cargando) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in duration-300">
+        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+        <p className="font-bold text-slate-500 dark:text-slate-400">Cargando información de caja...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col gap-6 p-4 lg:p-6 overflow-y-auto animate-in fade-in duration-300">
-      
-      {/* Modal para que el trabajador confirme apertura con PIN */}
       <ModalConfirmacionPin
         abierto={modalPinAbierto}
         titulo="Confirma tu Fondo"
@@ -111,7 +129,6 @@ export default function VistaCorteCaja() {
       </div>
 
       {esDueñoOSupervisor ? (
-        /* ================= VISTA DUEÑO / SUPERVISOR ================= */
         <div className="flex flex-col gap-6 w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="efecto-cristal p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/30 flex items-center gap-4 bg-emerald-50/30 dark:bg-emerald-900/10">
@@ -149,7 +166,15 @@ export default function VistaCorteCaja() {
                   <p className="text-[10px] text-slate-500 mb-2">Este es el dinero que recibirá el trabajador que abra el SIGUIENTE turno.</p>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                    <input type="number" min="0" step="1" required value={inputFondo} onChange={(e) => setInputFondo(Number(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-bold" />
+                    <input 
+                      type="number" 
+                      min="0" 
+                      step="1" 
+                      required 
+                      value={inputFondo} 
+                      onChange={(e) => setInputFondo(e.target.value === "" ? "" : Number(e.target.value))} 
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 font-bold" 
+                    />
                   </div>
                 </div>
                 
@@ -162,8 +187,8 @@ export default function VistaCorteCaja() {
                   <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-white/5">
                     <input 
                       type="checkbox" 
-                      checked={forzarRecepcionCaja} 
-                      onChange={(e) => setForzarRecepcionCaja(e.target.checked)} 
+                      checked={inputForzar} 
+                      onChange={(e) => setInputForzar(e.target.checked)} 
                       className="w-5 h-5 accent-emerald-600 rounded" 
                     />
                     <div className="flex flex-col">
@@ -175,8 +200,8 @@ export default function VistaCorteCaja() {
                   <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200/50 dark:border-white/5">
                     <input 
                       type="checkbox" 
-                      checked={requerirPinCancelacion} 
-                      onChange={(e) => setRequerirPinCancelacion(e.target.checked)} 
+                      checked={inputRequerir} 
+                      onChange={(e) => setInputRequerir(e.target.checked)} 
                       className="w-5 h-5 accent-emerald-600 rounded" 
                     />
                     <div className="flex flex-col">
@@ -249,9 +274,7 @@ export default function VistaCorteCaja() {
         </div>
 
       ) : (
-        /* ================= VISTA TRABAJADOR ================= */
         <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
-          
           {!turnoActivo && turnoCerradoHoy && !doblarTurno ? (
             <div className="efecto-cristal p-8 rounded-3xl border border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-4 bg-white dark:bg-slate-900 mx-auto max-w-lg mt-8 shadow-sm animate-in zoom-in duration-500">
               <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
@@ -264,7 +287,6 @@ export default function VistaCorteCaja() {
                 <PlusCircle size={16} /> Doblar Turno (Abrir nueva caja)
               </button>
             </div>
-
           ) : !turnoActivo ? (
             <div className="efecto-cristal p-8 rounded-3xl border border-emerald-200 dark:border-emerald-900/50 flex flex-col items-center text-center gap-4 bg-emerald-50/50 dark:bg-emerald-950/20 mx-auto max-w-lg mt-8 animate-in fade-in">
               <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
@@ -292,7 +314,6 @@ export default function VistaCorteCaja() {
                 <KeyRound size={24} /> Aceptar Fondo con PIN
               </button>
             </div>
-
           ) : (
             <>
               <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 shadow-sm">

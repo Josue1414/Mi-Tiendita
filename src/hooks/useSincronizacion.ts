@@ -168,7 +168,8 @@ export function useSincronizacion() {
               }
               dataUpsert = null; 
             } else if (tabla === 'tiendas') {
-              await supabase.from('tiendas').update(payload).eq('id', tiendaId);
+              const { error } = await supabase.from('tiendas').update(payload).eq('id', tiendaId);
+              if (error) console.error("Error al volcar config. tiendas:", error);
               dataUpsert = null;
             }
 

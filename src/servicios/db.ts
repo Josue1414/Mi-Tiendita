@@ -1,8 +1,7 @@
-// src/servicios/db.ts
 import { openDB } from "idb";
 
 const DB_NOMBRE = "mitiendita_db";
-const DB_VERSION = 3; // Incluye asistencias y configuraciones de caja
+const DB_VERSION = 4; // Subimos la versión a 4 para agregar la tabla turnos_caja
 
 const puedeGuardarCopiaLocal = () => {
   if (!window.apiLocal) return true;
@@ -56,9 +55,11 @@ const initDB = async () => {
       if (!db.objectStoreNames.contains("config_caja")) {
         db.createObjectStore("config_caja", { keyPath: "id" });
       }
-      // Nueva tabla para operaciones offline
       if (!db.objectStoreNames.contains("pendientes_sync")) {
         db.createObjectStore("pendientes_sync", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("turnos_caja")) {
+        db.createObjectStore("turnos_caja", { keyPath: "id" });
       }
     },
   });
