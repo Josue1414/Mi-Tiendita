@@ -1,4 +1,3 @@
-// src/estado/estadoInventario.ts
 import { create } from "zustand";
 import type { Categoria, Producto } from "../tipos/producto";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
@@ -21,8 +20,8 @@ interface EstadoInventario {
   eliminarCategoria: (id: string, propagado?: boolean) => Promise<void>;
   descontarStock: (items: Array<{ producto_id: string; cantidad: number }>, propagado?: boolean) => Promise<void>;
   aplicarSincronizacionRemota: (accion: any) => void;
-  sincronizarProducto: (payload: any) => Promise<void>; // Nueva función
-  sincronizarCategoria: (payload: any) => Promise<void>; // Nueva función
+  sincronizarProducto: (payload: any) => Promise<void>; 
+  sincronizarCategoria: (payload: any) => Promise<void>; 
 }
 
 const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
@@ -150,7 +149,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
   agregarProducto: async (producto, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
-    if (!esMaestro && !propagado) {
+    
+    if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'AGREGAR_PRODUCTO', payload: producto });
       set((estado) => ({ productos: [...estado.productos, producto] })); 
       return;
@@ -159,7 +159,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (esEscritorio) await guardarRegistro("productos", producto);
     set((estado) => ({ productos: estado.productos.some(p => p.id === producto.id) ? estado.productos : [...estado.productos, producto] }));
     
-    if (esMaestro && !propagado) (window as any).apiLocal.emitirAEsclavos({ tipo: 'AGREGAR_PRODUCTO', payload: producto });
+    if (esMaestro && !propagado && esEscritorio) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'AGREGAR_PRODUCTO', payload: producto });
+    }
     
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
@@ -169,13 +171,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         if (cat) (payload as any).categoria_id = cat.id;
         await supabase.from('productos').upsert(payload);
       }
-    } else if (esMaestro) {
+    } else {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: producto });
     }
   },
 
   actualizarProducto: async (productoActualizado, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
+    
     if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'ACTUALIZAR_PRODUCTO', payload: productoActualizado });
       set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoActualizado.id ? productoActualizado : p)) }));
@@ -185,7 +188,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (esEscritorio) await guardarRegistro("productos", productoActualizado);
     set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoActualizado.id ? productoActualizado : p)) }));
 
-    if (esMaestro && !propagado) (window as any).apiLocal.emitirAEsclavos({ tipo: 'ACTUALIZAR_PRODUCTO', payload: productoActualizado });
+    if (esMaestro && !propagado && esEscritorio) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'ACTUALIZAR_PRODUCTO', payload: productoActualizado });
+    }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
@@ -195,14 +200,15 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         if (cat) (payload as any).categoria_id = cat.id;
         await supabase.from('productos').upsert(payload);
       }
-    } else if (esMaestro) {
+    } else {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'ACTUALIZAR', payload: productoActualizado });
     }
   },
 
   eliminarProducto: async (id, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
-    if (!esMaestro && !propagado) {
+    
+    if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'ELIMINAR_PRODUCTO', payload: id });
       set((estado) => ({ productos: estado.productos.filter((p) => p.id !== id) }));
       return;
@@ -211,12 +217,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (esEscritorio) await eliminarRegistro("productos", id);
     set((estado) => ({ productos: estado.productos.filter((p) => p.id !== id) }));
 
-    if (esMaestro && !propagado) (window as any).apiLocal.emitirAEsclavos({ tipo: 'ELIMINAR_PRODUCTO', payload: id });
+    if (esMaestro && !propagado && esEscritorio) {
+      (window as any).apiLocal.emitirAEsclavos({ tipo: 'ELIMINAR_PRODUCTO', payload: id });
+    }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('productos').delete().eq('id', id).eq('tienda_id', tiendaId);
-    } else if (esMaestro) {
+    } else {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'ELIMINAR', payload: id });
     }
   },
@@ -235,7 +243,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       color: color || siguienteColor(get().categorias.map((c) => c.color)) 
     };
 
-    if (!esMaestro && !propagado) {
+    if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'AGREGAR_CATEGORIA', payload: { nombre: nueva.nombre, color: nueva.color } });
       set((estado) => ({ categorias: [...estado.categorias, nueva] }));
       return nueva;
@@ -244,14 +252,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (esEscritorio) await guardarRegistro("categorias", nueva);
     set((estado) => ({ categorias: [...estado.categorias, nueva] }));
 
-    if (esMaestro && !propagado) {
+    if (esMaestro && !propagado && esEscritorio) {
       (window as any).apiLocal.emitirAEsclavos({ tipo: 'AGREGAR_CATEGORIA', payload: { nombre: nueva.nombre, color: nueva.color } });
     }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('categorias').upsert({ id: nueva.id, tienda_id: tiendaId, nombre: nueva.nombre, color: nueva.color });
-    } else if (esMaestro) {
+    } else {
       await registrarPendienteSync({ tabla: 'categorias', operacion: 'AGREGAR', payload: nueva });
     }
     return nueva;
@@ -262,7 +270,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     const categoria = get().categorias.find((c) => c.id === id);
     if (!categoria) return;
 
-    if (!esMaestro && !propagado) {
+    if (!esMaestro && esEscritorio && !propagado) {
       emitirAccionMaestro({ tipo: 'ELIMINAR_CATEGORIA', payload: id });
       const productosActualizados = get().productos.map((producto) => 
         producto.categoria.trim().toLocaleLowerCase() === categoria.nombre.trim().toLocaleLowerCase() ? { ...producto, categoria: "" } : producto
@@ -285,14 +293,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (esEscritorio) await eliminarRegistro("categorias", id);
     set((estado) => ({ productos: productosActualizados, categorias: estado.categorias.filter((c) => c.id !== id) }));
 
-    if (esMaestro && !propagado) {
+    if (esMaestro && !propagado && esEscritorio) {
       (window as any).apiLocal.emitirAEsclavos({ tipo: 'ELIMINAR_CATEGORIA', payload: id });
     }
 
     if (navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) await supabase.from('categorias').delete().eq('id', id).eq('tienda_id', tiendaId);
-    } else if (esMaestro) {
+    } else {
       await registrarPendienteSync({ tabla: 'categorias', operacion: 'ELIMINAR', payload: id });
     }
   },
@@ -300,9 +308,6 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   descontarStock: async (items, propagado = false) => {
     const { esMaestro } = useEstadoRed.getState();
 
-    // En Web/Navegador la propagación LAN no existe. Si el cliente no es
-    // escritorio y tampoco es el maestro, debe continuar con el flujo normal
-    // y persistir el descuento en Supabase/IndexedDB, no cortar la transacción.
     if (!esMaestro && !propagado && esEscritorio) {
       emitirAccionMaestro({ tipo: 'DESCONTAR_STOCK', payload: items });
       const productosActualizados = get().productos.map((producto) => {
