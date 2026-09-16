@@ -46,6 +46,7 @@ interface EstadoVentas {
   agregarVenta: (venta: Venta) => Promise<void>;
   cancelarVenta: (id: string) => Promise<void>;
   sincronizarVenta: (payload: any) => Promise<void>;
+  purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>; // NUEVA FUNCIÓN
 }
 
 export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
@@ -55,8 +56,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   cargarVentas: async () => {
     set({ cargando: true });
     try {
-      let estadoVentas: Venta[] = [];
-
       const tiendaId = await obtenerTiendaIdActual();
 
       if (navigator.onLine && tiendaId) {
@@ -70,26 +69,27 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           const ventasMapeadas: Venta[] = ventasNube.map(mapearVentaDesdeSupabase);
 
           if (esEscritorio) {
-            const idsNube = new Set(ventasMapeadas.map(v => v.id));
-            const ventasLocal = await obtenerRegistros("ventas");
-
-            for (const vLocal of ventasLocal) {
-              if (!idsNube.has(vLocal.id)) await eliminarRegistro("ventas", vLocal.id);
-            }
-
+            // Solo GUARDAMOS lo nuevo, YA NO ELIMINAMOS lo que falta en la nube.
+            // Así protegemos el historial histórico de la PC cerebro.
             for (const v of ventasMapeadas) {
               await guardarRegistro("ventas", v);
             }
-          }
 
-          set({ ventas: ventasMapeadas, cargando: false });
+            // Cargamos absolutamente TODO el historial local para mostrarlo
+            const dataLocal = await obtenerRegistros("ventas");
+            const estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+            set({ ventas: estadoVentas, cargando: false });
+          } else {
+            // Si es web pura, solo mostramos las últimas 15h de la nube
+            set({ ventas: ventasMapeadas, cargando: false });
+          }
           return;
         }
       }
 
-      // 1. Carga Local (fallback offline)
+      // Fallback offline o LAN
       const dataLocal = await obtenerRegistros("ventas");
-      estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      const estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
 
       if (!navigator.onLine) set({ cargando: false });
@@ -139,7 +139,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           if (errorDetalles) throw errorDetalles;
         }
       } else {
-        // Encolar para cuando regrese el internet
         await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
       }
     } catch (error) {
@@ -174,14 +173,31 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }
   },
 
-  // Sincronización silenciosa para WebSockets y Supabase Realtime
+  purgarVentasLocales: async (fechaInicio: string, fechaFin: string) => {
+    // Se eliminó el bloqueo 'if (!esEscritorio) return;' para permitir borrar en la caché web
+    
+    const todasLocales = await obtenerRegistros("ventas");
+    const aBorrar = (todasLocales as Venta[]).filter(v => {
+      const fechaVenta = v.fecha.slice(0, 10);
+      return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
+    });
+
+    for (const v of aBorrar) {
+      await eliminarRegistro("ventas", v.id);
+    }
+
+    set(state => ({
+      ventas: state.ventas.filter(v => {
+        const fechaVenta = v.fecha.slice(0, 10);
+        return !(fechaVenta >= fechaInicio && fechaVenta <= fechaFin);
+      })
+    }));
+  },
+
   sincronizarVenta: async (payload: any) => {
     const { eventType, new: nuevo, old: viejo, table } = payload;
     const { ventas } = get();
 
-    // Si llega un detalle de venta, reconstruimos la venta completa desde la cabecera
-    // usando el venta_id del detalle para que el historial muestre el asiento de venta
-    // con sus artículos al instante en todas las pantallas.
     if (table === 'venta_detalles') {
       const ventaId = eventType === 'DELETE' ? viejo.venta_id : nuevo.venta_id;
       const tiendaId = await obtenerTiendaIdActual();
@@ -202,14 +218,16 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
         }
       } catch (error) {
-        console.warn('No se pudo reconstruir la venta desde un detalle remoto:', error);
+        console.warn('No se pudo reconstruir la venta:', error);
       }
       return;
     }
 
     if (eventType === 'DELETE') {
-      if (esEscritorio) await eliminarRegistro("ventas", viejo.id);
-      set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
+      // PROTECCIÓN CLAVE: Si es escritorio (Cerebro), NO borramos la venta al llegar la orden de purga de Supabase.
+      if (!esEscritorio) {
+        set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
+      }
     } else if (eventType === 'UPDATE') {
       const actualizadas = ventas.map(v => v.id === nuevo.id ? { ...v, cancelada: nuevo.cancelada } : v);
       if (esEscritorio) {
@@ -234,7 +252,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
         }
       } catch (error) {
-        console.warn('No se pudo sincronizar silenciosamente una venta remota:', error);
+        console.warn('No se pudo sincronizar silenciosamente:', error);
       }
     }
   }

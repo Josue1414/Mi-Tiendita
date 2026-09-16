@@ -75,15 +75,50 @@ export default function VistaPerfil() {
     return historial;
   }, [asistencias, trabajadorActivo]);
 
-  // Calculamos las ventas de productos que requerían autorización
+  // Calculamos las ventas de productos que requerían autorización por mes actual y pasado
   const metricasAutorizadas = useMemo(() => {
     const ventasDelTrabajador = ventas.filter((v) => v.trabajador === trabajadorActivo.nombre);
-    const articulosAutorizados = ventasDelTrabajador.flatMap((v) => 
-      v.articulos.filter((a) => a.autorizacion_confirmada)
-    );
     
-    const totalGenerado = articulosAutorizados.reduce((acc, curr) => acc + curr.subtotal, 0);
-    return { cantidad: articulosAutorizados.length, total: totalGenerado };
+    const hoy = new Date();
+    const mesActual = hoy.getMonth();
+    const añoActual = hoy.getFullYear();
+    
+    const mesPasado = mesActual === 0 ? 11 : mesActual - 1;
+    const añoMesPasado = mesActual === 0 ? añoActual - 1 : añoActual;
+
+    let totalMesActual = 0;
+    let totalMesPasado = 0;
+    let cantidadTotal = 0;
+
+    ventasDelTrabajador.forEach((v) => {
+      const fechaVenta = new Date(v.fecha);
+      const mesVenta = fechaVenta.getMonth();
+      const añoVenta = fechaVenta.getFullYear();
+
+      const articulosAutorizados = v.articulos.filter((a) => a.autorizacion_confirmada);
+      
+      if (articulosAutorizados.length > 0) {
+        cantidadTotal += articulosAutorizados.length;
+        const sumaVenta = articulosAutorizados.reduce((acc, curr) => acc + curr.subtotal, 0);
+
+        if (mesVenta === mesActual && añoVenta === añoActual) {
+          totalMesActual += sumaVenta;
+        } else if (mesVenta === mesPasado && añoVenta === añoMesPasado) {
+          totalMesPasado += sumaVenta;
+        }
+      }
+    });
+
+    const nombreMesAct = new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(new Date(añoActual, mesActual, 1));
+    const nombreMesPas = new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(new Date(añoMesPasado, mesPasado, 1));
+
+    return { 
+      cantidad: cantidadTotal, 
+      totalMesActual, 
+      totalMesPasado,
+      nombreMesActual: nombreMesAct.charAt(0).toUpperCase() + nombreMesAct.slice(1),
+      nombreMesPasado: nombreMesPas.charAt(0).toUpperCase() + nombreMesPas.slice(1)
+    };
   }, [ventas, trabajadorActivo.nombre]);
 
   const diaHoy = new Date().getDay();
@@ -173,9 +208,19 @@ export default function VistaPerfil() {
                 <span className="text-xs text-slate-500">Artículos Autorizados Vendidos</span>
                 <span className="font-bold text-slate-700 dark:text-slate-300">{metricasAutorizadas.cantidad}</span>
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800/30 flex justify-between items-center">
-                <span className="text-xs text-emerald-700 dark:text-emerald-400">Total Generado (Autorizaciones)</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">${metricasAutorizadas.total.toFixed(2)}</span>
+              
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col gap-3">
+                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 border-b border-emerald-200/60 dark:border-emerald-800/50 pb-2">
+                  Total Generado (Autorizaciones)
+                </span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-emerald-700/80 dark:text-emerald-500">Mes pasado ({metricasAutorizadas.nombreMesPasado})</span>
+                  <span className="font-bold text-emerald-700/80 dark:text-emerald-500">${metricasAutorizadas.totalMesPasado.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-emerald-700 dark:text-emerald-400">Mes actual ({metricasAutorizadas.nombreMesActual})</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">${metricasAutorizadas.totalMesActual.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>

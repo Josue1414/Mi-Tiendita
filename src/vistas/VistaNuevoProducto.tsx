@@ -1,3 +1,4 @@
+// src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";

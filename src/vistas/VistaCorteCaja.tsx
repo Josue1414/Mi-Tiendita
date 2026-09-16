@@ -1,3 +1,4 @@
+// src/vistas/VistaCorteCaja.tsxS
 import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";

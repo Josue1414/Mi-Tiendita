@@ -1,3 +1,4 @@
+// src/vistas/secciones_configuracion/SeccionAdministracion.tsx
 import { useState, useEffect } from "react";
 import { Store, ImageIcon, Trash2, AlertTriangle, Save, CheckCircle2, HardDrive, Info, FolderOpen, FileSpreadsheet } from "lucide-react";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";

@@ -1,3 +1,4 @@
+// src/vistas/secciones_configuracion/SeccionHardware.tsx
 import { useState, useEffect } from "react";
 import { CheckCircle2, Sun, Moon, Palette, Scale, ScanBarcode, Save, Plus, Printer } from "lucide-react";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";

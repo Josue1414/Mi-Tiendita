@@ -1,3 +1,4 @@
+// src/vistas/secciones_configuracion/SeccionRed.tsx
 import { useState, useEffect } from "react";
 import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2 } from "lucide-react";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";

@@ -1,3 +1,4 @@
+// src/utilidades/stock.ts
 import type { Producto } from "../tipos/producto";
 
 export function tieneAlertaStock(producto: Producto): boolean {

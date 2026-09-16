@@ -1,3 +1,4 @@
+// src/componentes/PanelAutorizaciones.tsx
 import { ShieldCheck, History, Package } from "lucide-react";
 import type { Producto } from "../tipos/producto";
 import type { Venta } from "../estado/estadoVentas";

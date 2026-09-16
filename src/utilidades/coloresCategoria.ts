@@ -1,3 +1,4 @@
+// src/utilidades/coloresCategoria.ts
 import {
   ShoppingCart,
   CupSoda,

@@ -1,19 +1,23 @@
+// src/vistas/VistaStockBajo.tsx
 import { useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
-import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
-import { AlertTriangle, PackageOpen, ArrowRight, Layers } from "lucide-react";
+import { AlertTriangle, PackageOpen, ArrowUp, Layers } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { tieneAlertaStock } from "../utilidades/stock";
+import ModalPrompt from "../componentes/ui/ModalPrompt";
+import type { Producto } from "../tipos/producto";
 
 export default function VistaStockBajo() {
-  const { productos } = useEstadoInventario();
-  const { setSeccionActual } = useEstadoNavegacion();
+  const { productos, actualizarProducto } = useEstadoInventario();
   const { trabajadorActivo } = useEstadoTrabajadores();
 
   // Estado para controlar qué filtro está activo
   const [filtro, setFiltro] = useState<"todas" | "por-terminar" | "agotados">("todas");
+  
+  // Estado para el modal de ajustar stock
+  const [promptStock, setPromptStock] = useState<{ abierto: boolean; producto: Producto | null }>({ abierto: false, producto: null });
 
   // Permisos
   const esDueño = trabajadorActivo?.rol === "DUENO";
@@ -33,9 +37,38 @@ export default function VistaStockBajo() {
     filtro === "por-terminar" ? porTerminar : 
     criticos;
 
+  // Lógica para procesar la entrada de ajuste de stock
+  const confirmarAjusteStock = async (entrada: string) => {
+    if (!promptStock.producto) return;
+    const extra = Number(entrada);
+    
+    if (Number.isNaN(extra) || extra === 0) {
+      setPromptStock({ abierto: false, producto: null });
+      return;
+    }
+    
+    await actualizarProducto({
+      ...promptStock.producto,
+      controla_stock: true,
+      stock_actual: Math.max(0, promptStock.producto.stock_actual + extra),
+    });
+    
+    setPromptStock({ abierto: false, producto: null });
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-6 animate-in fade-in duration-300">
       
+      {/* Modal estilizado para ajustar stock */}
+      <ModalPrompt
+        abierto={promptStock.abierto}
+        titulo="Ajustar Stock"
+        mensaje={promptStock.producto ? `Stock actual de "${promptStock.producto.nombre}": ${promptStock.producto.stock_actual}\nIngresa la cantidad que deseas sumar (puedes usar negativos para restar):` : ""}
+        placeholder="Ej: 10"
+        alConfirmar={confirmarAjusteStock}
+        alCerrar={() => setPromptStock({ abierto: false, producto: null })}
+      />
+
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
@@ -156,10 +189,10 @@ export default function VistaStockBajo() {
                       {(puedeEditar || puedeAjustarStock) && (
                         <td className="p-4 text-center">
                           <button 
-                            onClick={() => setSeccionActual("nuevo-producto", producto.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                            onClick={() => setPromptStock({ abierto: true, producto })}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold transition-colors"
                           >
-                            Actualizar <ArrowRight size={14} />
+                            <ArrowUp size={14} /> Ajustar Stock
                           </button>
                         </td>
                       )}

@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalConfirmacion.tsx
 import { AlertTriangle, X } from "lucide-react";
 
 interface PropsModalConfirmacion {

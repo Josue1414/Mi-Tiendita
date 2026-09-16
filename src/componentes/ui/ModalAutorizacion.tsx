@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalAutorizacion.tsx
 import { useState } from "react";
 import { Camera, Check, X } from "lucide-react";
 import type { ChangeEvent } from "react";

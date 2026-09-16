@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalSeleccionDispositivo.tsx
 import { useEffect, useState } from "react";
 import { Usb, X, Check } from "lucide-react";
 

@@ -1,3 +1,4 @@
+// src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
 import { Lock } from "lucide-react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";

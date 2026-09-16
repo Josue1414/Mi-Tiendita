@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalCobro.tsx
 import { useState, useEffect, useRef } from "react";
 import { Check, X, Banknote, CreditCard, ArrowRightLeft } from "lucide-react";
 import { cn } from "../../utilidades/utils";

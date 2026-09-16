@@ -13,12 +13,21 @@ import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
 
+// Función auxiliar para obtener la fecha local correctamente (evita que UTC adelante el día por la noche)
+const obtenerFechaLocal = () => {
+  const fecha = new Date();
+  const offset = fecha.getTimezoneOffset() * 60000;
+  return new Date(fecha.getTime() - offset).toISOString().slice(0, 10);
+};
+
 export default function VistaPanel() {
   const { ventas } = useEstadoVentas();
   const { productos } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
   const { nombreTienda } = useEstadoConfiguracion();
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date().toISOString().slice(0, 10));
+  
+  // Utilizamos la función de fecha local como estado inicial
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(obtenerFechaLocal());
 
   // --- CÁLCULOS DE MÉTRICAS ---
   const hoy = new Date(`${fechaSeleccionada}T12:00:00`);

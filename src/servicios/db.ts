@@ -1,3 +1,4 @@
+// src/servicios/db.ts
 import { openDB } from "idb";
 
 const DB_NOMBRE = "mitiendita_db";

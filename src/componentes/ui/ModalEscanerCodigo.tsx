@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalEscanerCodigo.tsx
 import { useEffect, useRef, useState } from "react";
 import { Barcode, Camera, X } from "lucide-react";
 import { useEscanerCodigoBarras } from "../../hooks/useEscanerCodigoBarras";

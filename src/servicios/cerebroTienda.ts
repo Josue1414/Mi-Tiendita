@@ -1,3 +1,4 @@
+// src/servicios/cerebroTienda.ts
 import { supabase } from "./supabase";
 
 const claveRolCerebro = (tiendaId: string) => `mi_tienda_es_cerebro:${tiendaId}`;

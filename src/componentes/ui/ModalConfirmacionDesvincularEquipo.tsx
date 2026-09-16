@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalConfirmacionDesvincularEquipo.tsx
 import React from "react";
 import { AlertTriangle, Check, X, Wifi, CloudLightning } from "lucide-react";
 

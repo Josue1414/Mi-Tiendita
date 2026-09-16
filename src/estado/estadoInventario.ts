@@ -1,3 +1,4 @@
+// src/estado/estadoInventario.ts
 import { create } from "zustand";
 import type { Categoria, Producto } from "../tipos/producto";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";

@@ -1,3 +1,4 @@
+// src/componentes/ui/ModalCategoria.tsx
 import { useState } from "react";
 import { X } from "lucide-react";
 import { PALETA_CATEGORIAS, colorTextoSobre, siguienteColor } from "../../utilidades/coloresCategoria";

@@ -1,3 +1,4 @@
+// src/utilidades/temas.ts
 export type TemaVisual = "verde" | "claro" | "oscuro" | "grafito";
 
 export const TEMAS_VISUALES: Array<{ id: TemaVisual; nombre: string; descripcion: string; muestra: string }> = [

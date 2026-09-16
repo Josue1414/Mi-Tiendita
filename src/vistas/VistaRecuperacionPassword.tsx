@@ -1,3 +1,4 @@
+// src/vistas/VistaRecuperacionPassword.tsx
 import React from "react";
 import { ArrowLeft, CheckCircle2, KeyRound, Mail } from "lucide-react";
 
