@@ -1,8 +1,8 @@
-// src/estado/estadoTrabajadores.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { cifrarPin, descifrarPin } from "../utilidades/seguridad";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+import { useEstadoPlan } from "./estadoPlan"; // <-- NUEVA IMPORTACIÓN
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -51,7 +51,7 @@ interface EstadoTrabajadores {
   agregarTrabajador: (trabajador: Trabajador) => Promise<void>;
   actualizarTrabajador: (trabajador: Trabajador) => Promise<void>;
   eliminarTrabajador: (id: string) => Promise<void>;
-  sincronizarTrabajador: (payload: any) => Promise<void>; // Nueva función para actualizaciones invisibles
+  sincronizarTrabajador: (payload: any) => Promise<void>;
 }
 
 const TRABAJADORES_INICIALES: Trabajador[] = [
@@ -153,7 +153,12 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   
   agregarTrabajador: async (trabajador) => {
     try {
-      if (get().trabajadores.length >= 4) throw new Error("Límite máximo de 4 trabajadores alcanzado.");
+      // <-- LÓGICA DINÁMICA DE LÍMITE DE PLAN AQUÍ -->
+      const maxUsuarios = useEstadoPlan.getState().maxUsuarios;
+      
+      if (get().trabajadores.length >= maxUsuarios) {
+        throw new Error(`Límite máximo de ${maxUsuarios} usuarios alcanzado para tu plan actual.`);
+      }
       
       if (esEscritorio) {
         const tCifrado = { ...trabajador, pin: cifrarPin(trabajador.pin) };
@@ -180,6 +185,7 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
       }
     } catch (error) {
       console.error("Error al agregar trabajador:", error);
+      throw error; // Lanzamos el error para que la UI (VistaEquipo) pueda capturarlo y mostrarlo
     }
   },
 
@@ -233,7 +239,6 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     }
   },
 
-  // Maneja de forma silenciosa la sincronización desde el WebSocket
   sincronizarTrabajador: async (payload: any) => {
     const { eventType, new: nuevo, old: viejo } = payload;
     const { trabajadores, trabajadorActivo } = get();

@@ -1,7 +1,7 @@
-// src/estado/estadoConfiguracion.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+import { useEstadoPlan } from "./estadoPlan"; // <-- NUEVA IMPORTACIÓN
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -56,7 +56,7 @@ interface EstadoConfiguracion extends Configuracion {
     mensaje: string,
   ) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
-  sincronizarConfiguracion: (payload: any) => Promise<void>; // <-- NUEVO: Para tiempo real
+  sincronizarConfiguracion: (payload: any) => Promise<void>; 
 }
 
 const CONFIG_ID = "config_principal";
@@ -101,6 +101,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     set({ cargando: true });
     try {
       const tiendaId = await obtenerTiendaIdActual();
+      const permiteNube = useEstadoPlan.getState().permiteNube; // <-- OBTENER PERMISO DE NUBE
 
       if (navigator.onLine && tiendaId) {
         const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
@@ -119,16 +120,20 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             bancoTransferencia: tiendaNube.banco_transferencia || "",
             titularTransferencia: tiendaNube.titular_transferencia || "",
             cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
-            id: CONFIG_ID
+            id: CONFIG_ID,
+            // <-- FORZAR APAGADO SI EL PLAN ES BÁSICO -->
+            sincronizacionNube: permiteNube ? get().sincronizacionNube : false 
           };
 
           if (esEscritorio) {
             const data = await obtenerRegistros("configuracion");
-            if (data.length === 0) {
-              await guardarRegistro("configuracion", estadoActualizado);
-            } else {
-              await guardarRegistro("configuracion", estadoActualizado);
+            // Si hay datos locales, respetamos la decisión del usuario (solo si su plan se lo permite)
+            if (data.length > 0) {
+               const configLocal = data[0] as Configuracion;
+               estadoActualizado.sincronizacionNube = permiteNube ? configLocal.sincronizacionNube : false;
+               estadoActualizado.directorioImagenes = configLocal.directorioImagenes;
             }
+            await guardarRegistro("configuracion", estadoActualizado);
           }
 
           set({ ...estadoActualizado, cargando: false });
@@ -144,6 +149,11 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           await guardarRegistro("configuracion", CONFIG_INICIAL);
         } else {
           estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
+          // <-- FORZAR APAGADO EN LOCAL SI EL PLAN ES BÁSICO -->
+          if (!permiteNube) {
+              estadoLocal.sincronizacionNube = false;
+              await guardarRegistro("configuracion", estadoLocal);
+          }
         }
       }
 
@@ -198,6 +208,12 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   
   toggleSincronizacion: async () => {
     try {
+      // <-- BLOQUEAR EL CAMBIO SI EL PLAN NO LO PERMITE -->
+      const permiteNube = useEstadoPlan.getState().permiteNube;
+      if (!permiteNube) {
+        throw new Error("Tu plan actual no permite la sincronización en la nube.");
+      }
+
       const nuevoEstado = !get().sincronizacionNube;
       if (esEscritorio) {
         const nuevaConfig = { ...get(), sincronizacionNube: nuevoEstado };
@@ -206,6 +222,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       set({ sincronizacionNube: nuevoEstado });
     } catch (error) {
       console.error("Error al cambiar la sincronización:", error);
+      throw error; // Lanzar para que la UI capture el error y muestre un aviso
     }
   },
 

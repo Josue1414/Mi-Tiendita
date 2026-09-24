@@ -1,13 +1,16 @@
-// src/vistas/VistaEquipo.tsx
 import React, { useEffect, useState } from "react";
 import { useEstadoTrabajadores, type RolTrabajador } from "../estado/estadoTrabajadores";
 import { Users, UserPlus } from "lucide-react";
 import TarjetaTrabajador from "../componentes/equipo/TarjetaTrabajador";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
+import { useEstadoPlan } from "../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
 
 export default function VistaEquipo() {
   const { trabajadores, trabajadorActivo, agregarTrabajador } = useEstadoTrabajadores();
   const cargarAsistencias = useEstadoAsistencias((estado) => estado.cargarAsistencias);
+  
+  // <-- EXTRAEMOS EL LÍMITE DINÁMICO -->
+  const maxUsuarios = useEstadoPlan((estado) => estado.maxUsuarios);
   
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState<RolTrabajador>("TRABAJADOR");
@@ -17,47 +20,52 @@ export default function VistaEquipo() {
     cargarAsistencias();
   }, [cargarAsistencias]);
 
-  const manejarGuardado = (e: React.FormEvent) => {
+  const manejarGuardado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre || !/^[A-Za-z]{2}\d{4}$/.test(pin)) {
       alert("El PIN debe tener 2 letras y 4 números, por ejemplo: AB1234.");
       return;
     }
-    if (trabajadores.length >= 4) return;
+    
+    // <-- VALIDACIÓN CON EL LÍMITE DEL PLAN -->
+    if (trabajadores.length >= maxUsuarios) return; 
 
-    agregarTrabajador({
-      id: crypto.randomUUID(),
-      nombre,
-      rol,
-      pin,
-      activo: true,
-      ventasRealizadas: 0,
-      ingresosGenerados: 0,
-      fechaIngreso: new Date().toISOString().split("T")[0],
-      permisos: {
-        editarProductos: false,
-        eliminarProductos: false,
-        actualizarStockCodigo: false,
-        cambiarHorarios: false,
-        hacerCancelaciones: rol === "SUPERVISOR",
-        cambiarInfoTicket: false,
-        cambiarPrecios: false,
-        verSalarios: false // <-- Por defecto en falso
-      },
-      horarioSemanal: {
-        tipo: "GENERAL",
-        diasTrabajo: [1,2,3,4,5],
-        general: { entrada: "09:00", salida: "18:00" },
-        especifico: {}
-      }
-    });
+    try {
+      await agregarTrabajador({
+        id: crypto.randomUUID(),
+        nombre,
+        rol,
+        pin,
+        activo: true,
+        ventasRealizadas: 0,
+        ingresosGenerados: 0,
+        fechaIngreso: new Date().toISOString().split("T")[0],
+        permisos: {
+          editarProductos: false,
+          eliminarProductos: false,
+          actualizarStockCodigo: false,
+          cambiarHorarios: false,
+          hacerCancelaciones: rol === "SUPERVISOR",
+          cambiarInfoTicket: false,
+          cambiarPrecios: false,
+          verSalarios: false
+        },
+        horarioSemanal: {
+          tipo: "GENERAL",
+          diasTrabajo: [1,2,3,4,5],
+          general: { entrada: "09:00", salida: "18:00" },
+          especifico: {}
+        }
+      });
 
-    setNombre("");
-    setPin("");
-    setRol("TRABAJADOR");
+      setNombre("");
+      setPin("");
+      setRol("TRABAJADOR");
+    } catch (error: any) {
+      alert(error.message); // Muestra el mensaje de error si falla al agregar
+    }
   };
 
-  // REGLA: Si el usuario activo es SUPERVISOR, ocultamos la tarjeta del DUEÑO.
   const trabajadoresVisibles = trabajadores.filter((t) => {
     if (trabajadorActivo?.rol === "SUPERVISOR") {
       return t.rol !== "DUENO";
@@ -116,10 +124,18 @@ export default function VistaEquipo() {
                 <input type="password" required minLength={6} maxLength={6} pattern="[A-Za-z]{2}[0-9]{4}" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full text-center font-mono tracking-widest text-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 transition-colors" placeholder="AB1234" />
                 <p className="text-[10px] text-slate-500 mt-1 text-center">Este código se usará para iniciar sesión.</p>
               </div>
-              <button type="submit" disabled={trabajadores.length >= 4} className="w-full mt-2 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50">
+              
+              {/* <-- BOTÓN DESHABILITADO DINÁMICAMENTE --> */}
+              <button type="submit" disabled={trabajadores.length >= maxUsuarios} className="w-full mt-2 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50">
                 Registrar
               </button>
-              {trabajadores.length >= 4 && <p className="text-center text-xs font-semibold text-amber-600">Límite máximo de 4 trabajadores alcanzado.</p>}
+              
+              {/* <-- MENSAJE DE LÍMITE DINÁMICO --> */}
+              {trabajadores.length >= maxUsuarios && (
+                <p className="text-center text-xs font-semibold text-amber-600">
+                  Límite máximo de {maxUsuarios} trabajadores alcanzado.
+                </p>
+              )}
             </form>
           </div>
         </div>

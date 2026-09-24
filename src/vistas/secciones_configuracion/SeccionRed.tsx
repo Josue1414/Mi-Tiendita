@@ -1,8 +1,8 @@
-// src/vistas/secciones_configuracion/SeccionRed.tsx
 import { useState, useEffect } from "react";
 import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2 } from "lucide-react";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoRed } from "../../estado/estadoRed";
+import { useEstadoPlan } from "../../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
 import { supabase, obtenerTiendaIdActual } from "../../servicios/supabase";
 import { establecerRolCerebro } from "../../servicios/cerebroTienda";
 import { cn } from "../../utilidades/utils";
@@ -20,6 +20,9 @@ interface NavegadorExtendido {
 export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { esMaestro, ipMaestro, conectadoLAN, setEsMaestro, setIpMaestro } = useEstadoRed();
+  
+  // <-- EXTRAEMOS EL LÍMITE DE DISPOSITIVOS -->
+  const maxDispositivos = useEstadoPlan((estado) => estado.maxDispositivos);
 
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const win = window as unknown as NavegadorExtendido;
@@ -87,6 +90,12 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   }, [esDueño, esAppEscritorio, win.apiLocal, setAviso]);
 
   const cambiarRolCerebro = async (nuevoRol: boolean) => {
+    // <-- VALIDACIÓN EXTRA ANTES DE VOLVERSE CEREBRO -->
+    if (nuevoRol && dispositivos.length >= maxDispositivos && !dispositivos.find(d => d.hardware_id === miHwid)) {
+      setAviso({ titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos vinculados.`});
+      return;
+    }
+
     setCambiandoRolCerebro(true);
     try {
       const tiendaId = await obtenerTiendaIdActual();
@@ -151,6 +160,9 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
       setAviso({ titulo: "Error", mensaje: `Copia manualmente este enlace: ${enlace}` });
     }
   };
+
+  // Variable para saber si podemos agregar más clientes
+  const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
 
   return (
     <>
@@ -219,7 +231,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
               {!esAppEscritorio ? (
                 <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">Requiere app de Windows (.exe)</span>
               ) : (
-                <button onClick={() => cambiarRolCerebro(true)} disabled={esMaestro || cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+                <button onClick={() => cambiarRolCerebro(true)} disabled={esMaestro || cambiandoRolCerebro || (!esMaestro && limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid))} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
                   {esMaestro ? "Esta PC es el Cerebro" : cambiandoRolCerebro ? "Validando..." : "Convertir en Cerebro"}
                 </button>
               )}
@@ -243,8 +255,22 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                 <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 hover:bg-slate-50 disabled:opacity-50">Liberar cerebro</button>
               ) : (
                 <div className="w-full flex flex-col gap-2">
-                  <input type="text" value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500" />
-                  <button onClick={() => { setIpMaestro(inputIpConexion); window.location.reload(); }} className="w-full py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700">Conectar</button>
+                  <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50" />
+                  
+                  {/* <-- BOTÓN RESTRINGIDO SI ALCANZA EL LÍMITE --> */}
+                  <button onClick={() => { 
+                      if(limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)) {
+                        setAviso({titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos.`});
+                        return;
+                      }
+                      setIpMaestro(inputIpConexion); 
+                      window.location.reload(); 
+                    }} 
+                    disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid) ? `Límite Alcanzado (${maxDispositivos})` : "Conectar"}
+                  </button>
+                  
                   {conectadoLAN ? <span className="flex justify-center gap-1.5 text-xs font-bold text-emerald-600 mt-2"><Wifi size={14}/> Conectado</span> : <span className="flex justify-center gap-1.5 text-xs font-bold text-red-500 mt-2"><WifiOff size={14}/> Sin conexión</span>}
                 </div>
               )}
@@ -256,7 +282,8 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
       {esDueño && (
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
-            <Laptop size={20} className="text-blue-600 dark:text-blue-400" /> Equipos Vinculados ({dispositivos.length}/5 permitidos)
+            {/* <-- CONTADOR DINÁMICO DE DISPOSITIVOS --> */}
+            <Laptop size={20} className="text-blue-600 dark:text-blue-400" /> Equipos Vinculados ({dispositivos.length}/{maxDispositivos} permitidos)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {dispositivos.map(disp => {

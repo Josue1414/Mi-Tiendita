@@ -1,11 +1,11 @@
-// src/vistas/VistaLogin.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoTrabajadores, type Trabajador } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop } from "lucide-react";
+import { useEstadoPlan } from "../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, AlertTriangle } from "lucide-react"; // <-- ICONOS AGREGADOS
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
@@ -19,6 +19,9 @@ export default function VistaLogin() {
   const { cargarProductos } = useEstadoInventario();
   const { cargarVentas } = useEstadoVentas();
   
+  // <-- EXTRAEMOS EL PLAN ACTIVO PARA LAS ETIQUETAS VISUALES -->
+  const planActivo = useEstadoPlan((estado) => estado.planActivo);
+  
   const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(false);
   const [emailSaaS, setEmailSaaS] = useState("");
   const [passwordSaaS, setPasswordSaaS] = useState("");
@@ -29,7 +32,6 @@ export default function VistaLogin() {
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
-  // Nombre de PC discreto
   const [nombrePC, setNombrePC] = useState(localStorage.getItem("nombre_dispositivo_local") || "");
 
   const [seleccionandoSucursal, setSeleccionandoSucursal] = useState(false);
@@ -49,8 +51,17 @@ export default function VistaLogin() {
       if (session) {
         const tiendaId = localStorage.getItem("tienda_id");
         if (tiendaId) {
-          const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento').eq('id', tiendaId).single();
+          // <-- AGREGADO: Extraer plan_id -->
+          const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento, plan_id').eq('id', tiendaId).single();
           if (tienda) {
+            
+            // <-- CARGA DEL PLAN EN SEGUNDO PLANO -->
+            const planId = tienda.plan_id || 'ESTANDAR';
+            const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
+            if (planData) {
+              useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube);
+            }
+
             const registro = await registrarDispositivoActual(tienda);
             setNombrePC(registro.dispositivo.nombre_dispositivo);
           }
@@ -71,10 +82,6 @@ export default function VistaLogin() {
       }
 
       if (!navigator.onLine) return;
-
-      // Se restaura la sesión de Supabase por la sesión persistida del cliente.
-      // No se guarda la contraseña en el navegador para evitar riesgo de fuga.
-      // Si la sesión del navegador no existe, la petición continúa con la autenticación del owner.
       return;
     };
 
@@ -91,9 +98,36 @@ export default function VistaLogin() {
         throw new Error(`La suscripción de la sucursal "${tienda.nombre}" ha vencido. Realiza tu pago.`);
       }
 
+      // <-- LÓGICA DE VALIDACIÓN DE LÍMITES POR PLAN -->
+      const planId = tienda.plan_id || 'ESTANDAR';
+      const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
+      
+      if (planData) {
+        let hwId = "";
+        if (window.apiLocal) {
+          hwId = await window.apiLocal.obtenerHardwareId();
+        } else {
+          hwId = localStorage.getItem('web_hardware_id') || "";
+          if (!hwId) {
+            hwId = "web-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+            localStorage.setItem('web_hardware_id', hwId);
+          }
+        }
+
+        const { data: dispNube } = await supabase.from('dispositivos_vinculados').select('hardware_id').eq('tienda_id', tienda.id);
+        const yaVinculado = dispNube?.some(d => d.hardware_id === hwId);
+
+        if (!yaVinculado && (dispNube?.length || 0) >= planData.max_dispositivos) {
+          throw new Error(`Límite de ${planData.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}" (Plan ${planData.nombre}). Libera espacio desvinculando un equipo.`);
+        }
+
+        // Cargamos el plan al estado global de la app
+        useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube);
+      }
+
       const registroDispositivo = await registrarDispositivoActual({
         id: tienda.id,
-        max_dispositivos: tienda.max_dispositivos,
+        max_dispositivos: planData?.max_dispositivos || tienda.max_dispositivos, // Fallback por seguridad
         nombre: tienda.nombre
       });
       setNombrePC(registroDispositivo.dispositivo.nombre_dispositivo);
@@ -142,9 +176,10 @@ export default function VistaLogin() {
 
       localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
 
+      // <-- AGREGADO: Extraer plan_id en el listado de tiendas -->
       const { data: miembrosData, error: miembroError } = await supabase
         .from('miembros_tienda')
-        .select('tiendas(id, nombre, fecha_vencimiento, max_dispositivos)')
+        .select('tiendas(id, nombre, fecha_vencimiento, max_dispositivos, plan_id)')
         .eq('usuario_id', authData.user?.id)
         .eq('activo', true);
 
@@ -247,12 +282,34 @@ export default function VistaLogin() {
         <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-600/30">
           {cuentaSaaSLogueada ? <Store size={32} /> : <Globe size={32} />}
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight text-center">
-          {cuentaSaaSLogueada ? nombreTienda : "Bienvenido a Mi Tienda"}
-        </h1>
+        
+        {/* <-- TITULO PRINCIPAL CON ETIQUETA DE PLAN --> */}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight text-center flex items-center justify-center gap-3">
+            {cuentaSaaSLogueada ? nombreTienda : "Bienvenido a Mi Tienda"}
+          </h1>
+          {cuentaSaaSLogueada && planActivo && (
+            <span className={cn("flex items-center gap-1.5 text-[10px] uppercase font-black tracking-widest px-3 py-1 rounded-full border", 
+              planActivo === 'PLUS' ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50" :
+              planActivo === 'ESTANDAR' ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50" :
+              "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+            )}>
+              <Crown size={12} /> PLAN {planActivo}
+            </span>
+          )}
+        </div>
+
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-medium px-4">
           {cuentaSaaSLogueada ? "Selecciona tu usuario de caja" : seleccionandoSucursal ? "Elige a qué negocio deseas acceder" : "Inicia sesión en tu cuenta para acceder a tu sucursal."}
         </p>
+
+        {/* <-- ADVERTENCIA DISCRETA PARA PLAN BÁSICO --> */}
+        {cuentaSaaSLogueada && planActivo === 'BASICO' && (
+          <div className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/30 px-4 py-2 rounded-xl text-center max-w-sm flex items-start gap-2 shadow-sm animate-in fade-in">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            <p><strong>Aviso:</strong> Para mantener tu servicio activo, recuerda conectar esta PC a internet en los días de tu fecha de corte para validar el pago.</p>
+          </div>
+        )}
       </div>
 
       <div className="efecto-cristal w-full max-w-md bg-white/90 dark:bg-slate-900/90 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200/50 dark:border-white/10 relative overflow-hidden z-10">
@@ -283,6 +340,11 @@ export default function VistaLogin() {
                   >
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{sucursal.nombre}</span>
+                      
+                      {/* <-- ETIQUETA DE PLAN EN LISTADO --> */}
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
+                        PLAN {sucursal.plan_id || 'ESTANDAR'}
+                      </span>
                     </div>
                     <ArrowLeft size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors rotate-180" />
                   </button>
