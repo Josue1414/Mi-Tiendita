@@ -1,3 +1,4 @@
+// electron/main.cjs
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -91,10 +92,21 @@ function iniciarServidorLAN() {
   if (ioServidor) return;
   const appExpress = express();
   const server = http.createServer(appExpress);
+  
+  // Servir los archivos web para que la tableta pueda cargar la interfaz
+  const distPath = path.join(__dirname, '../dist');
+  appExpress.use(express.static(distPath));
+  appExpress.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+
   ioServidor = new Server(server, { cors: { origin: "*" } });
 
   ioServidor.on('connection', (socket) => {
-    console.log('Dispositivo esclavo conectado:', socket.id);
+    console.log('Dispositivo LAN conectado:', socket.id);
+    
+    // NUEVO: Recibe el carrito de una caja y lo difunde a las tabletas cliente
+    socket.on('sync-pantalla-cliente', (data) => {
+      ioServidor.emit('update-pantalla-cliente', data);
+    });
     
     socket.on('accion-esclavo', (data) => {
       const wins = BrowserWindow.getAllWindows();

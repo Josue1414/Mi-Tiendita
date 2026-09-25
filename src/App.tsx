@@ -27,6 +27,7 @@ import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
 import AccionEscaneoInventario from "./componentes/movil/AccionEscaneoInventario";
 import ModalSeleccionDispositivo from "./componentes/ui/ModalSeleccionDispositivo";
+import ModalQRCliente from "./componentes/ui/ModalQRCliente"; // <-- NUEVA IMPORTACIÓN
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   pos: VistaPOS,
@@ -57,6 +58,7 @@ export default function App() {
   const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
+  const [modalQRAbierto, setModalQRAbierto] = useState(false); // <-- ESTADO PARA EL MODAL QR
 
   useEffect(() => {
     const aplicarTema = (evento: Event) => {
@@ -67,7 +69,7 @@ export default function App() {
     return () => window.removeEventListener(EVENTO_TEMA, aplicarTema);
   }, []);
 
-  if (window.location.search.includes('cliente=true')) {
+  if (window.location.search.includes('cliente=')) {
     return <VistaPantallaCliente />;
   }
 
@@ -116,9 +118,19 @@ export default function App() {
 
   const ComponenteActivo = componentesSeccion[seccionActual];
 
+  // <-- FUNCIÓN ACTUALIZADA CON LÓGICA DE DISPOSITIVOS MÓVILES Y NOMBRES ÚNICOS -->
   const abrirPantallaCliente = () => {
-    const rutaBase = window.location.href.split('?')[0];
-    window.open(`${rutaBase}?cliente=true`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+    const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
+    
+    // Validamos si es menor a 1280px (cubre iPads en horizontal) o si el dispositivo es táctil
+    const esMovilOTablet = window.innerWidth <= 1280 || navigator.maxTouchPoints > 0;
+
+    if (esMovilOTablet) {
+      setModalQRAbierto(true);
+    } else {
+      const rutaBase = window.location.href.split('?')[0];
+      window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+    }
   };
 
   const menusOperativos = [
@@ -139,7 +151,6 @@ export default function App() {
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
   ] as const;
   
-  // Cálculo dividido de alertas
   const productosConAlerta = productos.filter(tieneAlertaStock);
   const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
   const alertasPorTerminar = productosConAlerta.length - alertasAgotados;
@@ -173,6 +184,14 @@ export default function App() {
     <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
       
       <ModalSeleccionDispositivo />
+      
+      {/* <-- MODAL DEL QR INYECTADO AQUÍ --> */}
+      <ModalQRCliente 
+        abierto={modalQRAbierto}
+        alCerrar={() => setModalQRAbierto(false)}
+        ipLocal={ipMaestro || window.location.hostname}
+        nombreCaja={localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
+      />
 
       {mostrarModalSalida && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in">
