@@ -4,7 +4,7 @@ import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { 
-  DollarSign, TrendingUp, Package, AlertTriangle, 
+  DollarSign, TrendingUp, AlertTriangle, 
   ShoppingCart, Plus, Bell, History, ArrowRight, Calendar, Printer, CreditCard, Banknote, Ban
 } from "lucide-react";
 import { cn } from "../utilidades/utils";
