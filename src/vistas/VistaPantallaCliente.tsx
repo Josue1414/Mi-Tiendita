@@ -1,3 +1,4 @@
+// src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
 import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
@@ -22,7 +23,6 @@ export default function VistaPantallaCliente() {
   const [densidad, setDensidad] = useState<Densidad>("compacta");
   const [tema, setTema] = useState<Tema>("verde");
   
-  // Estado para el Modal QR
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
 
   useEffect(() => {
@@ -96,57 +96,62 @@ export default function VistaPantallaCliente() {
         nombreCaja={new URLSearchParams(window.location.search).get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"} 
       />
 
-      <header className={`flex items-center justify-between px-5 py-3 border-b ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/20"}`}>
+      <header className={`relative flex items-center justify-between px-5 py-3 border-b ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/20"}`}>
         <div className="flex items-center gap-2">
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${temaClaro ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"}`}>
             <ShoppingCart size={20} />
           </div>
           <h1 className="text-lg font-bold tracking-wide">Mi Tienda</h1>
         </div>
-        <span className={`text-sm font-semibold ${temaClaro ? "text-slate-500" : "text-emerald-200"}`}>{hora}</span>
-      </header>
-
-      {/* Contenedor de Botones Superiores */}
-      <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
-        <button
-          onClick={() => setModalQRAbierto(true)}
-          aria-label="Mostrar QR para conectar tablet"
-          className={`rounded-full p-1.5 opacity-60 hover:opacity-100 ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white hover:bg-white/10"}`}
-        >
-          <QrCode size={16} />
-        </button>
-        <button
-          onClick={() => setOpcionesAbiertas((abierto) => !abierto)}
-          aria-label="Opciones de pantalla"
-          className={`rounded-full p-1.5 opacity-60 hover:opacity-100 ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white hover:bg-white/10"}`}
-        >
-          {opcionesAbiertas ? <X size={16} /> : <Settings size={16} />}
-        </button>
-      </div>
-
-      {opcionesAbiertas && (
-        <div className="fixed inset-0 z-10" onClick={() => setOpcionesAbiertas(false)}>
-          <div onClick={(evento) => evento.stopPropagation()} className={`absolute right-3 top-12 z-20 w-56 rounded-xl border p-3 shadow-xl ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900/95"}`}>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider opacity-60">Vista</p>
-          <div className="grid grid-cols-3 gap-1">
-            {(["compacta", "normal", "amplia"] as Densidad[]).map((opcion) => (
-              <button key={opcion} onClick={() => setDensidad(opcion)} className={`rounded-md px-1 py-1.5 text-[10px] font-semibold ${densidad === opcion ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70"}`}>
-                {opcion}
-              </button>
-            ))}
+        
+        {/* Controles integrados junto al reloj */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setModalQRAbierto(true)}
+              aria-label="Mostrar QR para conectar tablet"
+              className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+            >
+              <QrCode size={18} />
+            </button>
+            <button
+              onClick={() => setOpcionesAbiertas((abierto) => !abierto)}
+              aria-label="Opciones de pantalla"
+              className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+            >
+              {opcionesAbiertas ? <X size={18} /> : <Settings size={18} />}
+            </button>
           </div>
-          <p className="mb-2 mt-3 text-[10px] font-bold uppercase tracking-wider opacity-60">Tema</p>
-          <div className="grid grid-cols-2 gap-1">
-            {(["verde", "claro", "oscuro", "grafito"] as Tema[]).map((opcion) => (
-              <button key={opcion} onClick={() => setTema(opcion)} className={`flex items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-semibold ${tema === opcion ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70"}`}>
-                {opcion === "claro" ? <Sun size={11} /> : opcion === "oscuro" ? <Moon size={11} /> : null}
-                {opcion}
-              </button>
-            ))}
-          </div>
-          </div>
+          <div className={`h-6 w-px ${temaClaro ? "bg-slate-200" : "bg-white/20"}`} />
+          <span className={`text-sm font-bold tracking-wider ${temaClaro ? "text-slate-600" : "text-emerald-300"}`}>{hora}</span>
         </div>
-      )}
+
+        {/* Dropdown de opciones ajustado a la nueva posición */}
+        {opcionesAbiertas && (
+          <div className="absolute right-5 top-16 z-30">
+            <div className="fixed inset-0" onClick={() => setOpcionesAbiertas(false)} />
+            <div onClick={(evento) => evento.stopPropagation()} className={`relative w-56 rounded-xl border p-3 shadow-2xl ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-slate-900"}`}>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider opacity-60">Vista</p>
+              <div className="grid grid-cols-3 gap-1">
+                {(["compacta", "normal", "amplia"] as Densidad[]).map((opcion) => (
+                  <button key={opcion} onClick={() => setDensidad(opcion)} className={`rounded-md px-1 py-1.5 text-[10px] font-semibold ${densidad === opcion ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70 hover:opacity-100"}`}>
+                    {opcion}
+                  </button>
+                ))}
+              </div>
+              <p className="mb-2 mt-3 text-[10px] font-bold uppercase tracking-wider opacity-60">Tema</p>
+              <div className="grid grid-cols-2 gap-1">
+                {(["verde", "claro", "oscuro", "grafito"] as Tema[]).map((opcion) => (
+                  <button key={opcion} onClick={() => setTema(opcion)} className={`flex items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-semibold ${tema === opcion ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70 hover:opacity-100"}`}>
+                    {opcion === "claro" ? <Sun size={11} /> : opcion === "oscuro" ? <Moon size={11} /> : null}
+                    {opcion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </header>
 
       <main className="flex min-h-0 flex-1 flex-col px-5 py-4">
         {mensajeExito ? (

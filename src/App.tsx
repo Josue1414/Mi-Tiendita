@@ -1,3 +1,4 @@
+// src/App.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoNavegacion, type SeccionApp } from "./estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "./estado/estadoTrabajadores";
@@ -27,7 +28,7 @@ import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
 import AccionEscaneoInventario from "./componentes/movil/AccionEscaneoInventario";
 import ModalSeleccionDispositivo from "./componentes/ui/ModalSeleccionDispositivo";
-import ModalQRCliente from "./componentes/ui/ModalQRCliente"; // <-- NUEVA IMPORTACIÓN
+import ModalQRCliente from "./componentes/ui/ModalQRCliente"; 
 
 const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   pos: VistaPOS,
@@ -58,7 +59,7 @@ export default function App() {
   const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
-  const [modalQRAbierto, setModalQRAbierto] = useState(false); // <-- ESTADO PARA EL MODAL QR
+  const [modalQRAbierto, setModalQRAbierto] = useState(false);
 
   useEffect(() => {
     const aplicarTema = (evento: Event) => {
@@ -118,18 +119,23 @@ export default function App() {
 
   const ComponenteActivo = componentesSeccion[seccionActual];
 
-  // <-- FUNCIÓN ACTUALIZADA CON LÓGICA DE DISPOSITIVOS MÓVILES Y NOMBRES ÚNICOS -->
+  // <-- LÓGICA INTELIGENTE DE PANTALLA CLIENTE -->
   const abrirPantallaCliente = () => {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
     
-    // Validamos si es menor a 1280px (cubre iPads en horizontal) o si el dispositivo es táctil
-    const esMovilOTablet = window.innerWidth <= 1280 || navigator.maxTouchPoints > 0;
+    // Verificamos si estamos en la App de Escritorio (.exe)
+    const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
+    
+    // Verificamos si es estrictamente un dispositivo móvil/tablet mediante User-Agent o un ancho de pantalla de móvil
+    const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
 
-    if (esMovilOTablet) {
-      setModalQRAbierto(true);
-    } else {
+    // Si es el .exe O es una computadora de escritorio (Chrome en PC), abre la 2da ventana para HDMI.
+    if (esEscritorio || !esDispositivoMovil) {
       const rutaBase = window.location.href.split('?')[0];
       window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+    } else {
+      // Si está en celular o tablet, abre el QR para que alguien lo escanee
+      setModalQRAbierto(true);
     }
   };
 
@@ -185,7 +191,6 @@ export default function App() {
       
       <ModalSeleccionDispositivo />
       
-      {/* <-- MODAL DEL QR INYECTADO AQUÍ --> */}
       <ModalQRCliente 
         abierto={modalQRAbierto}
         alCerrar={() => setModalQRAbierto(false)}
@@ -272,7 +277,6 @@ export default function App() {
                   
                   <div className="relative flex items-center justify-center shrink-0">
                     <Icono size={18} />
-                    {/* Alertas cuando el menú está colapsado */}
                     {!menuAbierto && menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
                       <span className="absolute -top-2 -left-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm border border-emerald-50 dark:border-slate-950">
                         {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
@@ -285,7 +289,6 @@ export default function App() {
                     )}
                   </div>
                   
-                  {/* Alertas cuando el menú está abierto */}
                   {menuAbierto && (
                     <div className="flex-1 flex items-center gap-2 truncate text-left">
                       {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
@@ -359,7 +362,6 @@ export default function App() {
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
               
-              {/* Alertas móviles (Izquierda y Derecha) */}
               {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
                 <span className="absolute left-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
                   {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
@@ -395,7 +397,6 @@ export default function App() {
               <Icono size={18} />
               <span className="max-w-[4.5rem] truncate">{menu.texto}</span>
 
-              {/* Alertas móviles (Izquierda y Derecha) */}
               {menu.id === "stock-bajo" && alertasPorTerminar > 0 && (
                 <span className="absolute left-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
                   {alertasPorTerminar > 99 ? "99+" : alertasPorTerminar}
