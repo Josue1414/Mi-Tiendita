@@ -1,4 +1,4 @@
-// src/estado/estadoCaja.ts
+// Coordenada: src/estado/estadoCaja.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
@@ -12,6 +12,8 @@ export interface TurnoCaja {
   fondoInicial: number;
   fondoDejado: number | null;
   ventasCalculadas: number | null;
+  ventasEfectivo: number | null;     // NUEVO: Efectivo del turno
+  ventasElectronico: number | null;  // NUEVO: Tarjeta/Transferencia del turno
   notaTrabajador: string;
   notaDueno: string;
   estatus: "ABIERTO" | "CERRADO";
@@ -28,7 +30,7 @@ interface EstadoCaja {
   cargarCaja: () => Promise<void>;
   actualizarConfiguracion: (nuevoFondo: number, nuevaNota: string, forzarCaja?: boolean, reqPin?: boolean) => Promise<void>;
   abrirTurno: (trabajadorId: string, nombreTrabajador: string, fondo: number) => Promise<void>;
-  cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string) => Promise<void>;
+  cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string, ventasEfectivo: number, ventasElectronico: number) => Promise<void>; // ACTUALIZADO
   obtenerTurnoActivo: (trabajadorId: string) => TurnoCaja | undefined;
   setForzarRecepcionCaja: (valor: boolean) => Promise<void>; 
   setRequerirPinCancelacion: (valor: boolean) => Promise<void>;
@@ -36,7 +38,6 @@ interface EstadoCaja {
   sincronizarTienda: (payload: any) => void;
 }
 
-// Seleccionamos explícitamente los datos que se guardan en local
 const guardarConfigCajaLocal = async (estado: any) => {
   const datosPuros = {
     fondoBaseActual: estado.fondoBaseActual,
@@ -55,12 +56,14 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   requerirPinCancelacion: false,
   cargando: true,
 
+  // Coordenada: src/estado/estadoCaja.ts (Reemplazar función cargarCaja)
+
   cargarCaja: async () => {
     set({ cargando: true });
     try {
-      // Forzar que la sesión se restaure antes de hacer peticiones a Supabase tras un F5
       await supabase.auth.getSession();
-        
+      
+      const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
       let tiendaId = await obtenerTiendaIdActual();
       
       if (tiendaId) {
@@ -103,20 +106,32 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
               fondoInicial: Number(t.fondo_inicial),
               fondoDejado: t.fondo_dejado !== null ? Number(t.fondo_dejado) : null,
               ventasCalculadas: t.ventas_calculadas !== null ? Number(t.ventas_calculadas) : null,
+              ventasEfectivo: t.ventas_efectivo !== null ? Number(t.ventas_efectivo) : null,
+              ventasElectronico: t.ventas_electronico !== null ? Number(t.ventas_electronico) : null,
               notaTrabajador: t.nota_trabajador || "",
               notaDueno: t.nota_dueno || "",
               estatus: t.estatus
             }));
 
-            const turnosLocal = await obtenerRegistros("turnos_caja");
-            const idsNube = new Set(turnosMapeados.map(t => t.id));
-            if (turnosLocal) {
-              for (const tLocal of turnosLocal as any[]) {
-                if (!idsNube.has(tLocal.id)) await eliminarRegistro("turnos_caja", tLocal.id);
+            if (esEscritorio) {
+              // Si es la PC Cerebro, SOLO GUARDAMOS lo nuevo, NUNCA borramos el historial
+              for (const t of turnosMapeados) {
+                await guardarRegistro("turnos_caja", t);
               }
-            }
-            for (const t of turnosMapeados) {
-              await guardarRegistro("turnos_caja", t);
+              const turnosLocal = await obtenerRegistros("turnos_caja");
+              turnosMapeados = (turnosLocal as TurnoCaja[]).sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+            } else {
+              // En celular, actualizamos el local pero respetando lo de la nube
+              const turnosLocal = await obtenerRegistros("turnos_caja");
+              const idsNube = new Set(turnosMapeados.map(t => t.id));
+              if (turnosLocal) {
+                for (const tLocal of turnosLocal as any[]) {
+                  if (!idsNube.has(tLocal.id)) await eliminarRegistro("turnos_caja", tLocal.id);
+                }
+              }
+              for (const t of turnosMapeados) {
+                await guardarRegistro("turnos_caja", t);
+              }
             }
           }
 
@@ -126,7 +141,6 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
         }
       }
 
-      // FALLBACK LOCAL
       if (!configNubeExitosa) {
         let turnosEstado: TurnoCaja[] = [];
         const dataTurnos = await obtenerRegistros("turnos_caja");
@@ -178,7 +192,6 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
     const tiendaId = await obtenerTiendaIdActual() || localStorage.getItem('tienda_id_cache');
     
     if (navigator.onLine && tiendaId) {
-      // .select('id').single() fuerza a Supabase a devolver error si RLS rechaza el UPDATE
       const { error } = await supabase
         .from('tiendas')
         .update(payloadActualizacion)
@@ -243,6 +256,8 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
       fondoInicial: fondo,
       fondoDejado: null,
       ventasCalculadas: null,
+      ventasEfectivo: null,
+      ventasElectronico: null,
       notaTrabajador: "",
       notaDueno: "",
       estatus: "ABIERTO",
@@ -270,11 +285,12 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
     }
   },
 
-  cerrarTurno: async (turnoId, fondoDejado, ventasCalculadas, notaTrabajador) => {
+  // ACTUALIZADO: Acepta los nuevos parámetros y los envía a Supabase
+  cerrarTurno: async (turnoId, fondoDejado, ventasCalculadas, notaTrabajador, ventasEfectivo, ventasElectronico) => {
     const fechaFin = new Date().toISOString();
     set((state) => ({
       turnos: state.turnos.map((t) =>
-        t.id === turnoId ? { ...t, fechaFin, fondoDejado, ventasCalculadas, notaTrabajador, estatus: "CERRADO" } : t
+        t.id === turnoId ? { ...t, fechaFin, fondoDejado, ventasCalculadas, ventasEfectivo, ventasElectronico, notaTrabajador, estatus: "CERRADO" } : t
       ),
     }));
 
@@ -291,6 +307,8 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
               fecha_fin: fechaFin,
               fondo_dejado: fondoDejado,
               ventas_calculadas: ventasCalculadas,
+              ventas_efectivo: ventasEfectivo,         // NUEVO
+              ventas_electronico: ventasElectronico,   // NUEVO
               nota_trabajador: notaTrabajador,
               estatus: 'CERRADO'
             })
@@ -328,6 +346,8 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
         fondoInicial: Number(nuevo.fondo_inicial),
         fondoDejado: nuevo.fondo_dejado !== null ? Number(nuevo.fondo_dejado) : null,
         ventasCalculadas: nuevo.ventas_calculadas !== null ? Number(nuevo.ventas_calculadas) : null,
+        ventasEfectivo: nuevo.ventas_efectivo !== null ? Number(nuevo.ventas_efectivo) : null,           // NUEVO
+        ventasElectronico: nuevo.ventas_electronico !== null ? Number(nuevo.ventas_electronico) : null,  // NUEVO
         notaTrabajador: nuevo.nota_trabajador || "",
         notaDueno: nuevo.nota_dueno || "",
         estatus: nuevo.estatus

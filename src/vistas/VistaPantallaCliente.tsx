@@ -3,7 +3,7 @@ import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Laye
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { precioVenta, type Producto } from "../tipos/producto";
-import ModalQRCliente from "../componentes/ui/ModalQRCliente"; // <-- NUEVA IMPORTACIÓN
+import ModalQRCliente from "../componentes/ui/ModalQRCliente";
 
 type Densidad = "compacta" | "normal" | "amplia";
 type Tema = "verde" | "claro" | "oscuro" | "grafito";
@@ -22,7 +22,7 @@ export default function VistaPantallaCliente() {
   const [densidad, setDensidad] = useState<Densidad>("compacta");
   const [tema, setTema] = useState<Tema>("verde");
   
-  // <-- NUEVO ESTADO PARA EL MODAL QR -->
+  // Estado para el Modal QR
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
 
   useEffect(() => {
@@ -89,12 +89,11 @@ export default function VistaPantallaCliente() {
   return (
     <div className={`w-screen h-screen flex flex-col select-none overflow-hidden ${estilosTema[tema]}`}>
       
-      {/* <-- MODAL DEL QR INYECTADO AQUÍ --> */}
       <ModalQRCliente 
-        abierto={modalQRAbierto}
-        alCerrar={() => setModalQRAbierto(false)}
+        abierto={modalQRAbierto} 
+        alCerrar={() => setModalQRAbierto(false)} 
         ipLocal={window.location.hostname} 
-        nombreCaja={new URLSearchParams(window.location.search).get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
+        nombreCaja={new URLSearchParams(window.location.search).get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"} 
       />
 
       <header className={`flex items-center justify-between px-5 py-3 border-b ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/20"}`}>
@@ -107,21 +106,21 @@ export default function VistaPantallaCliente() {
         <span className={`text-sm font-semibold ${temaClaro ? "text-slate-500" : "text-emerald-200"}`}>{hora}</span>
       </header>
 
-      {/* <-- BOTONES SUPERIORES AGRUPADOS (QR Y AJUSTES) --> */}
-      <div className="absolute right-3 top-3 z-20 flex items-center gap-1">
+      {/* Contenedor de Botones Superiores */}
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
         <button
           onClick={() => setModalQRAbierto(true)}
-          aria-label="Mostrar código QR de conexión"
+          aria-label="Mostrar QR para conectar tablet"
           className={`rounded-full p-1.5 opacity-60 hover:opacity-100 ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white hover:bg-white/10"}`}
         >
-          <QrCode size={15} />
+          <QrCode size={16} />
         </button>
         <button
           onClick={() => setOpcionesAbiertas((abierto) => !abierto)}
           aria-label="Opciones de pantalla"
           className={`rounded-full p-1.5 opacity-60 hover:opacity-100 ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white hover:bg-white/10"}`}
         >
-          {opcionesAbiertas ? <X size={15} /> : <Settings size={15} />}
+          {opcionesAbiertas ? <X size={16} /> : <Settings size={16} />}
         </button>
       </div>
 

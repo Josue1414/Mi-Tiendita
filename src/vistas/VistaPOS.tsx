@@ -1,5 +1,5 @@
 // src/vistas/VistaPOS.tsx
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
 import { useEstadoVentas } from "../estado/estadoVentas";
@@ -58,7 +58,6 @@ export default function VistaPOS() {
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
   const [productoDescripcion, setProductoDescripcion] = useState<Producto | null>(null);
 
-  // Estados para la restricción de cancelación
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
@@ -71,8 +70,47 @@ export default function VistaPOS() {
 
   const turnoActivo = trabajadorActivo ? obtenerTurnoActivo(trabajadorActivo.id) : undefined;
   
-  // EXCEPCIÓN APLICADA: Ni el DUEÑO ni el SUPERVISOR se bloquean por falta de fondo
-  const bloqueadoPorFondo = forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO" && trabajadorActivo?.rol !== "SUPERVISOR";
+  const bloqueadoPorFondo = Boolean(forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO" && trabajadorActivo?.rol !== "SUPERVISOR");
+
+  // NUEVA VALIDACIÓN: Bloquear si pasaron de su hora de salida o tienen turnos viejos sin cerrar
+  const turnoExpirado = useMemo(() => {
+    if (!trabajadorActivo || !turnoActivo) return false;
+    if (trabajadorActivo.rol === "DUENO" || trabajadorActivo.rol === "SUPERVISOR") return false;
+    if (!trabajadorActivo.horarioSemanal) return false;
+
+    const hoy = new Date();
+    const tiempoAbierto = hoy.getTime() - new Date(turnoActivo.fechaInicio).getTime();
+    const horasAbierto = tiempoAbierto / (1000 * 60 * 60);
+
+    // Fallback absoluto: Si un turno lleva más de 14 horas abierto, es un turno olvidado de ayer.
+    if (horasAbierto > 14) return true;
+
+    const jsDay = hoy.getDay();
+    const diaSemana = jsDay === 0 ? 7 : jsDay; // Convertimos de 0=Dom a 7=Dom para coincidir con la config
+    const horario = trabajadorActivo.horarioSemanal;
+    
+    let salidaStr = "";
+    if (horario.tipo === "ESPECIFICO" && horario.especifico[diaSemana]) {
+      salidaStr = horario.especifico[diaSemana].salida;
+    } else if (horario.tipo === "GENERAL") {
+      salidaStr = horario.general.salida;
+    }
+
+    if (!salidaStr) return false;
+
+    const [horas, minutos] = salidaStr.split(':').map(Number);
+    const fechaSalida = new Date();
+    fechaSalida.setHours(horas, minutos, 0, 0);
+    
+    // Tolerancia de 1 hora extra después de su salida
+    fechaSalida.setHours(fechaSalida.getHours() + 1);
+
+    // Se bloquea si la hora actual superó la hora límite Y si el turno lleva al menos 1 hora abierto 
+    // (evita bloquear instantáneamente a quienes abren turno tarde)
+    return hoy.getTime() > fechaSalida.getTime() && horasAbierto > 1;
+  }, [trabajadorActivo, turnoActivo]);
+
+  const estaBloqueado = bloqueadoPorFondo || turnoExpirado;
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -82,14 +120,14 @@ export default function VistaPOS() {
     const alPresionarTecla = (evento: KeyboardEvent) => {
       const objetivo = evento.target as HTMLElement | null;
       const esCampoTexto = objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA" || objetivo?.isContentEditable;
-      if (!esCampoTexto && !bloqueadoPorFondo && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
+      if (!esCampoTexto && !estaBloqueado && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
         evento.preventDefault();
         setModalCobroAbierto(true);
       }
     };
     window.addEventListener("keydown", alPresionarTecla);
     return () => window.removeEventListener("keydown", alPresionarTecla);
-  }, [items.length, teclaCobro, bloqueadoPorFondo]);
+  }, [items.length, teclaCobro, estaBloqueado]);
 
   const productosFiltrados = productos.filter((p) => {
     const q = busqueda.toLowerCase().trim();
@@ -100,7 +138,6 @@ export default function VistaPOS() {
 
   const manejarCancelacion = (accion: () => void) => {
     const esAutorizado = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
-    
     if (!requerirPinCancelacion || esAutorizado) {
       accion();
     } else {
@@ -138,7 +175,7 @@ export default function VistaPOS() {
   };
 
   const alEscanear = useCallback((codigo: string) => {
-    if (bloqueadoPorFondo) return;
+    if (estaBloqueado) return;
     const producto = productos.find((p) => p.codigo_barras === codigo);
     if (!producto) {
       setAviso({ titulo: "Producto no encontrado", mensaje: `El producto con código ${codigo} no está en el inventario.` });
@@ -146,7 +183,7 @@ export default function VistaPOS() {
     }
     setBusqueda("");
     manejarClickProducto(producto);
-  }, [productos, bloqueadoPorFondo]);
+  }, [productos, estaBloqueado]);
 
   useEscanerCodigoBarras(alEscanear);
 
@@ -389,7 +426,8 @@ export default function VistaPOS() {
     </div>
   );
 
-  if (bloqueadoPorFondo) {
+  // PANTALLA DE BLOQUEO (Se activa por falta de fondo o por turno expirado)
+  if (estaBloqueado) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50">
         <div className="efecto-cristal p-10 rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 flex flex-col items-center text-center max-w-md shadow-xl animate-in zoom-in duration-300">
@@ -400,9 +438,13 @@ export default function VistaPOS() {
             </div>
           </div>
           
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Confirma tu fondo de caja</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+            {turnoExpirado ? "Corte de Caja Pendiente" : "Confirma tu fondo de caja"}
+          </h2>
           <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
-            El administrador ha configurado que debes confirmar la recepción del dinero en caja antes de poder realizar ventas o escanear productos.
+            {turnoExpirado 
+              ? "Tu horario de salida ha expirado hace más de 1 hora, o dejaste abierto un turno anterior. Debes realizar tu corte de caja y depositar el efectivo para poder continuar operando."
+              : "El administrador ha configurado que debes confirmar la recepción del dinero en caja antes de poder realizar ventas o escanear productos."}
           </p>
           
           <button 
@@ -575,7 +617,6 @@ export default function VistaPOS() {
                 const color = categorias.find((c) => c.nombre === producto.categoria)?.color;
                 const seleccionado = esVistaMovil && productoEnfoque?.id === producto.id;
                 
-                // NUEVA LÓGICA: Determinar estado del stock para aplicar color
                 const esAgotado = producto.controla_stock && producto.stock_actual <= 0;
                 const esBajoStock = producto.controla_stock && producto.stock_actual <= producto.stock_minimo && producto.stock_actual > 0;
 

@@ -54,7 +54,10 @@ export default function VistaNuevoProducto() {
   const [modalCategoria, setModalCategoria] = useState(false);
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previewImagen, setPreviewImagen] = useState<string | null>(null);
-  const [avisoCodigo, setAvisoCodigo] = useState<string | null>(null);
+  
+  // NUEVO: Estado consolidado para alertas personalizadas
+  const [avisoGenerico, setAvisoGenerico] = useState<{ titulo: string; mensaje: string } | null>(null);
+  
   const [escanerCamaraAbierto, setEscanerCamaraAbierto] = useState(false);
   
   const cerrarEscanerCamara = useCallback(() => setEscanerCamaraAbierto(false), []);
@@ -130,13 +133,21 @@ export default function VistaNuevoProducto() {
     e.preventDefault();
     if (!puedeEditar && !puedeAjustarStock) return;
 
+    // SOLUCIÓN: Reemplazo de alerta nativa por ModalAviso
     if (!nombre || !codigo || precio <= 0) {
-      alert("Completa el nombre, el código y un precio mayor a 0.");
+      setAvisoGenerico({
+        titulo: "Información Incompleta",
+        mensaje: "Asegúrate de completar el nombre, el código de barras y establecer un precio de venta mayor a $0.00."
+      });
       return;
     }
+
     const codigoExistente = productos.find((producto) => producto.codigo_barras.trim() === codigo.trim() && producto.id !== productoExistente?.id);
     if (codigoExistente) {
-      setAvisoCodigo(`El código ${codigo} ya pertenece a "${codigoExistente.nombre}". Usa otro código o edita ese producto para cambiarlo.`);
+      setAvisoGenerico({
+        titulo: "Código Duplicado",
+        mensaje: `El código ${codigo} ya pertenece a "${codigoExistente.nombre}". Usa otro código o edita ese producto para cambiarlo.`
+      });
       return;
     }
 
@@ -145,7 +156,10 @@ export default function VistaNuevoProducto() {
       try {
         imagenBase64 = await convertirABase64(archivoImagen);
       } catch {
-        alert("Hubo un problema procesando la foto.");
+        setAvisoGenerico({
+          titulo: "Error de Imagen",
+          mensaje: "Hubo un problema procesando la fotografía. Intenta subir un archivo más ligero u otro formato (JPG, PNG)."
+        });
         return;
       }
     } else if (!previewImagen && puedeEditar) {
@@ -183,7 +197,16 @@ export default function VistaNuevoProducto() {
 
   return (
     <div className="w-full h-full flex flex-col p-5 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
-      <ModalAviso abierto={Boolean(avisoCodigo)} titulo="Código de barras duplicado" mensaje={avisoCodigo ?? ""} tipo="advertencia" alCerrar={() => setAvisoCodigo(null)} />
+      
+      {/* NUEVO: Modal de alertas generales */}
+      <ModalAviso 
+        abierto={Boolean(avisoGenerico)} 
+        titulo={avisoGenerico?.titulo ?? "Aviso"} 
+        mensaje={avisoGenerico?.mensaje ?? ""} 
+        tipo="advertencia" 
+        alCerrar={() => setAvisoGenerico(null)} 
+      />
+
       <ModalEscanerCodigo abierto={escanerCamaraAbierto} alCerrar={cerrarEscanerCamara} alDetectar={(cod) => { if(puedeEditar || puedeAjustarStock) setCodigo(cod); }} />
       <ModalCategoria
         abierto={modalCategoria}
@@ -377,7 +400,12 @@ export default function VistaNuevoProducto() {
               <label className="block text-xs font-medium text-slate-600 mb-1">Precio de venta *</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditarPrecio} step="0.01" required min="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
+                {/* 
+                   NOTA DE DISEÑO: Aquí removimos la validación nativa 'required' y 'min' del input.
+                   Con esto, el navegador no disparará su alerta fea. 
+                   Nosotros lo validamos en JS con nuestro ModalAviso. 
+                */}
+                <input type="number" disabled={!puedeEditarPrecio} step="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
               </div>
             </div>
             <div>
@@ -425,7 +453,8 @@ export default function VistaNuevoProducto() {
             )}
           </div>
 
-          <button type="submit" disabled={!puedeEditar && !puedeAjustarStock} className="w-full h-10 inline-flex justify-center items-center gap-2 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 text-white dark:text-slate-900 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {/* SOLUCIÓN: Eliminamos el comportamiento nativo de submit para manejarlo nosotros */}
+          <button type="button" onClick={manejarGuardado} disabled={!puedeEditar && !puedeAjustarStock} className="w-full h-10 inline-flex justify-center items-center gap-2 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 text-white dark:text-slate-900 text-sm font-semibold transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed">
             <Save size={16} />
             {editando ? "Guardar Cambios" : "Guardar Producto"}
           </button>

@@ -7,6 +7,7 @@ export interface ItemCarrito {
   producto_id: string;
   nombre: string;
   precio: number;
+  costo: number; // Propiedad requerida
   cantidad: number;
   unidad: Producto["unidad"];
   subtotal: number;
@@ -21,9 +22,9 @@ export type TipoDescuento = "MONTO" | "PORCENTAJE";
 interface EstadoCarrito {
   items: ItemCarrito[];
   subtotal: number;
-  descuento: number; // Monto real en dinero descontado
-  valorDescuento: number; // Lo que el usuario escribió (ej. 10)
-  tipoDescuento: TipoDescuento; // "MONTO" o "PORCENTAJE"
+  descuento: number; 
+  valorDescuento: number; 
+  tipoDescuento: TipoDescuento; 
   total: number;
   agregarAlCarrito: (producto: Producto, cantidad: number, autorizacion?: { evidencia?: string }) => void;
   actualizarCantidad: (id: string, nuevaCantidad: number) => void;
@@ -37,11 +38,9 @@ const calcularTotales = (items: ItemCarrito[], valorDescuento: number, tipoDescu
   let descuentoCalculado = 0;
 
   if (tipoDescuento === "PORCENTAJE") {
-    // Aseguramos que el porcentaje esté entre 0 y 100
     const porcentajeSeguro = Math.max(0, Math.min(100, valorDescuento));
     descuentoCalculado = subtotal * (porcentajeSeguro / 100);
   } else {
-    // Aseguramos que el descuento en monto no sea mayor al subtotal
     descuentoCalculado = Math.min(Math.max(0, valorDescuento), subtotal);
   }
 
@@ -83,6 +82,7 @@ export const useEstadoCarrito = create<EstadoCarrito>((set) => ({
             producto_id: producto.id,
             nombre: producto.nombre,
             precio,
+            costo: producto.costo || 0, // SOLUCIÓN: Agregamos el costo aquí
             cantidad: cantidadSolicitada,
             unidad: producto.unidad,
             subtotal: cantidadSolicitada * precio,

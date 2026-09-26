@@ -1,5 +1,7 @@
 // src/hooks/usePantallaCliente.ts
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { io, Socket } from "socket.io-client";
+import { useEstadoRed } from "../estado/estadoRed";
 import type { ItemCarrito } from "../estado/estadoCarrito";
 import type { Producto } from "../tipos/producto";
 
@@ -19,12 +21,30 @@ export interface DatosTransferencia {
 
 const CANAL = "pantalla_cliente_mi_tienda";
 
-export function useEmisorPantallaCliente() {
-  const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
-    const bc = new BroadcastChannel(CANAL);
-    bc.postMessage(mensaje);
-    bc.close();
+export function useEmisorPantallaCliente(nombreCajaLocal: string = "Caja Principal") {
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    // Conectar al servidor LAN local silenciosamente
+    const ipMaestro = useEstadoRed.getState().ipMaestro || "localhost";
+    socketRef.current = io(`http://${ipMaestro}:4000`);
+    
+    return () => { 
+      socketRef.current?.disconnect(); 
+    };
   }, []);
+
+  const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
+    // 1. Emisión Local (Para ventanas abiertas en la misma PC)
+    const bc = new BroadcastChannel(CANAL);
+    bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
+    bc.close();
+
+    // 2. Emisión LAN (Para la tableta externa en el mismo Wi-Fi)
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
+    }
+  }, [nombreCajaLocal]);
   
   return { enviarMensaje };
 }
@@ -35,10 +55,12 @@ export function useReceptorPantallaCliente() {
   const [productoEnPantalla, setProductoEnPantalla] = useState<Producto | null>(null);
 
   useEffect(() => {
-    const bc = new BroadcastChannel(CANAL);
-    
-    bc.onmessage = (event) => {
-      const msj = event.data as MensajePantalla;
+    const params = new URLSearchParams(window.location.search);
+    const cajaObjetivo = params.get("cliente");
+
+    const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
+      // Filtrado único: Ignorar mensajes de otras cajas en la misma red LAN
+      if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
       
       if (msj.tipo === "ACTUALIZAR_CARRITO") {
         setDatosCarrito((actual) => ({ ...actual, items: msj.items, total: msj.total, descuento: msj.descuento }));
@@ -50,13 +72,12 @@ export function useReceptorPantallaCliente() {
       } else if (msj.tipo === "QUITAR_PRODUCTO_CLIENTE") {
         setProductoEnPantalla(null);
       } else if (msj.tipo === "COBRO_EXITOSO") {
-        setMensajeExito({ total: msj.total, cambio: msj.cambio, metodoPago: msj.metodoPago || "EFECTIVO", mensajePago: msj.mensajePago || "Pago realizado. Gracias por su compra, vuelva pronto.", datosTransferencia: msj.datosTransferencia });
+        setMensajeExito({ total: msj.total, cambio: msj.cambio, metodoPago: msj.metodoPago || "EFECTIVO", mensajePago: msj.mensajePago || "Pago realizado. Gracias.", datosTransferencia: msj.datosTransferencia });
         setProductoEnPantalla(null);
-        // Mantener la confirmación visible unos segundos antes de volver al inicio.
         setTimeout(() => {
           setMensajeExito(null);
           setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
-        }, 2500);
+        }, 3000);
       } else if (msj.tipo === "LIMPIAR") {
         setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
         setProductoEnPantalla(null);
@@ -64,7 +85,29 @@ export function useReceptorPantallaCliente() {
       }
     };
 
-    return () => bc.close();
+    // 1. Escuchar Local (misma PC)
+    const bc = new BroadcastChannel(CANAL);
+    bc.onmessage = (event) => {
+      const data = event.data;
+      // Compatibilidad con la estructura nueva y la vieja
+      if (data.payload) procesarMensaje(data.cajaId, data.payload);
+      else procesarMensaje("Local", data);
+    };
+
+    // 2. Escuchar LAN (Tableta externa)
+    const ipMaestro = useEstadoRed.getState().ipMaestro || window.location.hostname;
+    const socket = io(`http://${ipMaestro}:4000`);
+
+    socket.on("update-pantalla-cliente", (data) => {
+      if (data && data.payload && data.cajaId) {
+        procesarMensaje(data.cajaId, data.payload);
+      }
+    });
+
+    return () => {
+      bc.close();
+      socket.disconnect();
+    };
   }, []);
 
   return { datosCarrito, mensajeExito, productoEnPantalla };

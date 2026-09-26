@@ -21,6 +21,7 @@ const mapearVentaDesdeSupabase = (v: any): Venta => ({
     nombre: d.nombre_producto,
     cantidad: d.cantidad,
     precio: d.precio_unitario,
+    costo: d.costo_unitario || 0, // NUEVO: Mapeo del costo unitario
     subtotal: d.subtotal,
     autorizacion_confirmada: d.autorizacion_confirmada
   }))
@@ -46,7 +47,7 @@ interface EstadoVentas {
   agregarVenta: (venta: Venta) => Promise<void>;
   cancelarVenta: (id: string) => Promise<void>;
   sincronizarVenta: (payload: any) => Promise<void>;
-  purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>; // NUEVA FUNCIÓN
+  purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>;
 }
 
 export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
@@ -69,25 +70,20 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           const ventasMapeadas: Venta[] = ventasNube.map(mapearVentaDesdeSupabase);
 
           if (esEscritorio) {
-            // Solo GUARDAMOS lo nuevo, YA NO ELIMINAMOS lo que falta en la nube.
-            // Así protegemos el historial histórico de la PC cerebro.
             for (const v of ventasMapeadas) {
               await guardarRegistro("ventas", v);
             }
 
-            // Cargamos absolutamente TODO el historial local para mostrarlo
             const dataLocal = await obtenerRegistros("ventas");
             const estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
             set({ ventas: estadoVentas, cargando: false });
           } else {
-            // Si es web pura, solo mostramos las últimas 15h de la nube
             set({ ventas: ventasMapeadas, cargando: false });
           }
           return;
         }
       }
 
-      // Fallback offline o LAN
       const dataLocal = await obtenerRegistros("ventas");
       const estadoVentas = (dataLocal as Venta[]).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
@@ -130,6 +126,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             nombre_producto: art.nombre,
             cantidad: art.cantidad,
             precio_unitario: art.precio,
+            costo_unitario: art.costo || 0, // NUEVO: Inserción del costo unitario en DB
             subtotal: art.subtotal,
             autorizacion_confirmada: art.autorizacion_confirmada || false,
             evidencia_nombre_archivo_local: null 
@@ -174,8 +171,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   },
 
   purgarVentasLocales: async (fechaInicio: string, fechaFin: string) => {
-    // Se eliminó el bloqueo 'if (!esEscritorio) return;' para permitir borrar en la caché web
-    
     const todasLocales = await obtenerRegistros("ventas");
     const aBorrar = (todasLocales as Venta[]).filter(v => {
       const fechaVenta = v.fecha.slice(0, 10);
@@ -224,7 +219,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }
 
     if (eventType === 'DELETE') {
-      // PROTECCIÓN CLAVE: Si es escritorio (Cerebro), NO borramos la venta al llegar la orden de purga de Supabase.
       if (!esEscritorio) {
         set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
       }
