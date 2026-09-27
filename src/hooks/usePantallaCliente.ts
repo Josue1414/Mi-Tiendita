@@ -1,7 +1,6 @@
 // src/hooks/usePantallaCliente.ts
 import { useEffect, useState, useCallback, useRef } from "react";
-import { io, Socket } from "socket.io-client";
-import { useEstadoRed } from "../estado/estadoRed";
+import Peer, { type DataConnection } from "peerjs";
 import type { ItemCarrito } from "../estado/estadoCarrito";
 import type { Producto } from "../tipos/producto";
 
@@ -19,34 +18,60 @@ export interface DatosTransferencia {
   cuenta: string;
 }
 
-const CANAL = "pantalla_cliente_mi_tienda";
+const CANAL_LOCAL = "pantalla_cliente_mi_tienda";
+
+// Creador de ID robusto y estandarizado
+const crearIdPeer = (nombreCaja: string) => {
+  const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
+  return `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+};
 
 export function useEmisorPantallaCliente(nombreCajaLocal: string = "Caja Principal") {
-  const socketRef = useRef<Socket | null>(null);
+  const conexionesRef = useRef<DataConnection[]>([]);
+  const peerRef = useRef<Peer | null>(null);
+  
+  // NUEVO: Estado para saber si alguien se acaba de conectar
+  const [clientesConectados, setClientesConectados] = useState(0);
 
   useEffect(() => {
-    // Conectar al servidor LAN local silenciosamente
-    const ipMaestro = useEstadoRed.getState().ipMaestro || "localhost";
-    socketRef.current = io(`http://${ipMaestro}:4000`);
-    
-    return () => { 
-      socketRef.current?.disconnect(); 
+    const idUnico = crearIdPeer(nombreCajaLocal);
+    const peer = new Peer(idUnico);
+    peerRef.current = peer;
+
+    peer.on("connection", (conexion) => {
+      console.log("Pantalla Cliente conectada (P2P).");
+      conexionesRef.current.push(conexion);
+      
+      conexion.on("open", () => {
+         // Disparamos la actualización al instante de abrir la conexión
+         setClientesConectados(c => c + 1); 
+      });
+      
+      conexion.on("close", () => {
+        conexionesRef.current = conexionesRef.current.filter(c => c.peer !== conexion.peer);
+        setClientesConectados(c => c - 1);
+      });
+    });
+
+    return () => {
+      peer.destroy();
     };
-  }, []);
+  }, [nombreCajaLocal]);
 
   const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
-    // 1. Emisión Local (Para ventanas abiertas en la misma PC)
-    const bc = new BroadcastChannel(CANAL);
+    const bc = new BroadcastChannel(CANAL_LOCAL);
     bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
     bc.close();
 
-    // 2. Emisión LAN (Para la tableta externa en el mismo Wi-Fi)
-    if (socketRef.current?.connected) {
-      socketRef.current.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
-    }
+    conexionesRef.current.forEach(conexion => {
+      if (conexion.open) {
+        conexion.send(mensaje);
+      }
+    });
   }, [nombreCajaLocal]);
   
-  return { enviarMensaje };
+  // Exponemos la cantidad de clientes
+  return { enviarMensaje, clientesConectados };
 }
 
 export function useReceptorPantallaCliente() {
@@ -56,12 +81,10 @@ export function useReceptorPantallaCliente() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const peerObjetivo = params.get("peer"); 
     const cajaObjetivo = params.get("cliente");
 
-    const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
-      // Filtrado único: Ignorar mensajes de otras cajas en la misma red LAN
-      if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
-      
+    const procesarMensaje = (msj: MensajePantalla) => {
       if (msj.tipo === "ACTUALIZAR_CARRITO") {
         setDatosCarrito((actual) => ({ ...actual, items: msj.items, total: msj.total, descuento: msj.descuento }));
         if (msj.items.length > 0) setMensajeExito(null);
@@ -85,28 +108,28 @@ export function useReceptorPantallaCliente() {
       }
     };
 
-    // 1. Escuchar Local (misma PC)
-    const bc = new BroadcastChannel(CANAL);
+    const bc = new BroadcastChannel(CANAL_LOCAL);
     bc.onmessage = (event) => {
       const data = event.data;
-      // Compatibilidad con la estructura nueva y la vieja
-      if (data.payload) procesarMensaje(data.cajaId, data.payload);
-      else procesarMensaje("Local", data);
+      if (cajaObjetivo && cajaObjetivo !== data.cajaId && cajaObjetivo !== "true") return;
+      if (data.payload) procesarMensaje(data.payload);
     };
 
-    // 2. Escuchar LAN (Tableta externa)
-    const ipMaestro = useEstadoRed.getState().ipMaestro || window.location.hostname;
-    const socket = io(`http://${ipMaestro}:4000`);
-
-    socket.on("update-pantalla-cliente", (data) => {
-      if (data && data.payload && data.cajaId) {
-        procesarMensaje(data.cajaId, data.payload);
-      }
-    });
+    let peerInstance: Peer | null = null;
+    if (peerObjetivo) {
+      peerInstance = new Peer(); 
+      
+      peerInstance.on("open", () => {
+        const conexion = peerInstance!.connect(peerObjetivo);
+        conexion.on("data", (data) => {
+          procesarMensaje(data as MensajePantalla);
+        });
+      });
+    }
 
     return () => {
       bc.close();
-      socket.disconnect();
+      if (peerInstance) peerInstance.destroy();
     };
   }, []);
 

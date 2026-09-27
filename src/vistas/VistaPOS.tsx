@@ -36,7 +36,10 @@ export default function VistaPOS() {
   const { setSeccionActual } = useEstadoNavegacion();
   
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
-  const { enviarMensaje } = useEmisorPantallaCliente();
+  
+  const nombreCajaLocal = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
+  // SOLUCIÓN: Extracción correcta de 'clientesConectados' (con valor 0 por defecto por seguridad)
+  const { enviarMensaje, clientesConectados = 0 } = useEmisorPantallaCliente(nombreCajaLocal);
   
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
@@ -61,6 +64,11 @@ export default function VistaPOS() {
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
+  // SOLUCIÓN: Un solo useEffect para enviar los datos a la tablet cuando hay cambios o cuando se conectan
+  useEffect(() => {
+    enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
+  }, [clientesConectados, items, total, descuento, enviarMensaje]);
+
   useEffect(() => {
     const consulta = window.matchMedia("(max-width: 1023px)");
     const actualizarVista = () => setEsVistaMovil(consulta.matches);
@@ -72,7 +80,6 @@ export default function VistaPOS() {
   
   const bloqueadoPorFondo = Boolean(forzarRecepcionCaja && !turnoActivo && trabajadorActivo?.rol !== "DUENO" && trabajadorActivo?.rol !== "SUPERVISOR");
 
-  // NUEVA VALIDACIÓN: Bloquear si pasaron de su hora de salida o tienen turnos viejos sin cerrar
   const turnoExpirado = useMemo(() => {
     if (!trabajadorActivo || !turnoActivo) return false;
     if (trabajadorActivo.rol === "DUENO" || trabajadorActivo.rol === "SUPERVISOR") return false;
@@ -82,11 +89,10 @@ export default function VistaPOS() {
     const tiempoAbierto = hoy.getTime() - new Date(turnoActivo.fechaInicio).getTime();
     const horasAbierto = tiempoAbierto / (1000 * 60 * 60);
 
-    // Fallback absoluto: Si un turno lleva más de 14 horas abierto, es un turno olvidado de ayer.
     if (horasAbierto > 14) return true;
 
     const jsDay = hoy.getDay();
-    const diaSemana = jsDay === 0 ? 7 : jsDay; // Convertimos de 0=Dom a 7=Dom para coincidir con la config
+    const diaSemana = jsDay === 0 ? 7 : jsDay; 
     const horario = trabajadorActivo.horarioSemanal;
     
     let salidaStr = "";
@@ -102,19 +108,12 @@ export default function VistaPOS() {
     const fechaSalida = new Date();
     fechaSalida.setHours(horas, minutos, 0, 0);
     
-    // Tolerancia de 1 hora extra después de su salida
     fechaSalida.setHours(fechaSalida.getHours() + 1);
 
-    // Se bloquea si la hora actual superó la hora límite Y si el turno lleva al menos 1 hora abierto 
-    // (evita bloquear instantáneamente a quienes abren turno tarde)
     return hoy.getTime() > fechaSalida.getTime() && horasAbierto > 1;
   }, [trabajadorActivo, turnoActivo]);
 
   const estaBloqueado = bloqueadoPorFondo || turnoExpirado;
-
-  useEffect(() => {
-    enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
-  }, [items, total, descuento, enviarMensaje]);
 
   useEffect(() => {
     const alPresionarTecla = (evento: KeyboardEvent) => {
@@ -426,7 +425,6 @@ export default function VistaPOS() {
     </div>
   );
 
-  // PANTALLA DE BLOQUEO (Se activa por falta de fondo o por turno expirado)
   if (estaBloqueado) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50">

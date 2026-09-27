@@ -191,10 +191,10 @@ export default function App() {
       
       <ModalSeleccionDispositivo />
       
+      {/* <-- MODAL DEL QR INYECTADO AQUÍ --> */}
       <ModalQRCliente 
         abierto={modalQRAbierto}
         alCerrar={() => setModalQRAbierto(false)}
-        ipLocal={ipMaestro || window.location.hostname}
         nombreCaja={localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
       />
 

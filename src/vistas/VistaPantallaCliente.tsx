@@ -25,6 +25,9 @@ export default function VistaPantallaCliente() {
   
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
 
+  // SOLUCIÓN: Identificamos si esta vista se abrió desde un QR escaneado (tablet)
+  const esConexionRemota = new URLSearchParams(window.location.search).has("peer");
+
   useEffect(() => {
     const actualizarHora = () => setHora(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
     actualizarHora();
@@ -92,7 +95,6 @@ export default function VistaPantallaCliente() {
       <ModalQRCliente 
         abierto={modalQRAbierto} 
         alCerrar={() => setModalQRAbierto(false)} 
-        ipLocal={window.location.hostname} 
         nombreCaja={new URLSearchParams(window.location.search).get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"} 
       />
 
@@ -104,16 +106,18 @@ export default function VistaPantallaCliente() {
           <h1 className="text-lg font-bold tracking-wide">Mi Tienda</h1>
         </div>
         
-        {/* Controles integrados junto al reloj */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setModalQRAbierto(true)}
-              aria-label="Mostrar QR para conectar tablet"
-              className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
-            >
-              <QrCode size={18} />
-            </button>
+            {/* Ocultamos el botón QR si ya estamos en una tablet remota */}
+            {!esConexionRemota && (
+              <button
+                onClick={() => setModalQRAbierto(true)}
+                aria-label="Mostrar QR para conectar tablet"
+                className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+              >
+                <QrCode size={18} />
+              </button>
+            )}
             <button
               onClick={() => setOpcionesAbiertas((abierto) => !abierto)}
               aria-label="Opciones de pantalla"
@@ -126,7 +130,6 @@ export default function VistaPantallaCliente() {
           <span className={`text-sm font-bold tracking-wider ${temaClaro ? "text-slate-600" : "text-emerald-300"}`}>{hora}</span>
         </div>
 
-        {/* Dropdown de opciones ajustado a la nueva posición */}
         {opcionesAbiertas && (
           <div className="absolute right-5 top-16 z-30">
             <div className="fixed inset-0" onClick={() => setOpcionesAbiertas(false)} />

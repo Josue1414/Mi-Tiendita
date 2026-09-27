@@ -8,13 +8,13 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const os = require('os');
+const { exec } = require('child_process'); // <-- NUEVA IMPORTACIÓN
 
 const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
 const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32); 
 const IV_LENGTH = 16;
 let ioServidor;
 
-// Variable global para pausar la conexión hasta que React responda
 let dispositivoCallback = null;
 
 function encriptar(texto) {
@@ -93,7 +93,6 @@ function iniciarServidorLAN() {
   const appExpress = express();
   const server = http.createServer(appExpress);
   
-  // Servir los archivos web para que la tableta pueda cargar la interfaz
   const distPath = path.join(__dirname, '../dist');
   appExpress.use(express.static(distPath));
   appExpress.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
@@ -103,7 +102,6 @@ function iniciarServidorLAN() {
   ioServidor.on('connection', (socket) => {
     console.log('Dispositivo LAN conectado:', socket.id);
     
-    // NUEVO: Recibe el carrito de una caja y lo difunde a las tabletas cliente
     socket.on('sync-pantalla-cliente', (data) => {
       ioServidor.emit('update-pantalla-cliente', data);
     });
@@ -150,7 +148,6 @@ app.whenReady().then(() => {
   }
 
   app.on('web-contents-created', (event, webContents) => {
-    // 1. Autorizar APIs de hardware
     webContents.session.setPermissionCheckHandler((wc, permission) => {
       return permission === 'serial' || permission === 'usb';
     });
@@ -158,26 +155,21 @@ app.whenReady().then(() => {
       return details.deviceType === 'serial' || details.deviceType === 'usb';
     });
 
-    // 2. Interceptar peticiones Web Serial (Básculas)
     webContents.session.on('select-serial-port', (event, portList, wc, callback) => {
       event.preventDefault();
       dispositivoCallback = callback;
       wc.send('mostrar-lista-dispositivos', { tipo: 'serial', lista: portList });
     });
 
-    // 3. Interceptar peticiones WebUSB (Escáneres e Impresoras)
     webContents.session.on('select-usb-device', (event, details, callback) => {
       event.preventDefault();
       dispositivoCallback = callback;
-      // Enviamos la ventana actual a React para que muestre el modal
       webContents.send('mostrar-lista-dispositivos', { tipo: 'usb', lista: details.deviceList });
     });
   });
 
-  // 4. Recibir la elección del usuario desde React
   ipcMain.handle('confirmar-dispositivo', (event, idDispositivo) => {
     if (dispositivoCallback) {
-      // idDispositivo será el ID seleccionado, o un string vacío si el usuario canceló
       dispositivoCallback(idDispositivo);
       dispositivoCallback = null;
     }
@@ -227,7 +219,20 @@ app.whenReady().then(() => {
     }
   });
 
-  // RUTAS IPC PARA RED LOCAL
+  // NUEVO: Ejecuta la reparación automática del Firewall solicitando permisos de administrador
+  ipcMain.handle('reparar-firewall', async () => {
+    return new Promise((resolve) => {
+      const comando = `Start-Process netsh.exe -ArgumentList 'advfirewall firewall add rule name="Mi Tiendita POS" dir=in action=allow protocol=TCP localport=4000' -Verb RunAs -WindowStyle Hidden`;
+      exec(`powershell.exe -Command "${comando}"`, (error) => {
+        if (error) {
+          resolve({ exito: false, error: error.message });
+        } else {
+          resolve({ exito: true });
+        }
+      });
+    });
+  });
+
   ipcMain.handle('obtener-ip-local', () => obtenerIpLocal());
   ipcMain.handle('iniciar-servidor-lan', () => { iniciarServidorLAN(); return true; });
   ipcMain.handle('emitir-a-esclavos', (event, data) => {
