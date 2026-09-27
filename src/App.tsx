@@ -57,9 +57,30 @@ export default function App() {
   const { estaEnLinea } = useSincronizacion();
   
   const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
+  
+  // NUEVO ESTADO: Escala de la interfaz
+  const [escalaUI, setEscalaUI] = useState(() => localStorage.getItem("escala_ui") || "normal");
+  
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
+
+  // NUEVO EFECTO: Escuchar cambios de escala y aplicarlos a la raíz del documento
+  useEffect(() => {
+    const aplicarCambioEscala = (evento: Event) => {
+      const nuevaEscala = (evento as CustomEvent<string>).detail;
+      if (nuevaEscala) setEscalaUI(nuevaEscala);
+    };
+    window.addEventListener("CAMBIAR_ESCALA_UI", aplicarCambioEscala);
+    return () => window.removeEventListener("CAMBIAR_ESCALA_UI", aplicarCambioEscala);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (escalaUI === "chica") root.style.fontSize = "14px";
+    else if (escalaUI === "grande") root.style.fontSize = "18px";
+    else root.style.fontSize = "16px"; // normal
+  }, [escalaUI]);
 
   useEffect(() => {
     const aplicarTema = (evento: Event) => {
@@ -74,7 +95,6 @@ export default function App() {
     return <VistaPantallaCliente />;
   }
 
-  // --- LÓGICA DE SINCRONIZACIÓN LAN ---
   useEffect(() => {
     const api = (window as any).apiLocal;
     if (esMaestro && api) {
@@ -119,22 +139,15 @@ export default function App() {
 
   const ComponenteActivo = componentesSeccion[seccionActual];
 
-  // <-- LÓGICA INTELIGENTE DE PANTALLA CLIENTE -->
   const abrirPantallaCliente = () => {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
-    
-    // Verificamos si estamos en la App de Escritorio (.exe)
     const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
-    
-    // Verificamos si es estrictamente un dispositivo móvil/tablet mediante User-Agent o un ancho de pantalla de móvil
     const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
 
-    // Si es el .exe O es una computadora de escritorio (Chrome en PC), abre la 2da ventana para HDMI.
     if (esEscritorio || !esDispositivoMovil) {
       const rutaBase = window.location.href.split('?')[0];
       window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
     } else {
-      // Si está en celular o tablet, abre el QR para que alguien lo escanee
       setModalQRAbierto(true);
     }
   };
@@ -191,7 +204,6 @@ export default function App() {
       
       <ModalSeleccionDispositivo />
       
-      {/* <-- MODAL DEL QR INYECTADO AQUÍ --> */}
       <ModalQRCliente 
         abierto={modalQRAbierto}
         alCerrar={() => setModalQRAbierto(false)}

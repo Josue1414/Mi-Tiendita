@@ -1,6 +1,6 @@
 // src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
-import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode } from "lucide-react";
+import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode, Maximize, Minimize } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { precioVenta, type Producto } from "../tipos/producto";
@@ -24,8 +24,10 @@ export default function VistaPantallaCliente() {
   const [tema, setTema] = useState<Tema>("verde");
   
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
+  
+  // NUEVO: Estado para controlar si estamos en pantalla completa
+  const [esPantallaCompleta, setEsPantallaCompleta] = useState(false);
 
-  // SOLUCIÓN: Identificamos si esta vista se abrió desde un QR escaneado (tablet)
   const esConexionRemota = new URLSearchParams(window.location.search).has("peer");
 
   useEffect(() => {
@@ -35,8 +37,32 @@ export default function VistaPantallaCliente() {
     return () => window.clearInterval(intervalo);
   }, []);
 
+  // NUEVO: Escuchar cambios en la pantalla completa (por si el usuario presiona ESC)
+  useEffect(() => {
+    const manejarCambioPantalla = () => {
+      setEsPantallaCompleta(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", manejarCambioPantalla);
+    return () => document.removeEventListener("fullscreenchange", manejarCambioPantalla);
+  }, []);
+
+  // NUEVO: Función para alternar la pantalla completa
+  const alternarPantallaCompleta = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error("Error al intentar cambiar a pantalla completa:", err);
+    }
+  };
+
   const compacto = densidad === "compacta";
-  const altoFila = compacto ? "h-11" : densidad === "normal" ? "h-14" : "h-20";
+  const altoFila = compacto ? "h-14" : densidad === "normal" ? "h-16" : "h-20"; // Ligeramente más alto para que quepa bien el texto mejorado
   const textoNombre = compacto ? "text-sm" : densidad === "normal" ? "text-base" : "text-lg";
   const textoTotal = compacto ? "text-4xl" : densidad === "normal" ? "text-5xl" : "text-6xl";
   const temaClaro = tema === "claro";
@@ -108,7 +134,15 @@ export default function VistaPantallaCliente() {
         
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            {/* Ocultamos el botón QR si ya estamos en una tablet remota */}
+            {/* NUEVO: Botón de Pantalla Completa */}
+            <button
+              onClick={alternarPantallaCompleta}
+              aria-label="Alternar Pantalla Completa"
+              className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+            >
+              {esPantallaCompleta ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
+
             {!esConexionRemota && (
               <button
                 onClick={() => setModalQRAbierto(true)}
@@ -204,7 +238,7 @@ export default function VistaPantallaCliente() {
           <div className="flex min-h-0 flex-1 flex-col animate-in fade-in">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xl font-bold">Su compra</h2>
-              <span className="text-xs opacity-60">{datosCarrito.items.length} productos</span>
+              <span className="text-xs font-bold opacity-80">{datosCarrito.items.length} productos</span>
             </div>
             
             {transferenciaActiva && (
@@ -225,30 +259,34 @@ export default function VistaPantallaCliente() {
               </div>
             )}
 
-            <div className="grid min-h-0 flex-1 content-start grid-cols-1 gap-1.5 overflow-y-auto pr-1">
+            {/* NUEVO: Contenedor tipo Cuadrícula (Grid) responsivo */}
+            <div className="grid min-h-0 flex-1 content-start grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2">
               {datosCarrito.items.map((item) => (
-                <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-lg px-3 ${temaClaro ? "bg-white shadow-sm" : "bg-black/20"}`}>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-7 w-7" : "h-10 w-10"} shrink-0 rounded-md object-cover text-xs bg-white`} />
-                    <div className="min-w-0">
-                      <h3 className={`${textoNombre} truncate font-semibold`}>{item.nombre}</h3>
-                      <p className="text-[11px] opacity-60">{item.cantidad} {item.unidad.toLowerCase()} · ${item.precio.toFixed(2)}</p>
+                <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-xl px-4 py-2 border shadow-sm ${temaClaro ? "bg-white border-slate-200" : "bg-white/5 border-white/10"}`}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <h3 className={`${textoNombre} truncate font-bold leading-tight`}>{item.nombre}</h3>
+                      {/* NUEVO: Textos más visibles y contrastantes */}
+                      <p className={`text-xs font-semibold mt-0.5 ${temaClaro ? "text-slate-500" : "text-white/70"}`}>
+                        {item.cantidad} {item.unidad.toLowerCase()} · ${item.precio.toFixed(2)}
+                      </p>
                     </div>
                   </div>
-                  <span className={`${compacto ? "text-sm" : "text-base"} shrink-0 font-bold`}>${item.subtotal.toFixed(2)}</span>
+                  <span className={`${compacto ? "text-base" : "text-xl"} shrink-0 font-black`}>${item.subtotal.toFixed(2)}</span>
                 </div>
               ))}
             </div>
             
             <div className={`mt-3 flex items-center justify-between rounded-xl px-5 py-3 ${temaClaro ? "bg-white shadow-sm" : "bg-black/25"}`}>
-              <span className="text-lg opacity-75">Total a pagar</span>
-              <span className={`${textoTotal} font-bold text-emerald-400`}>${datosCarrito.total.toFixed(2)}</span>
+              <span className="text-lg opacity-75 font-semibold">Total a pagar</span>
+              <span className={`${textoTotal} font-black text-emerald-400 drop-shadow-md`}>${datosCarrito.total.toFixed(2)}</span>
             </div>
           </div>
         )}
       </main>
 
-      <footer className={`flex items-center justify-center gap-2 border-t py-2 text-[10px] uppercase tracking-widest opacity-50 ${temaClaro ? "border-slate-200" : "border-white/10"}`}>
+      <footer className={`flex items-center justify-center gap-2 border-t py-2 text-[10px] uppercase tracking-widest font-bold opacity-70 ${temaClaro ? "border-slate-200" : "border-white/10"}`}>
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Sistema conectado
       </footer>
     </div>

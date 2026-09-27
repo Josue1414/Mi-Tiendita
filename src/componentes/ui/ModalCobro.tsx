@@ -44,13 +44,14 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
       const objetivo = evento.target as HTMLElement | null;
       const tecla = evento.key.toLowerCase();
 
-      // NUEVO: Limpiar todo el campo con la tecla Delete (Suprimir)
+      // Limpiar todo el campo con la tecla Delete (Suprimir)
       if (tecla === "delete") {
         evento.preventDefault();
         setCantidadRecibida("");
         return;
       }
 
+      // Validar tecla de confirmación general
       if (tecla === teclaCobro.toLowerCase()) {
         evento.preventDefault();
         if (esValido) {
@@ -60,20 +61,28 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         return;
       }
       
-      if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
-      
+      // SOLUCIÓN: Validamos los atajos de método de pago ANTES de bloquear por el Input
       if (tecla === teclaEfectivo.toLowerCase()) {
+        evento.preventDefault();
         setMetodoPago("EFECTIVO");
         alCambiarMetodoPago("EFECTIVO");
+        return;
       }
       if (tecla === teclaTarjeta.toLowerCase()) {
+        evento.preventDefault();
         setMetodoPago("TARJETA");
         alCambiarMetodoPago("TARJETA");
+        return;
       }
       if (tecla === teclaTransferencia.toLowerCase()) {
+        evento.preventDefault();
         setMetodoPago("TRANSFERENCIA");
         alCambiarMetodoPago("TRANSFERENCIA");
+        return;
       }
+
+      // Si la tecla no fue ningún atajo, y estamos dentro del input de dinero, dejamos que el usuario escriba normal
+      if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
     };
     
     window.addEventListener("keydown", manejarTecla);

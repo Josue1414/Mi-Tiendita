@@ -7,7 +7,7 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion"; 
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera, ChevronUp, ChevronDown } from "lucide-react";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
@@ -38,7 +38,6 @@ export default function VistaPOS() {
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
   
   const nombreCajaLocal = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
-  // SOLUCIÓN: Extracción correcta de 'clientesConectados' (con valor 0 por defecto por seguridad)
   const { enviarMensaje, clientesConectados = 0 } = useEmisorPantallaCliente(nombreCajaLocal);
   
   const [busqueda, setBusqueda] = useState("");
@@ -61,10 +60,12 @@ export default function VistaPOS() {
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
   const [productoDescripcion, setProductoDescripcion] = useState<Producto | null>(null);
 
+  // NUEVO ESTADO: Controla el acordeón de la cámara
+  const [camaraVisible, setCamaraVisible] = useState(true);
+
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
-  // SOLUCIÓN: Un solo useEffect para enviar los datos a la tablet cuando hay cambios o cuando se conectan
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
   }, [clientesConectados, items, total, descuento, enviarMensaje]);
@@ -254,16 +255,20 @@ export default function VistaPOS() {
   };
 
   const renderCarrito = (modo: "lateral" | "camara" = "lateral") => (
-    <div className={modo === "lateral" ? "w-full md:w-[min(35%,380px)] flex flex-col gap-4 shrink-0" : "w-full flex flex-col gap-4 shrink-0 mt-3"}>
-      <div className={cn("efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] md:h-full border border-slate-200/50 dark:border-white/10", modo === "camara" && "min-h-[280px]")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100">
+    <div className={modo === "lateral" ? "w-full md:w-[min(35%,380px)] flex flex-col gap-4 shrink-0" : "w-full flex flex-col gap-3 flex-1 min-h-0"}>
+      <div className={cn("efecto-cristal rounded-2xl p-4 flex flex-col min-h-[360px] h-full border border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold flex items-center gap-2 mb-3 text-slate-900 dark:text-slate-100 shrink-0">
           <ShoppingCart size={20} className="text-emerald-600 dark:text-emerald-400" />
           Ticket de Venta
         </h2>
 
-        <div className="flex-1 min-h-[100px] overflow-y-auto flex flex-col gap-2 pr-1">
+        {/* CONTENEDOR FLEXIBLE/GRID PARA PRODUCTOS */}
+        <div className={cn(
+          "flex-1 min-h-[100px] overflow-y-auto pr-1",
+          modo === "camara" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 content-start" : "flex flex-col gap-2"
+        )}>
           {items.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className={cn("flex flex-col items-center justify-center text-slate-400 gap-2 h-full min-h-[120px]", modo === "camara" && "col-span-full")}>
               <ShoppingCart size={40} className="opacity-20 mb-1" />
               <p className="text-sm">El carrito está vacío</p>
             </div>
@@ -275,7 +280,10 @@ export default function VistaPOS() {
                   const producto = productos.find((p) => p.id === item.producto_id);
                   if (producto) setProductoDescripcion(producto);
                 }}
-                className="flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors"
+                className={cn(
+                  "flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors",
+                  modo === "camara" && "h-fit"
+                )}
                 title="Doble clic para ver descripción"
               >
                 <ImagenLocal
@@ -330,7 +338,8 @@ export default function VistaPOS() {
           )}
         </div>
 
-        <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3">
+        {/* ZONA INFERIOR DE COBRO */}
+        <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center px-1">
             <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 font-medium">
               <Tag size={14} /> Descuento
@@ -666,10 +675,28 @@ export default function VistaPOS() {
         ) : modoVista === "escaner" ? (
           <PanelEscaner producto={productoEnfoque} />
         ) : (
-          <div className="flex h-full flex-col gap-3 min-h-[320px]">
-            <div className="w-[180px] max-w-[180px] self-center rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 p-2 shadow-sm">
-              <PanelCamaraEscaner alDetectar={alEscanear} className="w-full" />
+          <div className="flex flex-1 min-h-0 flex-col gap-3">
+            <div className="efecto-cristal flex flex-col rounded-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden shrink-0">
+              <button 
+                onClick={() => setCamaraVisible(!camaraVisible)}
+                className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <span className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <Camera size={16} className="text-emerald-600 dark:text-emerald-400" />
+                  Lector de Cámara
+                </span>
+                {camaraVisible ? <ChevronUp size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
+              </button>
+              
+              {camaraVisible && (
+                <div className="p-3 flex justify-center bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-white/5 animate-in fade-in slide-in-from-top-2">
+                  <div className="w-[180px] max-w-[180px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm">
+                    <PanelCamaraEscaner alDetectar={alEscanear} className="w-full" />
+                  </div>
+                </div>
+              )}
             </div>
+            
             {renderCarrito("camara")}
           </div>
         )}
