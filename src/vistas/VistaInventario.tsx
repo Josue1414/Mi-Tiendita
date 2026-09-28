@@ -1,9 +1,9 @@
 // src/vistas/VistaInventario.tsx
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
-import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { precioVenta, type Producto } from "../tipos/producto";
 import { colorConAlpha, colorTextoSobre, iconoCategoria } from "../utilidades/coloresCategoria";
@@ -16,6 +16,8 @@ import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
 import ModalPrompt from "../componentes/ui/ModalPrompt";
 
+const PRODUCTOS_POR_PAGINA = 50;
+
 export default function VistaInventario() {
   const { productos, categorias, eliminarProducto, actualizarProducto, agregarCategoria, eliminarCategoria } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
@@ -24,15 +26,16 @@ export default function VistaInventario() {
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
   const [categoriasExpandidas, setCategoriasExpandidas] = useState(false);
+  
+  // NUEVO: Estado para la paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+
   const [modalCategoria, setModalCategoria] = useState(false);
   const [productoEtiqueta, setProductoEtiqueta] = useState<Producto | null>(null);
   const [escanerCamaraAbierto, setEscanerCamaraAbierto] = useState(false);
   const [confirmacion, setConfirmacion] = useState<{ abierto: boolean, titulo: string, mensaje: string, accion: () => void }>({ abierto: false, titulo: "", mensaje: "", accion: () => {} });
   
-  // Modal estilizado para ajustar stock
   const [promptStock, setPromptStock] = useState<{ abierto: boolean; producto: Producto | null }>({ abierto: false, producto: null });
-  
-  // Estados para manejar los códigos escaneados
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState<string | null>(null);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   
@@ -63,6 +66,11 @@ export default function VistaInventario() {
   const puedeEditar = esDueño || esSupervisor || trabajadorActivo?.permisos?.editarProductos;
   const puedeEliminar = esDueño || esSupervisor || trabajadorActivo?.permisos?.eliminarProductos;
   const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
+
+  // NUEVO: Regresar a la página 1 cuando el usuario busque algo o cambie de categoría
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, categoriaActiva]);
 
   const conteoPorCategoria = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -96,6 +104,13 @@ export default function VistaInventario() {
       return coincideTexto && coincideCategoria;
     });
   }, [productos, busqueda, categoriaActiva]);
+
+  // NUEVO: Lógica de paginación para cortar el arreglo
+  const totalPaginas = Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA);
+  const productosPaginados = useMemo(() => {
+    const inicio = (paginaActual - 1) * PRODUCTOS_POR_PAGINA;
+    return productosFiltrados.slice(inicio, inicio + PRODUCTOS_POR_PAGINA);
+  }, [productosFiltrados, paginaActual]);
 
   const colorDe = (nombre?: string) => categorias.find((c) => c.nombre === nombre)?.color ?? "#64748b";
 
@@ -146,7 +161,6 @@ export default function VistaInventario() {
         alCerrar={() => setConfirmacion({ ...confirmacion, abierto: false })} 
       />
 
-      {/* Modal estilizado para ajustar stock reemplazando el prompt nativo */}
       <ModalPrompt
         abierto={promptStock.abierto}
         titulo="Ajustar Stock"
@@ -189,7 +203,6 @@ export default function VistaInventario() {
         }}
       />
 
-      {/* Modal Código No Encontrado */}
       {codigoNoEncontrado && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onClick={() => setCodigoNoEncontrado(null)}>
           <div className="w-full max-w-sm rounded-2xl border border-amber-200 bg-white p-5 shadow-2xl dark:border-amber-800/40 dark:bg-slate-900" onClick={(evento) => evento.stopPropagation()}>
@@ -334,8 +347,8 @@ export default function VistaInventario() {
       <div className="efecto-cristal rounded-2xl overflow-hidden flex-1 flex flex-col border border-slate-200/70 dark:border-white/10 shadow-sm">
         <div className="hidden overflow-auto flex-1 md:block">
           <table className="w-full text-left border-collapse min-w-[860px]">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-slate-900/40 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <thead className="sticky top-0 z-10 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm">
+              <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-3">Producto</th>
                 <th className="px-3 py-3">Código</th>
                 <th className="px-3 py-3">Precio</th>
@@ -348,14 +361,14 @@ export default function VistaInventario() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {productosFiltrados.length === 0 ? (
+              {productosPaginados.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-10 text-center text-slate-500 text-sm">
                     No se encontraron productos.
                   </td>
                 </tr>
               ) : (
-                productosFiltrados.map((producto) => {
+                productosPaginados.map((producto) => {
                   const color = colorDe(producto.categoria);
                   const final = precioVenta(producto);
                   const bajo = producto.controla_stock && producto.stock_actual <= producto.stock_minimo;
@@ -446,9 +459,9 @@ export default function VistaInventario() {
         
         {/* Vista Móvil */}
         <div className="flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
-          {productosFiltrados.length === 0 ? (
+          {productosPaginados.length === 0 ? (
             <p className="p-6 text-center text-sm text-slate-500">No se encontraron productos.</p>
-          ) : productosFiltrados.map((producto) => {
+          ) : productosPaginados.map((producto) => {
             const bajo = producto.controla_stock && producto.stock_actual <= producto.stock_minimo;
             const color = colorDe(producto.categoria);
             return (
@@ -486,6 +499,35 @@ export default function VistaInventario() {
             );
           })}
         </div>
+
+        {/* NUEVO: Controles de Paginación UI (Aplicable a ambas vistas) */}
+        {totalPaginas > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-200/70 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-slate-900/30 shrink-0">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Mostrando del <span className="font-bold text-slate-700 dark:text-slate-200">{(paginaActual - 1) * PRODUCTOS_POR_PAGINA + 1}</span> al <span className="font-bold text-slate-700 dark:text-slate-200">{Math.min(paginaActual * PRODUCTOS_POR_PAGINA, productosFiltrados.length)}</span> de <span className="font-bold text-slate-700 dark:text-slate-200">{productosFiltrados.length}</span>
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                disabled={paginaActual === 1}
+                className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Página {paginaActual} de {totalPaginas}
+              </span>
+              <button
+                onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                disabled={paginaActual === totalPaginas}
+                className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

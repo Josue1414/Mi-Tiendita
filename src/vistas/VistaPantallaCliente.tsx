@@ -18,17 +18,18 @@ const estilosTema: Record<Tema, string> = {
 
 export default function VistaPantallaCliente() {
   const { datosCarrito, mensajeExito, productoEnPantalla } = useReceptorPantallaCliente();
+  
   const [hora, setHora] = useState("");
   const [opcionesAbiertas, setOpcionesAbiertas] = useState(false);
   const [densidad, setDensidad] = useState<Densidad>("compacta");
   const [tema, setTema] = useState<Tema>("verde");
-  
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
-  
-  // NUEVO: Estado para controlar si estamos en pantalla completa
   const [esPantallaCompleta, setEsPantallaCompleta] = useState(false);
 
-  const esConexionRemota = new URLSearchParams(window.location.search).has("peer");
+  // SOLUCIÓN: Obtenemos el nombre de la tienda extraído de los parámetros del link
+  const params = new URLSearchParams(window.location.search);
+  const esConexionRemota = params.has("peer");
+  const nombreTienda = params.get("tienda") || "Mi Tienda";
 
   useEffect(() => {
     const actualizarHora = () => setHora(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
@@ -37,7 +38,6 @@ export default function VistaPantallaCliente() {
     return () => window.clearInterval(intervalo);
   }, []);
 
-  // NUEVO: Escuchar cambios en la pantalla completa (por si el usuario presiona ESC)
   useEffect(() => {
     const manejarCambioPantalla = () => {
       setEsPantallaCompleta(!!document.fullscreenElement);
@@ -46,7 +46,6 @@ export default function VistaPantallaCliente() {
     return () => document.removeEventListener("fullscreenchange", manejarCambioPantalla);
   }, []);
 
-  // NUEVO: Función para alternar la pantalla completa
   const alternarPantallaCompleta = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -62,7 +61,7 @@ export default function VistaPantallaCliente() {
   };
 
   const compacto = densidad === "compacta";
-  const altoFila = compacto ? "h-14" : densidad === "normal" ? "h-16" : "h-20"; // Ligeramente más alto para que quepa bien el texto mejorado
+  const altoFila = compacto ? "h-14" : densidad === "normal" ? "h-16" : "h-20"; 
   const textoNombre = compacto ? "text-sm" : densidad === "normal" ? "text-base" : "text-lg";
   const textoTotal = compacto ? "text-4xl" : densidad === "normal" ? "text-5xl" : "text-6xl";
   const temaClaro = tema === "claro";
@@ -129,12 +128,11 @@ export default function VistaPantallaCliente() {
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${temaClaro ? "bg-emerald-100 text-emerald-700" : "bg-emerald-500/20 text-emerald-300"}`}>
             <ShoppingCart size={20} />
           </div>
-          <h1 className="text-lg font-bold tracking-wide">Mi Tienda</h1>
+          <h1 className="text-lg font-bold tracking-wide">{nombreTienda}</h1>
         </div>
         
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            {/* NUEVO: Botón de Pantalla Completa */}
             <button
               onClick={alternarPantallaCompleta}
               aria-label="Alternar Pantalla Completa"
@@ -259,7 +257,6 @@ export default function VistaPantallaCliente() {
               </div>
             )}
 
-            {/* NUEVO: Contenedor tipo Cuadrícula (Grid) responsivo */}
             <div className="grid min-h-0 flex-1 content-start grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2">
               {datosCarrito.items.map((item) => (
                 <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-xl px-4 py-2 border shadow-sm ${temaClaro ? "bg-white border-slate-200" : "bg-white/5 border-white/10"}`}>
@@ -267,7 +264,6 @@ export default function VistaPantallaCliente() {
                     <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
                     <div className="min-w-0 flex flex-col justify-center">
                       <h3 className={`${textoNombre} truncate font-bold leading-tight`}>{item.nombre}</h3>
-                      {/* NUEVO: Textos más visibles y contrastantes */}
                       <p className={`text-xs font-semibold mt-0.5 ${temaClaro ? "text-slate-500" : "text-white/70"}`}>
                         {item.cantidad} {item.unidad.toLowerCase()} · ${item.precio.toFixed(2)}
                       </p>

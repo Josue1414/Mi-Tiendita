@@ -1,3 +1,4 @@
+// src/estado/estadoPlan.ts
 import { create } from 'zustand';
 
 interface EstadoPlan {
@@ -5,18 +6,21 @@ interface EstadoPlan {
   maxUsuarios: number;
   maxDispositivos: number;
   permiteNube: boolean;
-  cargarPlan: (planId: string, maxDisp: number, maxUsu: number, nube: boolean) => void;
+  fechaVencimiento: string | null; // <-- NUEVO ESTADO
+  cargarPlan: (planId: string, maxDisp: number, maxUsu: number, nube: boolean, fechaVenc: string | null) => void;
 }
 
 export const useEstadoPlan = create<EstadoPlan>((set) => ({
-  planActivo: 'ESTANDAR', // Por defecto para evitar errores antes de cargar
+  planActivo: 'ESTANDAR', 
   maxUsuarios: 4,
   maxDispositivos: 5,
   permiteNube: true,
-  cargarPlan: (planId, maxDisp, maxUsu, nube) => set({
+  fechaVencimiento: null, // <-- INICIALIZADO EN NULL
+  cargarPlan: (planId, maxDisp, maxUsu, nube, fechaVenc) => set({
     planActivo: planId,
     maxDispositivos: maxDisp,
     maxUsuarios: maxUsu,
-    permiteNube: nube
+    permiteNube: nube,
+    fechaVencimiento: fechaVenc // <-- GUARDADO EN EL ESTADO
   })
 }));

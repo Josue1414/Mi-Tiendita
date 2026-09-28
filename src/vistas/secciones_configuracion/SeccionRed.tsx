@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+// src/vistas/secciones_configuracion/SeccionRed.tsx
+import { useState, useEffect, useMemo } from "react";
 import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2 } from "lucide-react";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoRed } from "../../estado/estadoRed";
-import { useEstadoPlan } from "../../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { useEstadoPlan } from "../../estado/estadoPlan";
 import { supabase, obtenerTiendaIdActual } from "../../servicios/supabase";
 import { establecerRolCerebro } from "../../servicios/cerebroTienda";
 import { cn } from "../../utilidades/utils";
@@ -21,7 +22,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { esMaestro, ipMaestro, conectadoLAN, setEsMaestro, setIpMaestro } = useEstadoRed();
   
-  // <-- EXTRAEMOS EL LÍMITE DE DISPOSITIVOS -->
   const maxDispositivos = useEstadoPlan((estado) => estado.maxDispositivos);
 
   const esDueño = trabajadorActivo?.rol === "DUENO";
@@ -90,7 +90,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   }, [esDueño, esAppEscritorio, win.apiLocal, setAviso]);
 
   const cambiarRolCerebro = async (nuevoRol: boolean) => {
-    // <-- VALIDACIÓN EXTRA ANTES DE VOLVERSE CEREBRO -->
     if (nuevoRol && dispositivos.length >= maxDispositivos && !dispositivos.find(d => d.hardware_id === miHwid)) {
       setAviso({ titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos vinculados.`});
       return;
@@ -161,16 +160,19 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     }
   };
 
-  // Variable para saber si podemos agregar más clientes
   const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
+
+  // SOLUCIÓN: Memorizamos el arreglo filtrado para evitar re-renderizados infinitos
+  const dispositivosFiltradosParaModal = useMemo(() => {
+    return dispositivos.filter(d => !d.hardware_id.startsWith("web-"));
+  }, [dispositivos]);
 
   return (
     <>
       <ModalConfirmacionDesvincularEquipo
         abierto={confirmacionDesvincular.abierto} 
         equipo={confirmacionDesvincular.equipo} 
-        
-        dispositivos={dispositivos.filter(d => !d.hardware_id.startsWith("web-"))}
+        dispositivos={dispositivosFiltradosParaModal}
         alCerrar={() => setConfirmacionDesvincular({ abierto: false, equipo: null })}
         alConfirmar={async (nuevoCerebroId?: string) => {
           if (!confirmacionDesvincular.equipo) return;
@@ -257,7 +259,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                 <div className="w-full flex flex-col gap-2">
                   <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50" />
                   
-                  {/* <-- BOTÓN RESTRINGIDO SI ALCANZA EL LÍMITE --> */}
                   <button onClick={() => { 
                       if(limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)) {
                         setAviso({titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos.`});
@@ -282,7 +283,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
       {esDueño && (
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
-            {/* <-- CONTADOR DINÁMICO DE DISPOSITIVOS --> */}
             <Laptop size={20} className="text-blue-600 dark:text-blue-400" /> Equipos Vinculados ({dispositivos.length}/{maxDispositivos} permitidos)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

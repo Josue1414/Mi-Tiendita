@@ -1,6 +1,6 @@
 // src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
-import { Lock, Crown, Type } from "lucide-react"; 
+import { Lock, Crown, Type, CalendarClock } from "lucide-react"; 
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoPlan } from "../estado/estadoPlan"; 
 import ModalAviso from "../componentes/ui/ModalAviso";
@@ -15,10 +15,12 @@ export interface PropsSeccionConfig {
 
 export default function VistaConfiguracion() {
   const { trabajadorActivo } = useEstadoTrabajadores();
-  const planActivo = useEstadoPlan((estado) => estado.planActivo); 
+  
+  // SOLUCIÓN: Extracción individual para evitar el bucle infinito (Maximum update depth exceeded)
+  const planActivo = useEstadoPlan((estado) => estado.planActivo);
+  const fechaVencimiento = useEstadoPlan((estado) => estado.fechaVencimiento);
+  
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
-
-  // NUEVO: Manejo del estado local para la escala seleccionada
   const [escalaActual, setEscalaActual] = useState(() => localStorage.getItem("escala_ui") || "normal");
 
   const esDueño = trabajadorActivo?.rol === "DUENO";
@@ -35,7 +37,10 @@ export default function VistaConfiguracion() {
     }
   };
 
-  // Función para guardar y disparar el evento global de redimensionamiento
+  const fechaPagoFormateada = fechaVencimiento 
+    ? new Date(fechaVencimiento).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric", timeZone: 'UTC' })
+    : "Fecha no disponible";
+
   const cambiarEscala = (escala: string) => {
     setEscalaActual(escala);
     localStorage.setItem("escala_ui", escala);
@@ -54,12 +59,17 @@ export default function VistaConfiguracion() {
       
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">Configuración del Sistema</h1>
             
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${obtenerEstiloPlan()}`}>
-              <Crown size={14} />
-              PLAN {planActivo}
+            <div className="flex flex-col">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold uppercase tracking-wider w-fit ${obtenerEstiloPlan()}`}>
+                <Crown size={14} />
+                PLAN {planActivo}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-bold flex items-center gap-1.5 uppercase tracking-wide">
+                <CalendarClock size={12} className="text-slate-400 dark:text-slate-500" /> Próximo pago: {fechaPagoFormateada}
+              </span>
             </div>
           </div>
           
@@ -74,7 +84,6 @@ export default function VistaConfiguracion() {
         </div>
       )}
 
-      {/* NUEVO: Tarjeta de Apariencia Global */}
       <div className="mb-6 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-xl">

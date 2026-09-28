@@ -73,7 +73,8 @@ function validarSuscripcionLocal(dbPath) {
     return { activo: false, error: 'Tu suscripción mensual ha vencido. Realiza tu pago y conéctate a internet para renovar el acceso.' };
   }
 
-  return { activo: true };
+  // NUEVO: Retornamos también la fecha para la vista de configuración
+  return { activo: true, fechaVencimiento: estado.fechaVencimiento }; 
 }
 
 function obtenerIpLocal() {

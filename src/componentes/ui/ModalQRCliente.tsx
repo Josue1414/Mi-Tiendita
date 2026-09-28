@@ -1,6 +1,7 @@
 // src/componentes/ui/ModalQRCliente.tsx
 import QRCode from "react-qr-code";
 import { X, MonitorSmartphone, Wifi } from "lucide-react";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion"; // <-- IMPORTACIÓN
 
 interface Props {
   abierto: boolean;
@@ -9,23 +10,22 @@ interface Props {
 }
 
 export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props) {
+  // Extraemos el nombre de la tienda del estado
+  const { nombreTienda } = useEstadoConfiguracion();
+
   if (!abierto) return null;
 
-  // Generamos el mismo ID único que usa el POS, con la limpieza exacta
   const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
   const idUnico = `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-  // Obtenemos la URL donde está corriendo la aplicación (sirve para Vercel o para Localhost)
   let baseUrl = window.location.origin;
   
-  // Si estamos en la app de escritorio y la URL base es un archivo local,
-  // forzamos el uso de tu dominio en producción con el protocolo HTTPS
   if (baseUrl.includes("file://") || baseUrl.includes("localhost")) {
       baseUrl = "https://ahorratiempo-mitienda.pages.dev"; 
   }
 
-  // La URL final que la tablet abrirá.
-  const urlCliente = `${baseUrl}?peer=${idUnico}&cliente=${encodeURIComponent(nombreCaja)}`;
+  // SOLUCIÓN: Agregamos &tienda= al final del enlace
+  const urlCliente = `${baseUrl}?peer=${idUnico}&cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={alCerrar}>

@@ -1,11 +1,12 @@
+// src/vistas/VistaLogin.tsx
 import React, { useState, useEffect } from "react";
 import { useEstadoTrabajadores, type Trabajador } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { useEstadoPlan } from "../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, AlertTriangle } from "lucide-react"; // <-- ICONOS AGREGADOS
+import { useEstadoPlan } from "../estado/estadoPlan"; 
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, AlertTriangle } from "lucide-react"; 
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
@@ -19,7 +20,6 @@ export default function VistaLogin() {
   const { cargarProductos } = useEstadoInventario();
   const { cargarVentas } = useEstadoVentas();
   
-  // <-- EXTRAEMOS EL PLAN ACTIVO PARA LAS ETIQUETAS VISUALES -->
   const planActivo = useEstadoPlan((estado) => estado.planActivo);
   
   const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(false);
@@ -51,17 +51,14 @@ export default function VistaLogin() {
       if (session) {
         const tiendaId = localStorage.getItem("tienda_id");
         if (tiendaId) {
-          // <-- AGREGADO: Extraer plan_id -->
           const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento, plan_id').eq('id', tiendaId).single();
           if (tienda) {
-            
-            // <-- CARGA DEL PLAN EN SEGUNDO PLANO -->
             const planId = tienda.plan_id || 'ESTANDAR';
             const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
             if (planData) {
-              useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube);
+              // NUEVO: Agregamos tienda.fecha_vencimiento al cargar el plan
+              useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
             }
-
             const registro = await registrarDispositivoActual(tienda);
             setNombrePC(registro.dispositivo.nombre_dispositivo);
           }
@@ -72,9 +69,11 @@ export default function VistaLogin() {
 
       if (window.apiLocal && !navigator.onLine) {
         setModoOfflineInfo(true);
-        const validacion = await window.apiLocal.validarSuscripcionOffline();
+        const validacion = (await window.apiLocal.validarSuscripcionOffline()) as { activo: boolean; error?: string; fechaVencimiento?: string };
         if (validacion.activo) {
           setCuentaSaaSLogueada(true);
+          // NUEVO: Rescatamos la fecha guardada en el archivo local de Electron
+          useEstadoPlan.getState().cargarPlan('ESTANDAR', 5, 4, true, validacion.fechaVencimiento || null);
         } else {
           setErrorSaaS(validacion.error || "Sin acceso. Conéctate a internet.");
         }
@@ -98,7 +97,6 @@ export default function VistaLogin() {
         throw new Error(`La suscripción de la sucursal "${tienda.nombre}" ha vencido. Realiza tu pago.`);
       }
 
-      // <-- LÓGICA DE VALIDACIÓN DE LÍMITES POR PLAN -->
       const planId = tienda.plan_id || 'ESTANDAR';
       const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
       
@@ -121,13 +119,13 @@ export default function VistaLogin() {
           throw new Error(`Límite de ${planData.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}" (Plan ${planData.nombre}). Libera espacio desvinculando un equipo.`);
         }
 
-        // Cargamos el plan al estado global de la app
-        useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube);
+        // NUEVO: Agregamos tienda.fecha_vencimiento al cargar el plan
+        useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
       }
 
       const registroDispositivo = await registrarDispositivoActual({
         id: tienda.id,
-        max_dispositivos: planData?.max_dispositivos || tienda.max_dispositivos, // Fallback por seguridad
+        max_dispositivos: planData?.max_dispositivos || tienda.max_dispositivos, 
         nombre: tienda.nombre
       });
       setNombrePC(registroDispositivo.dispositivo.nombre_dispositivo);
@@ -176,7 +174,6 @@ export default function VistaLogin() {
 
       localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
 
-      // <-- AGREGADO: Extraer plan_id en el listado de tiendas -->
       const { data: miembrosData, error: miembroError } = await supabase
         .from('miembros_tienda')
         .select('tiendas(id, nombre, fecha_vencimiento, max_dispositivos, plan_id)')
@@ -283,7 +280,6 @@ export default function VistaLogin() {
           {cuentaSaaSLogueada ? <Store size={32} /> : <Globe size={32} />}
         </div>
         
-        {/* <-- TITULO PRINCIPAL CON ETIQUETA DE PLAN --> */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight text-center flex items-center justify-center gap-3">
             {cuentaSaaSLogueada ? nombreTienda : "Bienvenido a Mi Tienda"}
@@ -303,7 +299,6 @@ export default function VistaLogin() {
           {cuentaSaaSLogueada ? "Selecciona tu usuario de caja" : seleccionandoSucursal ? "Elige a qué negocio deseas acceder" : "Inicia sesión en tu cuenta para acceder a tu sucursal."}
         </p>
 
-        {/* <-- ADVERTENCIA DISCRETA PARA PLAN BÁSICO --> */}
         {cuentaSaaSLogueada && planActivo === 'BASICO' && (
           <div className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/30 px-4 py-2 rounded-xl text-center max-w-sm flex items-start gap-2 shadow-sm animate-in fade-in">
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -340,8 +335,6 @@ export default function VistaLogin() {
                   >
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{sucursal.nombre}</span>
-                      
-                      {/* <-- ETIQUETA DE PLAN EN LISTADO --> */}
                       <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
                         PLAN {sucursal.plan_id || 'ESTANDAR'}
                       </span>

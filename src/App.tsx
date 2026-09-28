@@ -141,12 +141,17 @@ export default function App() {
 
   const abrirPantallaCliente = () => {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
+    
+    // Obtenemos el nombre en el instante del clic
+    const nombreTienda = useEstadoConfiguracion.getState().nombreTienda;
+    
     const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
     const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
 
     if (esEscritorio || !esDispositivoMovil) {
       const rutaBase = window.location.href.split('?')[0];
-      window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+      // Agregamos el parámetro a la ventana emergente
+      window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
     } else {
       setModalQRAbierto(true);
     }
