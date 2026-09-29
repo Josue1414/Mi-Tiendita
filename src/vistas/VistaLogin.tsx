@@ -6,7 +6,7 @@ import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoPlan } from "../estado/estadoPlan"; 
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, AlertTriangle } from "lucide-react"; 
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown } from "lucide-react"; 
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
