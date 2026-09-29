@@ -10,8 +10,26 @@ import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Glo
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
+import ModalAviso from "../componentes/ui/ModalAviso"; 
 
 const CLAVE_EMAIL_SAAS = "mi_tienda_remember_email";
+const MOSTRAR_RECORDATORIO_HOY = true;
+
+const evaluarEstadoSuscripcion = (fechaString: string | null) => {
+  if (!fechaString) return "VENCIDO";
+  const partes = fechaString.split('T')[0].split('-');
+  if (partes.length !== 3) return "VIGENTE"; 
+  
+  const [year, month, day] = partes.map(Number);
+  const vencimiento = new Date(year, month - 1, day);
+  
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  if (hoy.getTime() > vencimiento.getTime()) return "VENCIDO";
+  if (hoy.getTime() === vencimiento.getTime()) return "HOY";
+  return "VIGENTE";
+};
 
 export default function VistaLogin() {
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
@@ -32,8 +50,11 @@ export default function VistaLogin() {
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
-  const [nombrePC, setNombrePC] = useState(localStorage.getItem("nombre_dispositivo_local") || "");
+  const [avisoSuscripcion, setAvisoSuscripcion] = useState<{ titulo: string; mensaje: string; tipo: "bloqueo" | "advertencia" } | null>(null);
+  const [avisoRecordatorio, setAvisoRecordatorio] = useState<{ titulo: string; mensaje: string } | null>(null);
+  const [loginPendiente, setLoginPendiente] = useState<{ id: string, pin: string } | null>(null);
 
+  const [nombrePC, setNombrePC] = useState(localStorage.getItem("nombre_dispositivo_local") || "");
   const [seleccionandoSucursal, setSeleccionandoSucursal] = useState(false);
   const [sucursalesDisponibles, setSucursalesDisponibles] = useState<any[]>([]);
 
@@ -46,42 +67,77 @@ export default function VistaLogin() {
 
   useEffect(() => {
     const validarSesionPrevia = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session) {
-        const tiendaId = localStorage.getItem("tienda_id");
-        if (tiendaId) {
-          const { data: tienda } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento, plan_id').eq('id', tiendaId).single();
-          if (tienda) {
-            const planId = tienda.plan_id || 'ESTANDAR';
-            const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
-            if (planData) {
-              // NUEVO: Agregamos tienda.fecha_vencimiento al cargar el plan
-              useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
-            }
-            const registro = await registrarDispositivoActual(tienda);
-            setNombrePC(registro.dispositivo.nombre_dispositivo);
-          }
-        }
-        setCuentaSaaSLogueada(true);
-        return;
-      }
-
       if (window.apiLocal && !navigator.onLine) {
         setModoOfflineInfo(true);
         const validacion = (await window.apiLocal.validarSuscripcionOffline()) as { activo: boolean; error?: string; fechaVencimiento?: string };
         if (validacion.activo) {
           setCuentaSaaSLogueada(true);
-          // NUEVO: Rescatamos la fecha guardada en el archivo local de Electron
           useEstadoPlan.getState().cargarPlan('ESTANDAR', 5, 4, true, validacion.fechaVencimiento || null);
         } else {
-          setErrorSaaS(validacion.error || "Sin acceso. Conéctate a internet.");
+          setAvisoSuscripcion({ 
+            titulo: "Servicio Suspendido", 
+            mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
+            tipo: "bloqueo" 
+          });
         }
         return;
       }
 
-      if (!navigator.onLine) return;
-      return;
+      if (!window.apiLocal && !navigator.onLine) {
+        setModoOfflineInfo(true);
+        const fechaLocal = localStorage.getItem('fecha_vencimiento_cache');
+        const estado = evaluarEstadoSuscripcion(fechaLocal);
+        
+        if (estado === "VENCIDO") {
+          setAvisoSuscripcion({ 
+            titulo: "Servicio Suspendido", 
+            mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
+            tipo: "bloqueo" 
+          });
+          return;
+        }
+        
+        if (fechaLocal) {
+          setCuentaSaaSLogueada(true);
+          useEstadoPlan.getState().cargarPlan('ESTANDAR', 5, 4, true, fechaLocal);
+        }
+        return;
+      }
+
+      if (navigator.onLine) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const tiendaId = localStorage.getItem("tienda_id");
+          if (tiendaId) {
+            const { data: tienda, error } = await supabase.from('tiendas').select('id, nombre, max_dispositivos, fecha_vencimiento, plan_id').eq('id', tiendaId).single();
+            
+            if (tienda && !error) {
+              localStorage.setItem('fecha_vencimiento_cache', tienda.fecha_vencimiento);
+              const estado = evaluarEstadoSuscripcion(tienda.fecha_vencimiento);
+
+              if (estado === "VENCIDO") {
+                await supabase.auth.signOut();
+                localStorage.removeItem("tienda_id");
+                setAvisoSuscripcion({ 
+                  titulo: "Servicio Suspendido", 
+                  mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y asegúrate de mantener tu dispositivo conectado a internet para que el sistema lo valide y restablezca el acceso a tu negocio.", 
+                  tipo: "bloqueo" 
+                });
+                return; 
+              }
+
+              const planId = tienda.plan_id || 'ESTANDAR';
+              const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
+              if (planData) {
+                useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
+              }
+              const registro = await registrarDispositivoActual(tienda);
+              setNombrePC(registro.dispositivo.nombre_dispositivo);
+              setCuentaSaaSLogueada(true);
+            }
+          }
+        }
+      }
     };
 
     validarSesionPrevia();
@@ -92,34 +148,36 @@ export default function VistaLogin() {
     setErrorSaaS("");
 
     try {
-      const fechaVencimientoNube = new Date(tienda.fecha_vencimiento).getTime();
-      if (new Date().getTime() > fechaVencimientoNube) {
-        throw new Error(`La suscripción de la sucursal "${tienda.nombre}" ha vencido. Realiza tu pago.`);
+      localStorage.setItem('fecha_vencimiento_cache', tienda.fecha_vencimiento);
+      const estado = evaluarEstadoSuscripcion(tienda.fecha_vencimiento);
+      
+      if (estado === "VENCIDO") {
+        setAvisoSuscripcion({ 
+          titulo: "Servicio Suspendido", 
+          mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y asegúrate de mantener tu equipo conectado a internet para que el sistema lo valide y te permita el acceso.", 
+          tipo: "bloqueo" 
+        });
+        setCargandoSaaS(false);
+        return;
       }
 
       const planId = tienda.plan_id || 'ESTANDAR';
       const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
       
       if (planData) {
-        let hwId = "";
-        if (window.apiLocal) {
-          hwId = await window.apiLocal.obtenerHardwareId();
-        } else {
-          hwId = localStorage.getItem('web_hardware_id') || "";
-          if (!hwId) {
-            hwId = "web-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-            localStorage.setItem('web_hardware_id', hwId);
-          }
+        let hwId = window.apiLocal ? await window.apiLocal.obtenerHardwareId() : (localStorage.getItem('web_hardware_id') || "");
+        if (!window.apiLocal && !hwId) {
+          hwId = "web-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+          localStorage.setItem('web_hardware_id', hwId);
         }
 
         const { data: dispNube } = await supabase.from('dispositivos_vinculados').select('hardware_id').eq('tienda_id', tienda.id);
         const yaVinculado = dispNube?.some(d => d.hardware_id === hwId);
 
         if (!yaVinculado && (dispNube?.length || 0) >= planData.max_dispositivos) {
-          throw new Error(`Límite de ${planData.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}" (Plan ${planData.nombre}). Libera espacio desvinculando un equipo.`);
+          throw new Error(`Límite de ${planData.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}". Libera espacio desvinculando un equipo.`);
         }
 
-        // NUEVO: Agregamos tienda.fecha_vencimiento al cargar el plan
         useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
       }
 
@@ -130,28 +188,18 @@ export default function VistaLogin() {
       });
       setNombrePC(registroDispositivo.dispositivo.nombre_dispositivo);
 
-      if (window.apiLocal) {
-        await window.apiLocal.sincronizarReloj(tienda.fecha_vencimiento);
-      }
+      if (window.apiLocal) await window.apiLocal.sincronizarReloj(tienda.fecha_vencimiento);
 
       localStorage.setItem("tienda_id", tienda.id);
 
-      await Promise.all([
-        cargarConfiguracion(),
-        cargarTrabajadores(),
-        cargarProductos(),
-        cargarVentas(),
-        cargarAsistencias()
-      ]);
+      await Promise.all([cargarConfiguracion(), cargarTrabajadores(), cargarProductos(), cargarVentas(), cargarAsistencias()]);
 
       setSeleccionandoSucursal(false);
       setCuentaSaaSLogueada(true);
 
     } catch (err: any) {
       setErrorSaaS(err.message);
-      if (sucursalesDisponibles.length <= 1) {
-        await supabase.auth.signOut();
-      }
+      if (sucursalesDisponibles.length <= 1) await supabase.auth.signOut();
     } finally {
       setCargandoSaaS(false);
     }
@@ -164,12 +212,9 @@ export default function VistaLogin() {
     setMensajeExito("");
 
     try {
-      if (!navigator.onLine) throw new Error("No hay conexión a internet para validar el pago.");
+      if (!navigator.onLine) throw new Error("No hay conexión a internet para validar tu cuenta.");
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: emailSaaS,
-        password: passwordSaaS,
-      });
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: emailSaaS, password: passwordSaaS });
       if (authError) throw authError;
 
       localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
@@ -193,7 +238,6 @@ export default function VistaLogin() {
         setSeleccionandoSucursal(true);
         setCargandoSaaS(false);
       }
-
     } catch (err: any) {
       setErrorSaaS(err.message === "Invalid login credentials" ? "Correo o contraseña incorrectos." : err.message);
       await supabase.auth.signOut();
@@ -209,7 +253,6 @@ export default function VistaLogin() {
 
     try {
       if (!navigator.onLine) throw new Error("No hay conexión a internet para esta acción.");
-      
       const { error } = await supabase.auth.resetPasswordForEmail(emailSaaS);
       if (error) throw error;
       
@@ -219,6 +262,17 @@ export default function VistaLogin() {
       setErrorSaaS(err.message);
     } finally {
       setCargandoSaaS(false);
+    }
+  };
+
+  const ejecutarLogin = async (id: string, pin: string) => {
+    const exito = iniciarSesion(id, pin);
+    if (!exito) {
+      setErrorMensaje("PIN incorrecto. Inténtalo de nuevo.");
+      setPinIngresado("");
+      setTimeout(() => setErrorMensaje(""), 2000);
+    } else {
+      await registrarEntrada(id);
     }
   };
 
@@ -236,13 +290,26 @@ export default function VistaLogin() {
       return;
     }
 
-    const exito = iniciarSesion(usuarioSeleccionado.id, pinIngresado);
-    if (!exito) {
-      setErrorMensaje("PIN incorrecto. Inténtalo de nuevo.");
-      setPinIngresado("");
-      setTimeout(() => setErrorMensaje(""), 2000);
-    } else {
-      await registrarEntrada(usuarioSeleccionado.id);
+    const fechaGuardada = useEstadoPlan.getState().fechaVencimiento || localStorage.getItem('fecha_vencimiento_cache');
+    const estadoSuscripcion = evaluarEstadoSuscripcion(fechaGuardada);
+
+    if (MOSTRAR_RECORDATORIO_HOY && estadoSuscripcion === "HOY" && (usuarioSeleccionado.rol === "DUENO" || usuarioSeleccionado.rol === "SUPERVISOR")) {
+      setAvisoRecordatorio({ 
+        titulo: "Tu fecha de corte es hoy", 
+        mensaje: "Recuerda que tu periodo de suscripción vence hoy. Tienes servicio normal durante todo el día, pero te sugerimos realizar tu abono para evitar interrupciones mañana.\n\nSi ya realizaste el pago, haz caso omiso de este mensaje, pero recuerda mantener esta computadora conectada a internet en estos días para que el sistema valide el pago y restablezca tu suscripción automáticamente." 
+      });
+      setLoginPendiente({ id: usuarioSeleccionado.id, pin: pinIngresado });
+      return; 
+    }
+
+    await ejecutarLogin(usuarioSeleccionado.id, pinIngresado);
+  };
+
+  const confirmarRecordatorio = async () => {
+    setAvisoRecordatorio(null);
+    if (loginPendiente) {
+      await ejecutarLogin(loginPendiente.id, loginPendiente.pin);
+      setLoginPendiente(null);
     }
   };
 
@@ -267,6 +334,22 @@ export default function VistaLogin() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-emerald-50/30 dark:bg-slate-950 p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-emerald-600/10 to-transparent -z-10 pointer-events-none"></div>
+
+      {/* MODALES FLOTANTES DE SUSCRIPCIÓN */}
+      <ModalAviso 
+        abierto={Boolean(avisoSuscripcion)} 
+        titulo={avisoSuscripcion?.titulo ?? ""} 
+        mensaje={avisoSuscripcion?.mensaje ?? ""} 
+        tipo={avisoSuscripcion?.tipo ?? "advertencia"} 
+        alCerrar={() => setAvisoSuscripcion(null)} 
+      />
+      <ModalAviso 
+        abierto={Boolean(avisoRecordatorio)} 
+        titulo={avisoRecordatorio?.titulo ?? ""} 
+        mensaje={avisoRecordatorio?.mensaje ?? ""} 
+        tipo="recordatorio" 
+        alCerrar={confirmarRecordatorio} 
+      />
 
       {nombrePC && window.apiLocal && (
         <div className="absolute top-4 right-4 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-200/50 dark:border-white/10 backdrop-blur-md z-20 shadow-sm transition-all hover:bg-white dark:hover:bg-slate-900">
@@ -298,13 +381,6 @@ export default function VistaLogin() {
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-medium px-4">
           {cuentaSaaSLogueada ? "Selecciona tu usuario de caja" : seleccionandoSucursal ? "Elige a qué negocio deseas acceder" : "Inicia sesión en tu cuenta para acceder a tu sucursal."}
         </p>
-
-        {cuentaSaaSLogueada && planActivo === 'BASICO' && (
-          <div className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/30 px-4 py-2 rounded-xl text-center max-w-sm flex items-start gap-2 shadow-sm animate-in fade-in">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <p><strong>Aviso:</strong> Para mantener tu servicio activo, recuerda conectar esta PC a internet en los días de tu fecha de corte para validar el pago.</p>
-          </div>
-        )}
       </div>
 
       <div className="efecto-cristal w-full max-w-md bg-white/90 dark:bg-slate-900/90 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200/50 dark:border-white/10 relative overflow-hidden z-10">
@@ -430,6 +506,7 @@ export default function VistaLogin() {
                     <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{usuario.nombre}</h3>
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                       {usuario.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : usuario.rol === "SUPERVISOR" ? <ShieldCheck size={12} className="text-indigo-500" /> : <Briefcase size={12} className="text-blue-500" />}
+                      {/* <-- SOLUCIÓN: CORRECCIÓN DEL ETIQUETADO DE ROLES --> */}
                       <span className={cn(usuario.rol === "DUENO" ? "text-purple-600 dark:text-purple-400" : usuario.rol === "SUPERVISOR" ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400")}>
                         {usuario.rol === "DUENO" ? "Dueño" : usuario.rol === "SUPERVISOR" ? "Supervisor" : "Trabajador"}
                       </span>
