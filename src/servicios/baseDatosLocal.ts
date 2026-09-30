@@ -5,19 +5,18 @@ import type { Producto } from "../tipos/producto";
 // Estructura de nuestra base de datos local
 interface BaseDatosMiTienda extends DBSchema {
   productos: {
-    key: string; // El ID será la llave primaria
+    key: string; 
     value: Producto;
-    indexes: { "por-codigo": string }; // Índice para buscar rápido por código de barras
+    indexes: { "por-codigo": string }; 
   };
   imagenes: {
     key: string;
-    value: Blob; // Las imágenes se guardan como archivos binarios (Blob)
+    value: Blob; 
   };
 }
 
 let dbPromise: Promise<IDBPDatabase<BaseDatosMiTienda>>;
 
-// Inicializa la base de datos si no existe
 export function inicializarDB() {
   if (!dbPromise) {
     dbPromise = openDB<BaseDatosMiTienda>("MiTiendaLocal", 1, {
@@ -63,6 +62,12 @@ export async function obtenerUrlImagenLocal(id: string): Promise<string | null> 
   const db = await inicializarDB();
   const blob = await db.get("imagenes", id);
   if (!blob) return null;
-  // Convierte el archivo binario en una URL temporal que un <img> puede leer
   return URL.createObjectURL(blob);
+}
+
+// --- NUEVA FUNCIÓN: LIMPIEZA TOTAL ---
+export async function limpiarBaseDatosLocal() {
+  const db = await inicializarDB();
+  await db.clear("productos");
+  await db.clear("imagenes");
 }

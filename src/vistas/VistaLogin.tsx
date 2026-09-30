@@ -31,6 +31,26 @@ const evaluarEstadoSuscripcion = (fechaString: string | null) => {
   return "VIGENTE";
 };
 
+// NUEVA FUNCIÓN: Purga todos los datos en caché excepto la identificación de hardware
+const limpiarCachesLocales = async () => {
+  const hwid = localStorage.getItem('web_hardware_id');
+  const nombrePC = localStorage.getItem('nombre_dispositivo_local');
+  const emailSaaS = localStorage.getItem(CLAVE_EMAIL_SAAS);
+  
+  localStorage.clear();
+  
+  if (hwid) localStorage.setItem('web_hardware_id', hwid);
+  if (nombrePC) localStorage.setItem('nombre_dispositivo_local', nombrePC);
+  if (emailSaaS) localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
+
+  try {
+    const { limpiarBaseDatosLocal } = await import('../servicios/baseDatosLocal');
+    await limpiarBaseDatosLocal();
+  } catch (e) {
+    console.error("Error al limpiar IndexedDB", e);
+  }
+};
+
 export default function VistaLogin() {
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
   const { nombreTienda, cargarConfiguracion } = useEstadoConfiguracion();
@@ -161,6 +181,15 @@ export default function VistaLogin() {
         return;
       }
 
+      // CORREGIDO: Prevención de cruce de datos entre tiendas
+      const tiendaAnterior = localStorage.getItem("tienda_id");
+      if (tiendaAnterior && tiendaAnterior !== tienda.id) {
+        await limpiarCachesLocales();
+        localStorage.setItem("tienda_id", tienda.id);
+        window.location.reload(); 
+        return;
+      }
+
       const planId = tienda.plan_id || 'ESTANDAR';
       const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
       
@@ -229,12 +258,16 @@ export default function VistaLogin() {
         throw new Error("No tienes ninguna tienda vinculada o tu acceso fue revocado.");
       }
 
-      const tiendas = miembrosData.map(m => m.tiendas).filter(Boolean);
+      // CORREGIDO: Aplanamos y tipamos como any[] para resolver el error de TypeScript
+      const tiendas = miembrosData.map(m => m.tiendas).flat().filter(Boolean) as any[];
 
-      if (tiendas.length === 1) {
-        await procesarSeleccionSucursal(tiendas[0]);
+      // CORREGIDO: Filtro de tiendas únicas para evitar el bug de duplicidad visual
+      const tiendasUnicas = Array.from(new Map(tiendas.map(t => [t.id, t])).values());
+
+      if (tiendasUnicas.length === 1) {
+        await procesarSeleccionSucursal(tiendasUnicas[0]);
       } else {
-        setSucursalesDisponibles(tiendas);
+        setSucursalesDisponibles(tiendasUnicas);
         setSeleccionandoSucursal(true);
         setCargandoSaaS(false);
       }
@@ -320,15 +353,12 @@ export default function VistaLogin() {
     setMostrarPin(false);
   };
 
+  // CORREGIDO: Purga forzada al cerrar sesión
   const manejarRegresoCuenta = async () => {
     if (navigator.onLine) await supabase.auth.signOut();
-    localStorage.removeItem("tienda_id");
-    localStorage.removeItem(CLAVE_EMAIL_SAAS);
+    await limpiarCachesLocales();
     setCuentaSaaSLogueada(false);
-    setEmailSaaS("");
-    setPasswordSaaS("");
-    setModoOfflineInfo(false);
-    setMostrarPassword(false);
+    window.location.reload(); 
   };
 
   return (
@@ -506,7 +536,6 @@ export default function VistaLogin() {
                     <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{usuario.nombre}</h3>
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                       {usuario.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : usuario.rol === "SUPERVISOR" ? <ShieldCheck size={12} className="text-indigo-500" /> : <Briefcase size={12} className="text-blue-500" />}
-                      {/* <-- SOLUCIÓN: CORRECCIÓN DEL ETIQUETADO DE ROLES --> */}
                       <span className={cn(usuario.rol === "DUENO" ? "text-purple-600 dark:text-purple-400" : usuario.rol === "SUPERVISOR" ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400")}>
                         {usuario.rol === "DUENO" ? "Dueño" : usuario.rol === "SUPERVISOR" ? "Supervisor" : "Trabajador"}
                       </span>

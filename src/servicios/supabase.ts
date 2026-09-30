@@ -13,13 +13,17 @@ export const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-// NUEVO: Variable temporal para no saturar la base de datos con peticiones
 let tiendaIdCache: string | null = null;
 
-// NUEVO: Función para obtener el ID de la tienda del usuario activo
-
+// CORREGIDO: Prioriza la tienda seleccionada localmente para cuentas con múltiples sucursales
 export const obtenerTiendaIdActual = async () => {
   if (tiendaIdCache) return tiendaIdCache;
+  
+  const localTiendaId = localStorage.getItem("tienda_id");
+  if (localTiendaId) {
+    tiendaIdCache = localTiendaId;
+    return tiendaIdCache;
+  }
   
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
@@ -28,7 +32,8 @@ export const obtenerTiendaIdActual = async () => {
     .from('miembros_tienda')
     .select('tienda_id')
     .eq('usuario_id', session.user.id)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (data) {
     tiendaIdCache = data.tienda_id;
