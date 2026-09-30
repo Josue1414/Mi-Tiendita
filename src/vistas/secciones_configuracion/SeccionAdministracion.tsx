@@ -114,7 +114,6 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
     try {
       const nuevos = await leerProductosExcel(archivo, productos);
       
-      // Lógica anticlonación: Filtramos para evitar duplicar nombres existentes
       const nombresExistentes = new Set(productos.map(p => p.nombre.trim().toLowerCase()));
       const productosAImportar = nuevos.filter(p => !nombresExistentes.has(p.nombre.trim().toLowerCase()));
       const omitidos = nuevos.length - productosAImportar.length;
@@ -145,11 +144,11 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
   return (
     <>
-      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !puedeEditarTicket && !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
-        <h2 className="text-lg font-bold flex items-center gap-2"><Store size={20} className="text-emerald-600" /> Datos de la Tienda</h2>
+      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !puedeEditarTicket && !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100"><Store size={20} className="text-emerald-600 dark:text-emerald-400" /> Datos de la Tienda</h2>
         <form onSubmit={manejarGuardarTienda} className="flex flex-col gap-4">
           <div className="flex gap-4 items-start">
-            <div className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 relative flex items-center justify-center bg-slate-50">
+            <div className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 relative flex items-center justify-center bg-slate-50 dark:bg-slate-900">
               {inputLogo ? (
                 <><img src={inputLogo} alt="Logo" className="w-full h-full object-contain p-1" />
                   {esDueño && <button type="button" onClick={() => setInputLogo("")} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md hover:bg-red-600"><Trash2 size={12} /></button>}
@@ -157,9 +156,9 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
               ) : <ImageIcon size={32} className="text-slate-400" />}
             </div>
             <div className="flex flex-col flex-1 gap-2">
-              <label className="text-xs font-medium">Logo de la tienda</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Logo de la tienda</label>
               {esDueño && (
-                <label className="cursor-pointer bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-center font-medium hover:bg-slate-50 w-fit">
+                <label className="cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-center font-medium hover:bg-slate-50 dark:hover:bg-slate-700 w-fit text-slate-900 dark:text-slate-100">
                   Subir Imagen <input type="file" accept="image/*" onChange={manejarLogo} className="hidden" />
                 </label>
               )}
@@ -167,16 +166,16 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Nombre del Negocio</label>
-            <input type="text" disabled={!esDueño} value={inputNombre} onChange={(e) => setInputNombre(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm" />
+            <label className="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Nombre del Negocio</label>
+            <input type="text" disabled={!esDueño} value={inputNombre} onChange={(e) => setInputNombre(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-slate-100" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Dirección de la Tienda</label>
-            <textarea disabled={!esDueño} value={inputDireccion} onChange={(e) => setInputDireccion(e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm resize-none" />
+            <label className="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Dirección de la Tienda</label>
+            <textarea disabled={!esDueño} value={inputDireccion} onChange={(e) => setInputDireccion(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm resize-none text-slate-900 dark:text-slate-100" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Mensaje al pie del ticket</label>
-            <textarea disabled={!puedeEditarTicket} value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm resize-none" />
+            <label className="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Mensaje al pie del ticket</label>
+            <textarea disabled={!puedeEditarTicket} value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm resize-none text-slate-900 dark:text-slate-100" />
           </div>
           {(esDueño || puedeEditarTicket) && (
             <button type="submit" className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-medium text-sm">
@@ -186,29 +185,29 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
         </form>
       </div>
 
-      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
-        <h2 className="text-lg font-bold border-b border-slate-200 pb-3">Atajos y Métodos de pago</h2>
-         <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs border border-blue-100"><Info size={18} className="shrink-0" /><p>No se recomienda usar la tecla Enter, ya que crea conflictos con el lector escáner.</p></div>
+      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100">Atajos y Métodos de pago</h2>
+         <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>No se recomienda usar la tecla Enter, ya que crea conflictos con el lector escáner.</p></div>
         <form onSubmit={manejarGuardarPagos} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <label className="text-xs font-bold text-emerald-700 flex flex-col">
+            <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex flex-col">
               Cobro General
-              <input type="text" readOnly disabled={!esDueño} value={teclaTemporal} onKeyDown={(e) => { e.preventDefault(); setTeclaTemporal(e.key.length === 1 ? e.key.toUpperCase() : e.key); setCambiosPago(true); }} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-2 text-center text-lg font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500" />
+              <input type="text" readOnly disabled={!esDueño} value={teclaTemporal} onKeyDown={(e) => { e.preventDefault(); setTeclaTemporal(e.key.length === 1 ? e.key.toUpperCase() : e.key); setCambiosPago(true); }} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-emerald-300 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-2 text-center text-lg font-bold text-emerald-800 dark:text-emerald-300 outline-none focus:ring-2 focus:ring-emerald-500" />
             </label>
             {(["teclaEfectivo", "teclaTarjeta", "teclaTransferencia"] as const).map((campo) => (
-              <label key={campo} className="text-xs font-medium text-slate-600 flex flex-col">
+              <label key={campo} className="text-xs font-medium text-slate-600 dark:text-slate-400 flex flex-col">
                 {campo === "teclaEfectivo" ? "Efectivo" : campo === "teclaTarjeta" ? "Tarjeta" : "Transferencia"}
-                <input readOnly disabled={!esDueño} value={formPago[campo]} onKeyDown={(e) => capturarTeclaPago(campo, e)} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-center text-lg font-bold" />
+                <input readOnly disabled={!esDueño} value={formPago[campo]} onKeyDown={(e) => capturarTeclaPago(campo, e)} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-2 py-2 text-center text-lg font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500" />
               </label>
             ))}
           </div>
-          <h3 className="pt-2 text-sm font-bold">Datos de transferencia</h3>
+          <h3 className="pt-2 text-sm font-bold text-slate-900 dark:text-slate-100">Datos de transferencia</h3>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {(["bancoTransferencia", "titularTransferencia", "cuentaTransferencia"] as const).map((campo) => (
-              <input key={campo} disabled={!esDueño} value={formPago[campo]} onChange={(e) => actualizarDatoPago(campo, e.target.value)} placeholder={campo} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" />
+              <input key={campo} disabled={!esDueño} value={formPago[campo]} onChange={(e) => actualizarDatoPago(campo, e.target.value)} placeholder={campo} className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500" />
             ))}
           </div>
-          <input disabled={!esDueño} value={formPago.mensajePago} onChange={(e) => actualizarDatoPago("mensajePago", e.target.value)} placeholder="Mensaje después del pago" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm" />
+          <input disabled={!esDueño} value={formPago.mensajePago} onChange={(e) => actualizarDatoPago("mensajePago", e.target.value)} placeholder="Mensaje después del pago" className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500" />
           {esDueño && cambiosPago && (
             <button type="submit" className="self-end mt-2 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
               {guardadoPago ? <CheckCircle2 size={16} /> : <Save size={16} />} {guardadoPago ? "Guardado" : "Guardar Cambios"}
@@ -217,19 +216,18 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
         </form>
       </div>
 
-      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 pb-3"><HardDrive size={20} className="text-blue-600" /> Directorio Físico</h2>
-        <div className="flex items-start gap-3 p-3 bg-blue-50 text-blue-700 rounded-xl text-xs border border-blue-100"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
+      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico</h2>
+        <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
           {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
-          <div className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
+          <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
         </div>
       </div>
 
-      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 pb-3"><FileSpreadsheet size={20} className="text-emerald-600" /> Importar Excel</h2>
+      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" /> Importar Excel</h2>
         
-        {/* Nueva guía de importación mejorada */}
         <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 rounded-xl text-sm border border-emerald-200 dark:border-emerald-800/30">
           <Info size={20} className="shrink-0 mt-0.5" />
           <div className="flex flex-col gap-2">
@@ -246,7 +244,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
         {esDueño && (
           importando ? (
-            <div className="w-full mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200"><div className="flex justify-between text-xs mb-2"><span>Importando...</span><span className="text-emerald-600 animate-pulse">Espera</span></div><div className="w-full bg-slate-200 rounded-full h-2"><div className="bg-emerald-500 h-2 w-full animate-pulse"></div></div></div>
+            <div className="w-full mt-2 bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-white/10"><div className="flex justify-between text-xs mb-2 text-slate-900 dark:text-slate-100"><span>Importando...</span><span className="text-emerald-600 dark:text-emerald-400 animate-pulse">Espera</span></div><div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2"><div className="bg-emerald-500 h-2 w-full animate-pulse"></div></div></div>
           ) : (
             <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white shadow-md hover:bg-emerald-700 transition-colors">
               <FileSpreadsheet size={18} /> Seleccionar archivo y subir

@@ -18,6 +18,9 @@ interface NavegadorExtendido {
   apiLocal?: { obtenerIpLocal?: () => Promise<string>; obtenerHardwareId?: () => Promise<string>; };
 }
 
+// URL DEL INSTALADOR DE GOOGLE DRIVE (Descarga directa)
+const URL_INSTALADOR_EXE = 'https://github.com/Josue1414/predicamap/releases/download/v1.4.0/Ahorra-Tiempo.MI.TIENDA.Setup.1.4.0.exe';
+
 export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { esMaestro, ipMaestro, conectadoLAN, setEsMaestro, setIpMaestro } = useEstadoRed();
@@ -160,9 +163,21 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     }
   };
 
+  // CORREGIDO: Se eliminó el IF de validación de Typescript ya que el enlace ya es real y definitivo
+  const descargarInstalador = () => {
+    setAviso({ titulo: "Iniciando descarga", mensaje: "El instalador se está descargando en tu equipo." });
+    
+    const link = document.createElement('a');
+    link.href = URL_INSTALADOR_EXE;
+    link.setAttribute('download', 'MiTienda_Instalador.exe');
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
 
-  // SOLUCIÓN: Memorizamos el arreglo filtrado para evitar re-renderizados infinitos
   const dispositivosFiltradosParaModal = useMemo(() => {
     return dispositivos.filter(d => !d.hardware_id.startsWith("web-"));
   }, [dispositivos]);
@@ -202,7 +217,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           ) : (
             <>
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Para máxima seguridad, te recomendamos descargar la versión nativa para Windows.</p>
-              <button onClick={() => setAviso({ titulo: "Descarga", mensaje: "Iniciando descarga..." })} type="button" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30 w-full sm:w-auto justify-center">
+              <button onClick={descargarInstalador} type="button" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30 w-full sm:w-auto justify-center">
                 <MonitorDown size={20} /> Descargar Instalador (.exe)
               </button>
             </>
@@ -227,7 +242,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", esMaestro ? "border-indigo-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-indigo-500/20" : "border-slate-200 bg-slate-50/50")}>
+            <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", esMaestro ? "border-indigo-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-indigo-500/20" : "border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/30")}>
               <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3"><Server size={24} /></div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">Cerebro del Negocio (Servidor)</h3>
               {!esAppEscritorio ? (
@@ -238,26 +253,26 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                 </button>
               )}
               {esMaestro && ipLocalPC && (
-                <div className="mt-4 w-full bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
                   {ipLocalPC === "127.0.0.1" ? (
                     <div className="mt-2 text-xs font-bold text-red-600 flex flex-col items-center gap-1 bg-red-100/50 p-2 rounded-lg"><AlertTriangle size={16} /><span>Conéctate a Wi-Fi local.</span></div>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      <span className="text-xl font-mono font-bold text-indigo-700 select-all">{ipLocalPC}</span>
-                      <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 px-3 py-1 text-[10px] font-black text-indigo-700 hover:bg-indigo-100">{copiado ? "Copiado" : "Copiar Enlace"}</button>
+                      <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
+                      <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 dark:border-indigo-700/50 px-3 py-1 text-[10px] font-black text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">{copiado ? "Copiado" : "Copiar Enlace"}</button>
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", !esMaestro ? "border-emerald-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-emerald-500/20" : "border-slate-200 bg-slate-50/50")}>
+            <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", !esMaestro ? "border-emerald-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-emerald-500/20" : "border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/30")}>
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3"><Smartphone size={24} /></div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">Equipo Conectado (Cliente)</h3>
               {esMaestro ? (
-                <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 hover:bg-slate-50 disabled:opacity-50">Liberar cerebro</button>
+                <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 disabled:opacity-50">Liberar cerebro</button>
               ) : (
                 <div className="w-full flex flex-col gap-2">
-                  <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50" />
+                  <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-slate-900 dark:text-slate-100" />
                   
                   <button onClick={() => { 
                       if(limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)) {
@@ -289,27 +304,27 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             {dispositivos.map(disp => {
               const esMiEquipo = disp.hardware_id === miHwid;
               return (
-                <div key={disp.id} className={cn("p-4 rounded-xl border flex justify-between items-start", esMiEquipo ? "border-emerald-400 bg-emerald-50/30 shadow-sm" : "border-slate-200 bg-white/50")}>
+                <div key={disp.id} className={cn("p-4 rounded-xl border flex justify-between items-start", esMiEquipo ? "border-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20 shadow-sm" : "border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-900/50")}>
                   <div className="flex flex-col flex-1 mr-2">
                     <div className="flex items-center gap-2 mb-1">
                       {editandoDispId === disp.id ? (
                         <div className="flex items-center gap-1 w-full max-w-[200px]">
-                          <input type="text" autoFocus value={nombreDispTemp} onChange={(e) => setNombreDispTemp(e.target.value)} className="border border-slate-300 rounded px-2 py-0.5 text-sm w-full outline-none focus:border-emerald-500" />
-                          <button onClick={() => guardarNombreEquipo(disp.id, disp.hardware_id)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><CheckCircle2 size={16} /></button>
-                          <button onClick={() => setEditandoDispId(null)} className="p-1 text-slate-400 hover:bg-slate-50 rounded"><X size={16} /></button>
+                          <input type="text" autoFocus value={nombreDispTemp} onChange={(e) => setNombreDispTemp(e.target.value)} className="border border-slate-300 dark:border-white/10 rounded px-2 py-0.5 text-sm w-full outline-none focus:border-emerald-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100" />
+                          <button onClick={() => guardarNombreEquipo(disp.id, disp.hardware_id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded"><CheckCircle2 size={16} /></button>
+                          <button onClick={() => setEditandoDispId(null)} className="p-1 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"><X size={16} /></button>
                         </div>
                       ) : (
                         <>
-                          <span className={cn("font-bold", esMiEquipo ? "text-emerald-800" : "text-slate-800")}>{disp.nombre_dispositivo}</span>
+                          <span className={cn("font-bold", esMiEquipo ? "text-emerald-800 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200")}>{disp.nombre_dispositivo}</span>
                           <button onClick={() => { setEditandoDispId(disp.id); setNombreDispTemp(disp.nombre_dispositivo); }} className="p-1 text-slate-400 hover:text-emerald-600"><Pencil size={14} /></button>
                           {esMiEquipo && <span className="flex items-center gap-1 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shadow-sm"><MonitorDown size={10} /> Este equipo</span>}
-                          {disp.es_cerebro && <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Cerebro</span>}
+                          {disp.es_cerebro && <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Cerebro</span>}
                         </>
                       )}
                     </div>
                     <span className="text-xs text-slate-500 font-mono">ID: {disp.hardware_id.substring(0, 12)}...</span>
                   </div>
-                  <button onClick={() => abrirDesvinculacion(disp, esMiEquipo)} className="p-2 mt-1 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
+                  <button onClick={() => abrirDesvinculacion(disp, esMiEquipo)} className="p-2 mt-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={18} /></button>
                 </div>
               );
             })}

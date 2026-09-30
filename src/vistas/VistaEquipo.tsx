@@ -1,16 +1,17 @@
+// src/vistas/VistaEquipo.tsx
 import React, { useEffect, useState } from "react";
 import { useEstadoTrabajadores, type RolTrabajador } from "../estado/estadoTrabajadores";
 import { Users, UserPlus } from "lucide-react";
 import TarjetaTrabajador from "../componentes/equipo/TarjetaTrabajador";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
-import { useEstadoPlan } from "../estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { useEstadoPlan } from "../estado/estadoPlan"; 
 
 export default function VistaEquipo() {
   const { trabajadores, trabajadorActivo, agregarTrabajador } = useEstadoTrabajadores();
   const cargarAsistencias = useEstadoAsistencias((estado) => estado.cargarAsistencias);
   
-  // <-- EXTRAEMOS EL LÍMITE DINÁMICO -->
-  const maxUsuarios = useEstadoPlan((estado) => estado.maxUsuarios);
+  // <-- EXTRAEMOS EL PLAN ACTIVO Y EL LÍMITE DINÁMICO -->
+  const { maxUsuarios, planActivo } = useEstadoPlan();
   
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState<RolTrabajador>("TRABAJADOR");
@@ -62,7 +63,7 @@ export default function VistaEquipo() {
       setPin("");
       setRol("TRABAJADOR");
     } catch (error: any) {
-      alert(error.message); // Muestra el mensaje de error si falla al agregar
+      alert(error.message); 
     }
   };
 
@@ -101,10 +102,22 @@ export default function VistaEquipo() {
       {trabajadorActivo?.rol === "DUENO" && (
         <div className="w-full lg:w-[320px] shrink-0">
           <div className="efecto-cristal rounded-2xl p-5 border border-slate-200/50 dark:border-white/10 sticky top-0">
-            <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-slate-900 dark:text-slate-100">
-              <UserPlus size={20} className="text-emerald-600 dark:text-emerald-400" />
-              Nuevo Trabajador
-            </h2>
+            
+            {/* CORRECCIÓN: Título con etiquetas de plan y límites */}
+            <div className="mb-4 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 mb-1.5">
+                <UserPlus size={20} className="text-emerald-600 dark:text-emerald-400" />
+                Nuevo Trabajador
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  Plan {planActivo}
+                </span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                  Límite: <strong className={trabajadores.length >= maxUsuarios ? "text-amber-500" : ""}>{trabajadores.length}</strong> de {maxUsuarios} usuarios
+                </span>
+              </div>
+            </div>
 
             <form onSubmit={manejarGuardado} className="flex flex-col gap-4">
               <div>
@@ -125,15 +138,15 @@ export default function VistaEquipo() {
                 <p className="text-[10px] text-slate-500 mt-1 text-center">Este código se usará para iniciar sesión.</p>
               </div>
               
-              {/* <-- BOTÓN DESHABILITADO DINÁMICAMENTE --> */}
+              {/* BOTÓN DESHABILITADO DINÁMICAMENTE */}
               <button type="submit" disabled={trabajadores.length >= maxUsuarios} className="w-full mt-2 flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50">
                 Registrar
               </button>
               
-              {/* <-- MENSAJE DE LÍMITE DINÁMICO --> */}
+              {/* MENSAJE DE LÍMITE DINÁMICO MEJORADO */}
               {trabajadores.length >= maxUsuarios && (
-                <p className="text-center text-xs font-semibold text-amber-600">
-                  Límite máximo de {maxUsuarios} trabajadores alcanzado.
+                <p className="text-center text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800/30">
+                  Límite de {maxUsuarios} usuarios (incluyendo al dueño) alcanzado en tu Plan {planActivo}.
                 </p>
               )}
             </form>

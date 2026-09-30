@@ -181,7 +181,6 @@ export default function VistaLogin() {
         return;
       }
 
-      // CORREGIDO: Prevención de cruce de datos entre tiendas
       const tiendaAnterior = localStorage.getItem("tienda_id");
       if (tiendaAnterior && tiendaAnterior !== tienda.id) {
         await limpiarCachesLocales();
@@ -234,8 +233,14 @@ export default function VistaLogin() {
     }
   };
 
-  const manejarLoginSaaS = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const manejarLoginSaaS = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!emailSaaS || !passwordSaaS) {
+      setErrorSaaS("Por favor, ingresa tu correo y contraseña.");
+      return;
+    }
+
     setCargandoSaaS(true);
     setErrorSaaS("");
     setMensajeExito("");
@@ -258,10 +263,7 @@ export default function VistaLogin() {
         throw new Error("No tienes ninguna tienda vinculada o tu acceso fue revocado.");
       }
 
-      // CORREGIDO: Aplanamos y tipamos como any[] para resolver el error de TypeScript
       const tiendas = miembrosData.map(m => m.tiendas).flat().filter(Boolean) as any[];
-
-      // CORREGIDO: Filtro de tiendas únicas para evitar el bug de duplicidad visual
       const tiendasUnicas = Array.from(new Map(tiendas.map(t => [t.id, t])).values());
 
       if (tiendasUnicas.length === 1) {
@@ -278,8 +280,8 @@ export default function VistaLogin() {
     }
   };
 
-  const manejarRecuperacion = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const manejarRecuperacion = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     setCargandoSaaS(true);
     setErrorSaaS("");
     setMensajeExito("");
@@ -309,9 +311,16 @@ export default function VistaLogin() {
     }
   };
 
-  const manejarEnvioPin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const manejarEnvioPin = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     if (!usuarioSeleccionado) return;
+
+    if (!pinIngresado || pinIngresado.length < 4) {
+      setErrorMensaje("El PIN debe tener al menos 4 caracteres.");
+      setPinIngresado("");
+      setTimeout(() => setErrorMensaje(""), 2000);
+      return;
+    }
 
     const diaHoy = new Date().getDay();
     const diasTrabajo = usuarioSeleccionado.horarioSemanal?.diasTrabajo || [1, 2, 3, 4, 5];
@@ -353,7 +362,6 @@ export default function VistaLogin() {
     setMostrarPin(false);
   };
 
-  // CORREGIDO: Purga forzada al cerrar sesión
   const manejarRegresoCuenta = async () => {
     if (navigator.onLine) await supabase.auth.signOut();
     await limpiarCachesLocales();
@@ -365,7 +373,6 @@ export default function VistaLogin() {
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-emerald-50/30 dark:bg-slate-950 p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-emerald-600/10 to-transparent -z-10 pointer-events-none"></div>
 
-      {/* MODALES FLOTANTES DE SUSCRIPCIÓN */}
       <ModalAviso 
         abierto={Boolean(avisoSuscripcion)} 
         titulo={avisoSuscripcion?.titulo ?? ""} 
@@ -458,7 +465,7 @@ export default function VistaLogin() {
               mensajeExito={mensajeExito}
               cargandoSaaS={cargandoSaaS}
               modoOfflineInfo={modoOfflineInfo}
-              onRecuperar={manejarRecuperacion}
+              onRecuperar={manejarRecuperacion as any}
               onVolver={() => { setModoRecuperacion(false); setErrorSaaS(""); setMensajeExito(""); }}
             />
           ) : (
@@ -468,19 +475,35 @@ export default function VistaLogin() {
                 {modoOfflineInfo && <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md"><WifiOff size={12} /> Offline</span>}
               </h2>
               
-              <form onSubmit={manejarLoginSaaS} className="space-y-4">
+              <div onKeyDown={(e) => { if (e.key === 'Enter') manejarLoginSaaS(); }} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Correo Electrónico</label>
-                  <input type="email" required autoFocus autoComplete="username" value={emailSaaS} onChange={(e) => setEmailSaaS(e.target.value)} disabled={modoOfflineInfo} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" placeholder="admin@mitienda.com" />
+                  <input 
+                    type="text" 
+                    autoFocus 
+                    autoComplete="off" 
+                    autoCorrect="off"
+                    spellCheck="false"
+                    data-lpignore="true" 
+                    value={emailSaaS} 
+                    onChange={(e) => setEmailSaaS(e.target.value)} 
+                    disabled={modoOfflineInfo} 
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50" 
+                    placeholder="admin@mitienda.com" 
+                  />
                 </div>
                 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Contraseña</label>
                   <div className="relative">
+                    {/* SOLUCIÓN: Agregado "as any" para evitar errores de TypeScript */}
                     <input 
-                      type={mostrarPassword ? "text" : "password"} 
-                      required 
-                      autoComplete="new-password"
+                      type="text" 
+                      style={{ WebkitTextSecurity: mostrarPassword ? "none" : "disc" } as any}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      data-lpignore="true" 
                       value={passwordSaaS} 
                       onChange={(e) => setPasswordSaaS(e.target.value)} 
                       disabled={modoOfflineInfo} 
@@ -504,7 +527,7 @@ export default function VistaLogin() {
                   </p>
                 )}
 
-                <button type="submit" disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
+                <button type="button" onClick={manejarLoginSaaS} disabled={cargandoSaaS || modoOfflineInfo} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 flex justify-center items-center gap-2">
                   {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Conectando...</> : "Iniciar Sesión"}
                 </button>
 
@@ -513,7 +536,7 @@ export default function VistaLogin() {
                     ¿Olvidaste tu contraseña?
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           )
         ) 
@@ -558,19 +581,24 @@ export default function VistaLogin() {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{usuarioSeleccionado.nombre}</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ingresa tu PIN de seguridad</p>
             </div>
-            <form onSubmit={manejarEnvioPin} className="flex flex-col gap-4">
+            
+            <div onKeyDown={(e) => { if (e.key === 'Enter') manejarEnvioPin(); }} className="flex flex-col gap-4">
               <div className="relative flex items-center justify-center">
                 <Lock className="absolute left-5 text-slate-400" size={20} />
+                {/* SOLUCIÓN: Agregado "as any" para evitar errores de TypeScript */}
                 <input 
-                  type={mostrarPin ? "text" : "password"} 
+                  type="text" 
+                  style={{ WebkitTextSecurity: mostrarPin ? "none" : "disc" } as any}
                   autoFocus 
-                  required 
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  data-lpignore="true"
                   value={pinIngresado} 
                   onChange={(e) => { setPinIngresado(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setErrorMensaje(""); }} 
                   className={cn("w-full text-center tracking-[0.5em] text-2xl font-mono bg-slate-50 dark:bg-slate-950 border-2 rounded-2xl py-4 pr-12 outline-none focus:ring-4 transition-all text-slate-900 dark:text-slate-100 placeholder:tracking-normal", errorMensaje ? "border-red-500 focus:ring-red-500/20 text-red-600 animate-in shake bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-emerald-500/20")} 
                   placeholder="••••" 
                   maxLength={6} 
-                  pattern="[A-Za-z]{2}[0-9]{4}" 
                 />
                 <button 
                   type="button"
@@ -581,8 +609,8 @@ export default function VistaLogin() {
                 </button>
               </div>
               {errorMensaje && <p className="text-red-500 text-sm text-center font-medium animate-in fade-in">{errorMensaje}</p>}
-              <button type="submit" className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02]">Ingresar al Sistema</button>
-            </form>
+              <button type="button" onClick={manejarEnvioPin} className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02]">Ingresar al Sistema</button>
+            </div>
           </div>
         )}
       </div>
