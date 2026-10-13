@@ -5,7 +5,7 @@ import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { 
   DollarSign, TrendingUp, AlertTriangle, 
-  ShoppingCart, Plus, Bell, History, ArrowRight, Calendar, Printer, CreditCard, Banknote, Ban
+  ShoppingCart, Plus, Bell, History, ArrowRight, Calendar, Printer, CreditCard, Banknote, Ban, HandCoins
 } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { useState } from "react";
@@ -40,6 +40,7 @@ export default function VistaPanel() {
   const totalIngresosHoy = ventasHoy.reduce((acc, v) => acc + (v.total || 0), 0);
   const totalEfectivoHoy = ventasHoy.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
   const totalElectronicoHoy = ventasHoy.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+  const totalFiadoHoy = ventasHoy.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
 
   let costoTotalHoy = 0;
   ventasHoy.forEach(venta => {
@@ -133,6 +134,16 @@ export default function VistaPanel() {
           <div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Cobrado Tarjeta/Transf.</p>
             <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">${totalElectronicoHoy.toFixed(2)}</p>
+          </div>
+        </div>
+
+        <div className="efecto-cristal p-5 rounded-2xl flex items-center gap-4 border border-amber-200/70 dark:border-amber-900/30">
+          <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl">
+            <HandCoins size={24} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Fiados (Hoy)</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">${totalFiadoHoy.toFixed(2)}</p>
           </div>
         </div>
 

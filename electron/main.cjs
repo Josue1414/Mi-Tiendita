@@ -14,6 +14,7 @@ const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
 const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32); 
 const IV_LENGTH = 16;
 let ioServidor;
+let servidorHttpLAN;
 
 let dispositivoCallback = null;
 
@@ -89,34 +90,72 @@ function obtenerIpLocal() {
   return '127.0.0.1';
 }
 
+function obtenerEstadoLAN() {
+  return {
+    activo: Boolean(servidorHttpLAN?.listening),
+    dispositivosConectados: ioServidor?.sockets.sockets.size ?? 0,
+    ip: obtenerIpLocal()
+  };
+}
+
+function emitirEstadoLAN() {
+  const estado = obtenerEstadoLAN();
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('estado-servidor-lan', estado);
+  }
+}
+
 function iniciarServidorLAN() {
-  if (ioServidor) return;
+  if (servidorHttpLAN?.listening) return Promise.resolve(obtenerEstadoLAN());
   const appExpress = express();
   const server = http.createServer(appExpress);
   
   const distPath = path.join(__dirname, '../dist');
   appExpress.use(express.static(distPath));
-  appExpress.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  appExpress.get(/.*/, (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
   ioServidor = new Server(server, { cors: { origin: "*" } });
 
   ioServidor.on('connection', (socket) => {
     console.log('Dispositivo LAN conectado:', socket.id);
+    emitirEstadoLAN();
+
+    socket.on('disconnect', () => {
+      emitirEstadoLAN();
+    });
     
     socket.on('sync-pantalla-cliente', (data) => {
       ioServidor.emit('update-pantalla-cliente', data);
     });
     
     socket.on('accion-esclavo', (data) => {
+      socket.broadcast.emit('accion-maestro', data);
       const wins = BrowserWindow.getAllWindows();
       if (wins.length > 0) {
         wins[0].webContents.send('accion-de-esclavo', data);
       }
     });
+
+    socket.on('solicitar-estado-inicial', () => {
+      const wins = BrowserWindow.getAllWindows();
+      if (wins.length > 0) {
+        wins[0].webContents.send('solicitar-snapshot-lan', socket.id);
+      }
+    });
   });
 
-  server.listen(4000, '0.0.0.0', () => {
-    console.log('Servidor LAN iniciado en puerto 4000');
+  servidorHttpLAN = server;
+  return new Promise((resolve, reject) => {
+    server.once('error', (error) => {
+      ioServidor = undefined;
+      servidorHttpLAN = undefined;
+      reject(error);
+    });
+    server.listen(4000, '0.0.0.0', () => {
+      console.log('Servidor LAN iniciado en puerto 4000');
+      emitirEstadoLAN();
+      resolve(obtenerEstadoLAN());
+    });
   });
 }
 
@@ -235,9 +274,13 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('obtener-ip-local', () => obtenerIpLocal());
-  ipcMain.handle('iniciar-servidor-lan', () => { iniciarServidorLAN(); return true; });
+  ipcMain.handle('iniciar-servidor-lan', () => iniciarServidorLAN());
+  ipcMain.handle('obtener-estado-lan', () => obtenerEstadoLAN());
   ipcMain.handle('emitir-a-esclavos', (event, data) => {
     if (ioServidor) ioServidor.emit('accion-maestro', data);
+  });
+  ipcMain.handle('emitir-snapshot-a-cliente', (event, socketId, snapshot) => {
+    if (ioServidor) ioServidor.to(socketId).emit('estado-inicial-lan', snapshot);
   });
 
   createWindow();

@@ -4,18 +4,21 @@ import { useEstadoTrabajadores, type Trabajador, type PermisosTrabajador, type H
 import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
 import { useEstadoVentas } from "../../estado/estadoVentas";
 // Se agregó el ícono "Save" a la importación
-import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, Eye, Clock, FileText, Save } from "lucide-react";
+import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldCheck, Eye, EyeOff, Clock, FileText, Save } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionPin from "../ui/ModalConfirmacionPin";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 
 export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajador }) {
   const { actualizarTrabajador, trabajadorActivo, eliminarTrabajador } = useEstadoTrabajadores();
+  const { habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
   const { ventas } = useEstadoVentas();
   const { asistencias } = useEstadoAsistencias();
 
   const [expandido, setExpandido] = useState(false);
   const [pestaña, setPestaña] = useState<"PERFIL" | "HORARIO" | "ASISTENCIA" | "AUTORIZACIONES">("PERFIL");
   const [mostrarSalario, setMostrarSalario] = useState(false);
+  const [mostrarPin, setMostrarPin] = useState(false);
   const [modalEliminar, setModalEliminar] = useState(false);
 
   // --- NUEVO: Estado local para el formulario de Perfil ---
@@ -201,7 +204,28 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                       PIN de Acceso
                       {!esDueñoEnSesion && <span className="text-[10px] text-slate-400 font-normal">(Solo Dueño)</span>}
                     </label>
-                    <input type="text" readOnly={!esDueñoEnSesion} disabled={!esDueñoEnSesion} value={esDueñoEnSesion ? formLocal.pin : "••••••"} onChange={(e) => manejarCambio("pin", e.target.value.toUpperCase())} maxLength={6} className={cn(cssInput, "font-mono font-bold tracking-widest")} />
+                    <div className="relative">
+                      <input
+                        type={mostrarPin ? "text" : "password"}
+                        readOnly={!esDueñoEnSesion}
+                        disabled={!esDueñoEnSesion}
+                        value={esDueñoEnSesion ? formLocal.pin : ""}
+                        placeholder={!esDueñoEnSesion ? "••••••" : undefined}
+                        onChange={(e) => manejarCambio("pin", e.target.value.toUpperCase())}
+                        maxLength={6}
+                        className={cn(cssInput, "pr-10 font-mono font-bold tracking-widest")}
+                      />
+                      {esDueñoEnSesion && (
+                        <button
+                          type="button"
+                          onClick={() => setMostrarPin(!mostrarPin)}
+                          aria-label={mostrarPin ? "Ocultar PIN" : "Mostrar PIN"}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500"
+                        >
+                          {mostrarPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {puedeVerSalario && (
@@ -237,6 +261,18 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
                       <input type="checkbox" checked={formLocal.permisos?.actualizarStockCodigo || false} onChange={(e) => manejarPermiso("actualizarStockCodigo", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir ajustar stock y códigos de barras
                     </label>
+                    {habilitarFiados && (
+                      <label className={cn("flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400", modoAccesoFiados === "MANUAL" ? "cursor-pointer" : "cursor-not-allowed")}>
+                        <input
+                          type="checkbox"
+                          checked={modoAccesoFiados === "TODOS" || formLocal.permisos?.permisoFiados === true}
+                          disabled={modoAccesoFiados === "TODOS"}
+                          onChange={(e) => manejarPermiso("permisoFiados", e.target.checked)}
+                          className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+                        />
+                        Permitir dar fiado y consultar la libreta{modoAccesoFiados === "TODOS" ? " (acceso global)" : ""}
+                      </label>
+                    )}
                   </div>
                 )}
 
@@ -260,6 +296,18 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer border-t border-indigo-200 dark:border-indigo-800/50 pt-2 mt-2">
                       <input type="checkbox" checked={formLocal.permisos?.verSalarios || false} onChange={(e) => manejarPermiso("verSalarios", e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" /> Permitir VISUALIZAR el salario de los trabajadores
                     </label>
+                    {habilitarFiados && (
+                      <label className={cn("flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400", modoAccesoFiados === "MANUAL" ? "cursor-pointer" : "cursor-not-allowed")}>
+                        <input
+                          type="checkbox"
+                          checked={modoAccesoFiados === "TODOS" || formLocal.permisos?.permisoFiados === true}
+                          disabled={modoAccesoFiados === "TODOS"}
+                          onChange={(e) => manejarPermiso("permisoFiados", e.target.checked)}
+                          className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+                        />
+                        Permitir dar fiado y consultar la libreta{modoAccesoFiados === "TODOS" ? " (acceso global)" : ""}
+                      </label>
+                    )}
                   </div>
                 )}
 

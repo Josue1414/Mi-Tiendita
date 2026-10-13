@@ -7,7 +7,8 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion"; 
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera, ChevronUp, ChevronDown } from "lucide-react";
+import { useEstadoFiados } from "../estado/estadoFiados"; // <-- NUEVA IMPORTACIÓN
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera, ChevronUp, ChevronDown, BookUser, UserCheck, ArrowLeft } from "lucide-react";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
@@ -35,11 +36,24 @@ export default function VistaPOS() {
   const { forzarRecepcionCaja, obtenerTurnoActivo, requerirPinCancelacion } = useEstadoCaja();
   const { setSeccionActual } = useEstadoNavegacion();
   
-  const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
+  const { nombreTienda, mensajeTicket, direccionTienda, logoTienda, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, mensajePago, bancoTransferencia, titularTransferencia, cuentaTransferencia, habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
+  const puedeDarFiado = habilitarFiados && (
+    trabajadorActivo?.rol === "DUENO" ||
+    modoAccesoFiados === "TODOS" ||
+    trabajadorActivo?.permisos?.permisoFiados === true
+  );
   
   const nombreCajaLocal = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
   const { enviarMensaje, clientesConectados = 0 } = useEmisorPantallaCliente(nombreCajaLocal);
   
+  // Estados de Fiados
+  const { deudores, cargarDeudores } = useEstadoFiados();
+  const [modalFiadoAbierto, setModalFiadoAbierto] = useState(false);
+  const [modoFiado, setModoFiado] = useState<"seleccionar" | "nuevo">("seleccionar");
+  const [deudorSeleccionado, setDeudorSeleccionado] = useState<string>("");
+  const [nuevoDeudor, setNuevoDeudor] = useState({ nombre: "", celular: "", notas: "" });
+  const [busquedaDeudor, setBusquedaDeudor] = useState("");
+
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
   const [productoParaPesar, setProductoParaPesar] = useState<Producto | null>(null);
@@ -60,11 +74,14 @@ export default function VistaPOS() {
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
   const [productoDescripcion, setProductoDescripcion] = useState<Producto | null>(null);
 
-  // NUEVO ESTADO: Controla el acordeón de la cámara
   const [camaraVisible, setCamaraVisible] = useState(true);
 
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
+
+  useEffect(() => {
+    cargarDeudores();
+  }, [cargarDeudores]);
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -187,7 +204,8 @@ export default function VistaPOS() {
 
   useEscanerCodigoBarras(alEscanear);
 
-  const confirmarVenta = async (metodoPago: string) => {
+  // LOGICA CENTRAL DE VENTA FINAL
+  const procesarVentaFinal = async (metodoPago: string, deudorId?: string, nuevoDeudorDatos?: typeof nuevoDeudor) => {
     if (!trabajadorActivo) return;
 
     try {
@@ -207,7 +225,37 @@ export default function VistaPOS() {
 
       await agregarVenta(nuevaVenta);
 
+      // Si es FIADO, registramos la deuda en el almacén local
+      if (metodoPago === "FIADO") {
+        const { agregarDeudor, actualizarDeudor, deudores } = useEstadoFiados.getState();
+        if (nuevoDeudorDatos && nuevoDeudorDatos.nombre.trim()) {
+           await agregarDeudor({
+             id: crypto.randomUUID(),
+             nombre: nuevoDeudorDatos.nombre.trim(),
+             celular: nuevoDeudorDatos.celular.trim(),
+             notas: nuevoDeudorDatos.notas.trim(),
+             tickets: [nuevaVenta.id],
+             totalDeuda: total,
+             fechaCreacion: new Date().toISOString()
+           });
+        } else if (deudorId) {
+           const deudorExistente = deudores.find(d => d.id === deudorId);
+           if (deudorExistente) {
+             await actualizarDeudor({
+               ...deudorExistente,
+               tickets: [...deudorExistente.tickets, nuevaVenta.id],
+               totalDeuda: deudorExistente.totalDeuda + total
+             });
+           }
+        }
+      }
+
       setModalCobroAbierto(false);
+      setModalFiadoAbierto(false);
+      setNuevoDeudor({ nombre: "", celular: "", notas: "" });
+      setDeudorSeleccionado("");
+      setBusquedaDeudor("");
+
       limpiarCarrito();
       setInputDescuento("");
       setProductoEnfoque(null); 
@@ -235,6 +283,21 @@ export default function VistaPOS() {
       console.error("Error al procesar la venta:", error);
       setAviso({ titulo: "Error", mensaje: "Ocurrió un error al procesar el pago. Revisa el historial de ventas." });
       setModalCobroAbierto(false); 
+      setModalFiadoAbierto(false);
+    }
+  };
+
+  // INTERCEPTOR DE MODAL COBRO
+  const confirmarVenta = (metodoPago: string) => {
+    if (metodoPago === "FIADO") {
+      if (!puedeDarFiado) {
+        setAviso({ titulo: "Sin permiso", mensaje: "No tienes permiso para dar fiado. Solicita acceso al dueño de la tienda." });
+        return;
+      }
+      setModalCobroAbierto(false);
+      setModalFiadoAbierto(true);
+    } else {
+      procesarVentaFinal(metodoPago);
     }
   };
 
@@ -262,7 +325,6 @@ export default function VistaPOS() {
           Ticket de Venta
         </h2>
 
-        {/* CONTENEDOR FLEXIBLE/GRID PARA PRODUCTOS */}
         <div className={cn(
           "flex-1 min-h-[100px] overflow-y-auto pr-1",
           modo === "camara" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 content-start" : "flex flex-col gap-2"
@@ -338,7 +400,6 @@ export default function VistaPOS() {
           )}
         </div>
 
-        {/* ZONA INFERIOR DE COBRO */}
         <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/10 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center px-1">
             <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 font-medium">
@@ -474,6 +535,65 @@ export default function VistaPOS() {
         </div>
       )}
       
+      {/* MODAL DE FIADOS (Asignar a cliente) */}
+      {modalFiadoAbierto && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-amber-700 dark:text-amber-500">
+                <BookUser size={24} /> Asignar a Cliente
+              </h2>
+              <button onClick={() => { setModalFiadoAbierto(false); setModalCobroAbierto(true); }} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+                <ArrowLeft size={18} />
+              </button>
+            </div>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button onClick={() => setModoFiado("seleccionar")} className={cn("flex-1 py-1.5 text-xs font-bold rounded-lg transition-all", modoFiado === "seleccionar" ? "bg-white dark:bg-slate-700 shadow-sm text-amber-600 dark:text-amber-400" : "text-slate-500 hover:text-slate-900 dark:hover:text-white")}>Cliente Existente</button>
+              <button onClick={() => setModoFiado("nuevo")} className={cn("flex-1 py-1.5 text-xs font-bold rounded-lg transition-all", modoFiado === "nuevo" ? "bg-white dark:bg-slate-700 shadow-sm text-amber-600 dark:text-amber-400" : "text-slate-500 hover:text-slate-900 dark:hover:text-white")}>Nuevo Cliente</button>
+            </div>
+
+            {modoFiado === "seleccionar" ? (
+              <div className="flex flex-col gap-3 min-h-[250px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input type="text" placeholder="Buscar cliente..." value={busquedaDeudor} onChange={e => setBusquedaDeudor(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white" />
+                </div>
+                <div className="flex-1 overflow-y-auto border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-slate-900 p-1 max-h-[200px]">
+                  {deudores.filter(d => d.nombre.toLowerCase().includes(busquedaDeudor.toLowerCase())).map(deudor => (
+                    <button key={deudor.id} onClick={() => setDeudorSeleccionado(deudor.id)} className={cn("w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors", deudorSeleccionado === deudor.id ? "bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700" : "hover:bg-white dark:hover:bg-slate-800 border border-transparent")}>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{deudor.nombre}</p>
+                        <p className="text-xs text-slate-500">{deudor.celular || "Sin teléfono"}</p>
+                      </div>
+                      {deudorSeleccionado === deudor.id && <UserCheck size={18} className="text-amber-600" />}
+                    </button>
+                  ))}
+                  {deudores.length === 0 && <p className="text-center text-sm text-slate-400 py-4">No hay clientes registrados.</p>}
+                </div>
+                <button onClick={() => procesarVentaFinal("FIADO", deudorSeleccionado)} disabled={!deudorSeleccionado} className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all disabled:opacity-50">Confirmar Fiado</button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 min-h-[250px]">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Nombre Completo *</label>
+                  <input type="text" value={nuevoDeudor.nombre} onChange={e => setNuevoDeudor({...nuevoDeudor, nombre: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white" placeholder="Ej: María López" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Celular</label>
+                  <input type="tel" value={nuevoDeudor.celular} onChange={e => setNuevoDeudor({...nuevoDeudor, celular: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white" placeholder="Ej: 5512345678" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Notas (Opcional)</label>
+                  <textarea value={nuevoDeudor.notas} onChange={e => setNuevoDeudor({...nuevoDeudor, notas: e.target.value})} rows={2} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white resize-none" placeholder="Dirección, referencias, etc." />
+                </div>
+                <button onClick={() => procesarVentaFinal("FIADO", undefined, nuevoDeudor)} disabled={!nuevoDeudor.nombre.trim()} className="w-full mt-auto py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all disabled:opacity-50">Registrar y Confirmar Fiado</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <ModalConfirmacionPin
         abierto={modalPinCancelacion}
         titulo="Autorización Requerida"
@@ -528,6 +648,7 @@ export default function VistaPOS() {
         descuento={descuento}
         total={total} 
         cantidadArticulos={items.length}
+        fiadosPermitidos={puedeDarFiado}
         alConfirmarVenta={confirmarVenta}
         teclaCobro={teclaCobro}
         teclaEfectivo={teclaEfectivo}

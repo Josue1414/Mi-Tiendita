@@ -1,7 +1,9 @@
+// src/estado/estadoConfiguracion.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
-import { useEstadoPlan } from "./estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { useEstadoPlan } from "./estadoPlan"; 
+import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -35,7 +37,35 @@ export interface Configuracion {
   escanerPuerto: string;
   escanerDetectado: boolean;
   escanerMensaje: string;
+  habilitarFiados: boolean; // <-- NUEVO ESTADO
+  modoAccesoFiados: "TODOS" | "MANUAL";
 }
+
+type PreferenciasFiados = Pick<Configuracion, "habilitarFiados" | "modoAccesoFiados">;
+
+const obtenerClavePreferenciasFiados = () =>
+  "preferencias_fiados";
+
+const leerPreferenciasFiados = (): Partial<PreferenciasFiados> => {
+  try {
+    const guardadas = localStorage.getItem(obtenerClavePreferenciasFiados());
+    if (!guardadas) return {};
+    const preferencias: Partial<PreferenciasFiados> = JSON.parse(guardadas);
+    return {
+      ...(typeof preferencias.habilitarFiados === "boolean" ? { habilitarFiados: preferencias.habilitarFiados } : {}),
+      ...(preferencias.modoAccesoFiados === "TODOS" || preferencias.modoAccesoFiados === "MANUAL"
+        ? { modoAccesoFiados: preferencias.modoAccesoFiados }
+        : {})
+    };
+  } catch (error) {
+    console.error("Error al leer las preferencias locales de fiados:", error);
+    return {};
+  }
+};
+
+const guardarPreferenciasFiados = (preferencias: PreferenciasFiados) => {
+  localStorage.setItem(obtenerClavePreferenciasFiados(), JSON.stringify(preferencias));
+};
 
 interface EstadoConfiguracion extends Configuracion {
   cargando: boolean;
@@ -56,6 +86,14 @@ interface EstadoConfiguracion extends Configuracion {
     mensaje: string,
   ) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
+  setHabilitarFiados: (activo: boolean) => Promise<void>; // <-- NUEVA FUNCIÓN
+  setModoAccesoFiados: (modo: PreferenciasFiados["modoAccesoFiados"]) => Promise<void>;
+  aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
+  hidratarEstadoLAN: (snapshot: {
+    trabajadores: unknown[];
+    asistencias: unknown[];
+    configuracion: Partial<Configuracion>;
+  }) => Promise<void>;
   sincronizarConfiguracion: (payload: any) => Promise<void>; 
 }
 
@@ -91,6 +129,22 @@ const CONFIG_INICIAL: Configuracion = {
   escanerPuerto: "USB",
   escanerDetectado: false,
   escanerMensaje: "No se detectó un escáner habilitado. Configure el modelo manualmente.",
+  habilitarFiados: false, // <-- VALOR INICIAL
+  modoAccesoFiados: "TODOS",
+};
+
+const guardarConfiguracionLocal = async (configuracion: Configuracion) => {
+  if (esEscritorio) {
+    await guardarRegistro("configuracion", {
+      ...configuracion,
+      directorioHandle: configuracion.directorioHandle
+    });
+    return;
+  }
+
+  const configuracionWeb = { ...configuracion };
+  delete configuracionWeb.directorioHandle;
+  await guardarRegistro("configuracion", configuracionWeb);
 };
 
 export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => ({
@@ -100,10 +154,11 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   cargarConfiguracion: async () => {
     set({ cargando: true });
     try {
-      const tiendaId = await obtenerTiendaIdActual();
-      const permiteNube = useEstadoPlan.getState().permiteNube; // <-- OBTENER PERMISO DE NUBE
+      const sincronizacionNubePermitida = debeSincronizarConNube();
+      const tiendaId = sincronizacionNubePermitida ? await obtenerTiendaIdActual() : null;
+      const permiteNube = useEstadoPlan.getState().permiteNube;
 
-      if (navigator.onLine && tiendaId) {
+      if (sincronizacionNubePermitida && navigator.onLine && tiendaId) {
         const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
 
         if (tiendaNube) {
@@ -121,15 +176,17 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             titularTransferencia: tiendaNube.titular_transferencia || "",
             cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
             id: CONFIG_ID,
-            // <-- FORZAR APAGADO SI EL PLAN ES BÁSICO -->
             sincronizacionNube: permiteNube ? get().sincronizacionNube : false 
           };
 
+          const datosLocales = await obtenerRegistros("configuracion");
+          const configLocal = datosLocales[0] as Configuracion | undefined;
+          const preferenciasFiados = leerPreferenciasFiados();
+          estadoActualizado.habilitarFiados = preferenciasFiados.habilitarFiados ?? configLocal?.habilitarFiados ?? false;
+          estadoActualizado.modoAccesoFiados = preferenciasFiados.modoAccesoFiados ?? configLocal?.modoAccesoFiados ?? "TODOS";
+
           if (esEscritorio) {
-            const data = await obtenerRegistros("configuracion");
-            // Si hay datos locales, respetamos la decisión del usuario (solo si su plan se lo permite)
-            if (data.length > 0) {
-               const configLocal = data[0] as Configuracion;
+            if (configLocal) {
                estadoActualizado.sincronizacionNube = permiteNube ? configLocal.sincronizacionNube : false;
                estadoActualizado.directorioImagenes = configLocal.directorioImagenes;
             }
@@ -143,19 +200,25 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
 
       let estadoLocal = { ...CONFIG_INICIAL };
 
-      if (esEscritorio) {
-        const data = await obtenerRegistros("configuracion");
-        if (data.length === 0) {
+      const data = await obtenerRegistros("configuracion");
+      if (data.length === 0) {
+        if (esEscritorio) {
           await guardarRegistro("configuracion", CONFIG_INICIAL);
-        } else {
-          estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
-          // <-- FORZAR APAGADO EN LOCAL SI EL PLAN ES BÁSICO -->
-          if (!permiteNube) {
-              estadoLocal.sincronizacionNube = false;
-              await guardarRegistro("configuracion", estadoLocal);
-          }
+        }
+      } else {
+        estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
+        if (esEscritorio && !permiteNube) {
+            estadoLocal.sincronizacionNube = false;
+            await guardarRegistro("configuracion", estadoLocal);
         }
       }
+
+      const preferenciasFiados = leerPreferenciasFiados();
+      estadoLocal = {
+        ...estadoLocal,
+        habilitarFiados: preferenciasFiados.habilitarFiados ?? estadoLocal.habilitarFiados,
+        modoAccesoFiados: preferenciasFiados.modoAccesoFiados ?? estadoLocal.modoAccesoFiados
+      };
 
       set({ ...estadoLocal, cargando: false });
     } catch (error) {
@@ -175,7 +238,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         logoTienda: logo
       };
       
-      if (esEscritorio) await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      await guardarConfiguracionLocal(nuevaConfig);
       set({ 
         nombreTienda: nombre, 
         mensajeTicket: mensaje, 
@@ -183,11 +246,15 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         logoTienda: logo 
       });
 
-      if (navigator.onLine) {
+      const payloadLAN = { nombreTienda: nombre, mensajeTicket: mensaje, direccionTienda: direccion, logoTienda: logo };
+      if (enviarAccionLAN({ tipo: "LAN_CONFIG_TIENDA", payload: payloadLAN })) return;
+
+      const payloadNube = { nombre, mensaje_ticket: mensaje, direccion_tienda: direccion };
+      if (debeSincronizarConNube() && navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) await supabase.from('tiendas').update({ nombre, mensaje_ticket: mensaje, direccion_tienda: direccion }).eq('id', tiendaId);
-      } else {
-        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { nombre, mensaje_ticket: mensaje, direccion_tienda: direccion } });
+        if (tiendaId) await supabase.from('tiendas').update(payloadNube).eq('id', tiendaId);
+      } else if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: payloadNube });
       }
     } catch (error) {
       console.error("Error al guardar datos de la tienda:", error);
@@ -208,7 +275,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   
   toggleSincronizacion: async () => {
     try {
-      // <-- BLOQUEAR EL CAMBIO SI EL PLAN NO LO PERMITE -->
       const permiteNube = useEstadoPlan.getState().permiteNube;
       if (!permiteNube) {
         throw new Error("Tu plan actual no permite la sincronización en la nube.");
@@ -222,22 +288,22 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       set({ sincronizacionNube: nuevoEstado });
     } catch (error) {
       console.error("Error al cambiar la sincronización:", error);
-      throw error; // Lanzar para que la UI capture el error y muestre un aviso
+      throw error; 
     }
   },
 
   setTeclaCobro: async (tecla) => {
     const teclaNormalizada = tecla.trim() || CONFIG_INICIAL.teclaCobro;
     try {
-      if (esEscritorio) {
-        const nuevaConfig = { ...get(), teclaCobro: teclaNormalizada };
-        await guardarRegistro("configuracion", nuevaConfig);
-      }
+      await guardarConfiguracionLocal({ ...get(), teclaCobro: teclaNormalizada });
       set({ teclaCobro: teclaNormalizada });
-      if (navigator.onLine) {
+      const payloadLAN = { teclaCobro: teclaNormalizada };
+      if (enviarAccionLAN({ tipo: "LAN_CONFIG_TECLA", payload: payloadLAN })) return;
+
+      if (debeSincronizarConNube() && navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) await supabase.from('tiendas').update({ tecla_cobro: teclaNormalizada }).eq('id', tiendaId);
-      } else {
+      } else if (debeSincronizarConNube()) {
         await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { tecla_cobro: teclaNormalizada } });
       }
     } catch (error) {
@@ -250,25 +316,36 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const configBase = get();
       const nuevaConfig = { ...configBase, ...datos };
       
-      if (esEscritorio) await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      await guardarConfiguracionLocal(nuevaConfig);
       set(datos);
 
+      const payloadLAN = {
+        mensajePago: nuevaConfig.mensajePago,
+        bancoTransferencia: nuevaConfig.bancoTransferencia,
+        titularTransferencia: nuevaConfig.titularTransferencia,
+        cuentaTransferencia: nuevaConfig.cuentaTransferencia,
+        teclaEfectivo: nuevaConfig.teclaEfectivo,
+        teclaTarjeta: nuevaConfig.teclaTarjeta,
+        teclaTransferencia: nuevaConfig.teclaTransferencia
+      };
       const payloadNube = {
-        mensaje_pago: nuevaConfig.mensajePago,
-        banco_transferencia: nuevaConfig.bancoTransferencia,
-        titular_transferencia: nuevaConfig.titularTransferencia,
-        cuenta_transferencia: nuevaConfig.cuentaTransferencia,
-        tecla_efectivo: nuevaConfig.teclaEfectivo,
-        tecla_tarjeta: nuevaConfig.teclaTarjeta,
-        tecla_transferencia: nuevaConfig.teclaTransferencia
+        mensaje_pago: payloadLAN.mensajePago,
+        banco_transferencia: payloadLAN.bancoTransferencia,
+        titular_transferencia: payloadLAN.titularTransferencia,
+        cuenta_transferencia: payloadLAN.cuentaTransferencia,
+        tecla_efectivo: payloadLAN.teclaEfectivo,
+        tecla_tarjeta: payloadLAN.teclaTarjeta,
+        tecla_transferencia: payloadLAN.teclaTransferencia
       };
 
-      if (navigator.onLine) {
+      if (enviarAccionLAN({ tipo: "LAN_CONFIG_PAGO", payload: payloadLAN })) return;
+
+      if (debeSincronizarConNube() && navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
           await supabase.from('tiendas').update(payloadNube).eq('id', tiendaId);
         }
-      } else {
+      } else if (debeSincronizarConNube()) {
         await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: payloadNube });
       }
     } catch (error) {
@@ -346,6 +423,116 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     set({ correoDueno: correoLimpio });
   },
 
+  // <-- NUEVA FUNCIÓN PARA ACTIVAR/DESACTIVAR FIADOS LOCALMENTE -->
+  setHabilitarFiados: async (activo) => {
+    try {
+      const configBase = get();
+      const nuevaConfig = { ...configBase, habilitarFiados: activo };
+      guardarPreferenciasFiados({ habilitarFiados: activo, modoAccesoFiados: configBase.modoAccesoFiados });
+      if (esEscritorio) {
+        await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      }
+      set({ habilitarFiados: activo });
+    } catch (error) {
+      console.error("Error al guardar configuración de fiados:", error);
+    }
+  },
+
+  setModoAccesoFiados: async (modo) => {
+    try {
+      const configBase = get();
+      const nuevaConfig = { ...configBase, modoAccesoFiados: modo };
+      guardarPreferenciasFiados({ habilitarFiados: configBase.habilitarFiados, modoAccesoFiados: modo });
+      if (esEscritorio) {
+        await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      }
+      set({ modoAccesoFiados: modo });
+    } catch (error) {
+      console.error("Error al guardar el modo de acceso a fiados:", error);
+    }
+  },
+
+  aplicarAccionLAN: async (tipo, payload) => {
+    const configuracionLAN = (payload || {}) as Partial<Configuracion>;
+    let actualizacion: Partial<Configuracion>;
+    let payloadNube: Record<string, unknown>;
+
+    if (tipo === "LAN_CONFIG_TIENDA") {
+      actualizacion = {
+        nombreTienda: configuracionLAN.nombreTienda,
+        mensajeTicket: configuracionLAN.mensajeTicket,
+        direccionTienda: configuracionLAN.direccionTienda,
+        logoTienda: configuracionLAN.logoTienda
+      };
+      payloadNube = {
+        nombre: actualizacion.nombreTienda,
+        mensaje_ticket: actualizacion.mensajeTicket,
+        direccion_tienda: actualizacion.direccionTienda
+      };
+    } else if (tipo === "LAN_CONFIG_PAGO") {
+      actualizacion = {
+        mensajePago: configuracionLAN.mensajePago,
+        bancoTransferencia: configuracionLAN.bancoTransferencia,
+        titularTransferencia: configuracionLAN.titularTransferencia,
+        cuentaTransferencia: configuracionLAN.cuentaTransferencia,
+        teclaEfectivo: configuracionLAN.teclaEfectivo,
+        teclaTarjeta: configuracionLAN.teclaTarjeta,
+        teclaTransferencia: configuracionLAN.teclaTransferencia
+      };
+      payloadNube = {
+        mensaje_pago: actualizacion.mensajePago,
+        banco_transferencia: actualizacion.bancoTransferencia,
+        titular_transferencia: actualizacion.titularTransferencia,
+        cuenta_transferencia: actualizacion.cuentaTransferencia,
+        tecla_efectivo: actualizacion.teclaEfectivo,
+        tecla_tarjeta: actualizacion.teclaTarjeta,
+        tecla_transferencia: actualizacion.teclaTransferencia
+      };
+    } else if (tipo === "LAN_CONFIG_TECLA") {
+      actualizacion = { teclaCobro: configuracionLAN.teclaCobro };
+      payloadNube = { tecla_cobro: actualizacion.teclaCobro };
+    } else {
+      return;
+    }
+
+    const nuevaConfiguracion = { ...get(), ...actualizacion };
+    await guardarConfiguracionLocal(nuevaConfiguracion);
+    set(actualizacion);
+
+    if (debeSincronizarConNube() && navigator.onLine) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) await supabase.from("tiendas").update(payloadNube).eq("id", tiendaId);
+    } else if (debeSincronizarConNube()) {
+      await registrarPendienteSync({ tabla: "tiendas", operacion: "ACTUALIZAR", payload: payloadNube });
+    }
+  },
+
+  hidratarEstadoLAN: async (snapshot) => {
+    const clavesCompartidas: (keyof Configuracion)[] = [
+      "nombreTienda",
+      "mensajeTicket",
+      "direccionTienda",
+      "logoTienda",
+      "teclaCobro",
+      "teclaEfectivo",
+      "teclaTarjeta",
+      "teclaTransferencia",
+      "bancoTransferencia",
+      "titularTransferencia",
+      "cuentaTransferencia",
+      "mensajePago"
+    ];
+    const actualizacion: Partial<Configuracion> = {};
+    for (const clave of clavesCompartidas) {
+      const valor = snapshot.configuracion[clave];
+      if (valor !== undefined) Object.assign(actualizacion, { [clave]: valor });
+    }
+
+    const configuracionActualizada = { ...get(), ...actualizacion };
+    await guardarConfiguracionLocal(configuracionActualizada);
+    set({ ...actualizacion, cargando: false });
+  },
+
   sincronizarConfiguracion: async (payload: any) => {
     const { new: nuevo } = payload;
     if (nuevo) {
@@ -373,6 +560,32 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           directorioHandle: configBase.directorioHandle 
         });
       }
+
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_TIENDA",
+        payload: {
+          nombreTienda: actualizacion.nombreTienda,
+          mensajeTicket: actualizacion.mensajeTicket,
+          direccionTienda: actualizacion.direccionTienda,
+          logoTienda: get().logoTienda
+        }
+      });
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_TECLA",
+        payload: { teclaCobro: actualizacion.teclaCobro }
+      });
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_PAGO",
+        payload: {
+          mensajePago: actualizacion.mensajePago,
+          bancoTransferencia: actualizacion.bancoTransferencia,
+          titularTransferencia: actualizacion.titularTransferencia,
+          cuentaTransferencia: actualizacion.cuentaTransferencia,
+          teclaEfectivo: actualizacion.teclaEfectivo,
+          teclaTarjeta: actualizacion.teclaTarjeta,
+          teclaTransferencia: actualizacion.teclaTransferencia
+        }
+      });
     }
   }
 }));

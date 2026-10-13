@@ -1,6 +1,7 @@
 // src/vistas/secciones_configuracion/SeccionRed.tsx
 import { useState, useEffect, useMemo } from "react";
-import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2 } from "lucide-react";
+import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2, QrCode } from "lucide-react";
+import QRCode from "react-qr-code";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoRed } from "../../estado/estadoRed";
 import { useEstadoPlan } from "../../estado/estadoPlan";
@@ -23,7 +24,15 @@ const URL_INSTALADOR_EXE = 'https://github.com/Josue1414/predicamap/releases/dow
 
 export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
-  const { esMaestro, ipMaestro, conectadoLAN, setEsMaestro, setIpMaestro } = useEstadoRed();
+  const {
+    esMaestro,
+    ipMaestro,
+    conectadoLAN,
+    servidorLANActivo,
+    dispositivosLANConectados,
+    setEsMaestro,
+    setIpMaestro
+  } = useEstadoRed();
   
   const maxDispositivos = useEstadoPlan((estado) => estado.maxDispositivos);
 
@@ -38,6 +47,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const [miHwid, setMiHwid] = useState<string>("");
   const [cerebroActual, setCerebroActual] = useState<Dispositivo | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [mostrarQRLAN, setMostrarQRLAN] = useState(false);
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
@@ -194,6 +204,22 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           await desvincularEquipo(confirmacionDesvincular.equipo.id, confirmacionDesvincular.equipo.hardware_id === miHwid, nuevoCerebroId);
         }}
       />
+      {mostrarQRLAN && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setMostrarQRLAN(false)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900" onClick={(evento) => evento.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-bold text-slate-900 dark:text-white"><QrCode size={20} /> Entrar por LAN</h2>
+              <button onClick={() => setMostrarQRLAN(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Cerrar"><X size={20} /></button>
+            </div>
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">Conecta el móvil a la misma Wi-Fi y escanea este código para abrir Mi Tiendita desde el Cerebro.</p>
+            <div className="mx-auto mb-4 w-fit rounded-xl border border-slate-200 bg-white p-3">
+              <QRCode value={`http://${ipLocalPC}:4000/`} size={220} />
+            </div>
+            <p className="break-all rounded-lg bg-slate-100 p-2 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">http://{ipLocalPC}:4000/</p>
+            <p className="mt-3 text-xs text-slate-500">La conexión local funciona aunque Internet esté disponible o se interrumpa.</p>
+          </div>
+        </div>
+      )}
       <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-3">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
@@ -238,7 +264,13 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </div>
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
               <span className="block text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Estado LAN</span>
-              <span className="mt-1 block text-sm font-bold text-slate-900 dark:text-slate-100">{conectadoLAN ? "Conectado" : "Sin conexión LAN"}</span>
+              <span className="mt-1 block text-sm font-bold text-slate-900 dark:text-slate-100">
+                {esMaestro
+                  ? servidorLANActivo
+                    ? `Servidor activo · ${dispositivosLANConectados} conectado(s)`
+                    : "Servidor LAN no activo"
+                  : conectadoLAN ? "Conectado al Cerebro" : "Sin conexión LAN"}
+              </span>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -260,6 +292,10 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                     <div className="flex flex-col gap-2">
                       <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
                       <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 dark:border-indigo-700/50 px-3 py-1 text-[10px] font-black text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">{copiado ? "Copiado" : "Copiar Enlace"}</button>
+                      <button onClick={() => setMostrarQRLAN(true)} className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">
+                        <QrCode size={15} /> Mostrar QR para entrar por LAN
+                      </button>
+                      <span className="text-[10px] text-slate-600 dark:text-slate-400">Escanéalo desde un móvil conectado a la misma Wi-Fi.</span>
                     </div>
                   )}
                 </div>

@@ -27,6 +27,13 @@ declare global {
       obtenerHardwareId: () => Promise<string>;
       validarSuscripcionOffline: () => Promise<{ activo: boolean; error?: string }>;
       sincronizarReloj: (fechaVencimiento: string) => Promise<{ exito: boolean; error?: string }>;
+      iniciarServidorLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
+      obtenerEstadoLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
+      onEstadoLAN: (callback: (estado: { activo: boolean; dispositivosConectados: number; ip: string }) => void) => void;
+      onSolicitudSnapshotLAN: (callback: (socketId: string) => void) => void;
+      emitirSnapshotLAN: (socketId: string, snapshot: unknown) => Promise<void>;
+      emitirAEsclavos: (data: unknown) => Promise<void>;
+      onAccionDeEsclavo: (callback: (data: unknown) => void) => void;
     };
   }
 }

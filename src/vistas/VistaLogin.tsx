@@ -5,7 +5,7 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { useEstadoPlan } from "../estado/estadoPlan"; 
+import { restaurarPlanCacheado, useEstadoPlan } from "../estado/estadoPlan"; 
 import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown } from "lucide-react"; 
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual } from "../servicios/supabase";
@@ -92,7 +92,7 @@ export default function VistaLogin() {
         const validacion = (await window.apiLocal.validarSuscripcionOffline()) as { activo: boolean; error?: string; fechaVencimiento?: string };
         if (validacion.activo) {
           setCuentaSaaSLogueada(true);
-          useEstadoPlan.getState().cargarPlan('ESTANDAR', 5, 4, true, validacion.fechaVencimiento || null);
+          restaurarPlanCacheado(validacion.fechaVencimiento || null);
         } else {
           setAvisoSuscripcion({ 
             titulo: "Servicio Suspendido", 
@@ -119,7 +119,7 @@ export default function VistaLogin() {
         
         if (fechaLocal) {
           setCuentaSaaSLogueada(true);
-          useEstadoPlan.getState().cargarPlan('ESTANDAR', 5, 4, true, fechaLocal);
+          restaurarPlanCacheado(fechaLocal);
         }
         return;
       }

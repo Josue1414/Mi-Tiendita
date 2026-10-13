@@ -1,6 +1,6 @@
 // src/componentes/ui/ModalCobro.tsx
 import { useState, useEffect, useRef } from "react";
-import { Check, X, Banknote, CreditCard, ArrowRightLeft } from "lucide-react";
+import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 
 interface PropsModalCobro {
@@ -10,6 +10,7 @@ interface PropsModalCobro {
   descuento: number;
   total: number;
   cantidadArticulos: number;
+  fiadosPermitidos: boolean;
   alConfirmarVenta: (metodoPago: string) => void;
   teclaCobro: string;
   teclaEfectivo: string;
@@ -18,9 +19,10 @@ interface PropsModalCobro {
   alCambiarMetodoPago: (metodoPago: MetodoPago) => void;
 }
 
-type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
+// NUEVO: Agregado FIADO a los tipos permitidos
+type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
-export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
+export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
   const [cantidadRecibida, setCantidadRecibida] = useState<string>("");
   const entradaRecibidaRef = useRef<HTMLInputElement>(null);
@@ -36,6 +38,8 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
 
   const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
   const cambio = recibidoNumerico - total;
+  
+  // Validamos si es válido cobrar. Si es fiado, siempre es válido (no se pide cantidad de pago inmediato)
   const esValido = metodoPago !== "EFECTIVO" || recibidoNumerico >= total;
 
   useEffect(() => {
@@ -61,23 +65,20 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         return;
       }
       
-      // SOLUCIÓN: Validamos los atajos de método de pago ANTES de bloquear por el Input
+      // Validamos los atajos de método de pago ANTES de bloquear por el Input
       if (tecla === teclaEfectivo.toLowerCase()) {
         evento.preventDefault();
-        setMetodoPago("EFECTIVO");
-        alCambiarMetodoPago("EFECTIVO");
+        seleccionarMetodo("EFECTIVO");
         return;
       }
       if (tecla === teclaTarjeta.toLowerCase()) {
         evento.preventDefault();
-        setMetodoPago("TARJETA");
-        alCambiarMetodoPago("TARJETA");
+        seleccionarMetodo("TARJETA");
         return;
       }
       if (tecla === teclaTransferencia.toLowerCase()) {
         evento.preventDefault();
-        setMetodoPago("TRANSFERENCIA");
-        alCambiarMetodoPago("TRANSFERENCIA");
+        seleccionarMetodo("TRANSFERENCIA");
         return;
       }
 
@@ -129,118 +130,140 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[0.85fr_1.15fr] gap-3 items-start">
-        {/* Desglose y Total */}
-        <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
-          
-          {descuento > 0 && (
-            <>
-              <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium">
-                <span>Subtotal:</span>
-                <span>${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                <span>Descuento aplicado:</span>
-                <span>-${descuento.toFixed(2)}</span>
-              </div>
-              <div className="h-px w-full bg-slate-200 dark:bg-white/10 my-1"></div>
-            </>
-          )}
+          {/* Desglose y Total */}
+          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
+            
+            {descuento > 0 && (
+              <>
+                <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Descuento aplicado:</span>
+                  <span>-${descuento.toFixed(2)}</span>
+                </div>
+                <div className="h-px w-full bg-slate-200 dark:bg-white/10 my-1"></div>
+              </>
+            )}
 
-          <div className="text-center mt-1">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total a cobrar</p>
-            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${total.toFixed(2)}</p>
+            <div className="text-center mt-1">
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total a cobrar</p>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${total.toFixed(2)}</p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-2">
-        {/* Selección de Método de Pago */}
-          <div className="grid grid-cols-3 gap-1.5">
-          <button onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-            <Banknote size={20} />
-            <span className="text-xs font-semibold">Efectivo ({teclaEfectivo})</span>
-          </button>
-          <button onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-            <CreditCard size={20} />
-            <span className="text-xs font-semibold">Tarjeta ({teclaTarjeta})</span>
-          </button>
-          <button onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-            <ArrowRightLeft size={20} />
-            <span className="text-xs font-semibold">Transf. ({teclaTransferencia})</span>
-          </button>
-        </div>
+          <div className="flex flex-col gap-2">
+            {/* Selección de Método de Pago */}
+            <div className={cn("grid gap-1.5", fiadosPermitidos ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+              <button onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <Banknote size={20} />
+                <span className="text-xs font-semibold">Efectivo ({teclaEfectivo})</span>
+              </button>
+              <button onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <CreditCard size={20} />
+                <span className="text-xs font-semibold">Tarjeta ({teclaTarjeta})</span>
+              </button>
+              <button onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <ArrowRightLeft size={20} />
+                <span className="text-xs font-semibold">Transf. ({teclaTransferencia})</span>
+              </button>
 
-        {/* Calculadora de Cambio (Solo si es Efectivo) */}
-        {metodoPago === "EFECTIVO" && (
-          <div className="flex flex-col gap-1 animate-in slide-in-from-top-2">
-            <div>
-              <label className="flex justify-between items-center text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                <span>Cantidad recibida</span>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded tracking-wide">
-                  [Delete] para borrar todo
-                </span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  ref={entradaRecibidaRef}
-                  autoFocus
-                  value={cantidadRecibida}
-                  onChange={(e) => setCantidadRecibida(e.target.value)}
-                  className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-1.5 mt-1">
-              {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
-                <button
-                  key={billete}
-                  onClick={() => setCantidadRecibida(billete.toString())}
-                  className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
-                >
-                  ${billete}
+              {/* NUEVO BOTÓN DE FIADO */}
+              {fiadosPermitidos && (
+                <button onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                  <BookUser size={20} />
+                  <span className="text-xs font-semibold">Fiado</span>
                 </button>
-              ))}
+              )}
             </div>
 
-            <div className="grid grid-cols-4 gap-1.5">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
-                <button
-                  key={digito}
-                  onClick={() => agregarDigito(digito)}
-                  className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40"
-                >
-                  {digito === "C" ? "Limpiar" : digito}
-                </button>
-              ))}
-            </div>
+            {/* Calculadora de Cambio (Solo si es Efectivo) */}
+            {metodoPago === "EFECTIVO" && (
+              <div className="flex flex-col gap-1 animate-in slide-in-from-top-2">
+                <div>
+                  <label className="flex justify-between items-center text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    <span>Cantidad recibida</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded tracking-wide">
+                      [Delete] para borrar todo
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      ref={entradaRecibidaRef}
+                      autoFocus
+                      value={cantidadRecibida}
+                      onChange={(e) => setCantidadRecibida(e.target.value)}
+                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
 
-            {cambio >= 0 ? (
-              <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-xl">
-                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Su cambio</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">${cambio.toFixed(2)}</p>
+                <div className="grid grid-cols-5 gap-1.5 mt-1">
+                  {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
+                    <button
+                      key={billete}
+                      onClick={() => setCantidadRecibida(billete.toString())}
+                      className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
+                    >
+                      ${billete}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
+                    <button
+                      key={digito}
+                      onClick={() => agregarDigito(digito)}
+                      className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40"
+                    >
+                      {digito === "C" ? "Limpiar" : digito}
+                    </button>
+                  ))}
+                </div>
+
+                {cambio >= 0 ? (
+                  <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-xl">
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Su cambio</p>
+                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">${cambio.toFixed(2)}</p>
+                  </div>
+                ) : (
+                  <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">Falta ${Math.abs(cambio).toFixed(2)}</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl">
-                <p className="text-sm font-bold text-red-600 dark:text-red-400">Falta ${Math.abs(cambio).toFixed(2)}</p>
+            )}
+
+            {/* Vista de Mensaje para FIADO */}
+            {metodoPago === "FIADO" && (
+              <div className="flex flex-col items-center justify-center p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl animate-in fade-in">
+                <BookUser size={32} className="text-amber-500 mb-2" />
+                <p className="text-sm font-bold text-amber-700 dark:text-amber-400 text-center">Venta a Crédito Local</p>
+                <p className="text-xs text-amber-600 dark:text-amber-500 text-center mt-1">
+                  Al continuar, podrás seleccionar a qué cliente asignar esta deuda.
+                </p>
               </div>
             )}
           </div>
-        )}
-        </div>
         </div>
 
         {/* Botón Confirmar */}
         <button 
           onClick={manejarVenta}
           disabled={!esValido}
-          className="w-full flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md shadow-emerald-600/30 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+          className={cn(
+            "w-full mt-2 flex justify-center items-center gap-2 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed",
+            metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+          )}
         >
           <Check size={20} />
-          Confirmar Venta ({teclaCobro})
+          {metodoPago === "FIADO" ? "Continuar Fiado" : "Confirmar Venta"} ({teclaCobro})
         </button>
 
       </div>

@@ -11,14 +11,17 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { obtenerRolCerebro } from "../servicios/cerebroTienda";
 import { useEstadoRed } from "../estado/estadoRed";
+import { useEstadoPlan } from "../estado/estadoPlan";
 
 export function useSincronizacion() {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
   const { trabajadorActivo } = useEstadoTrabajadores();
+  const permiteNube = useEstadoPlan((estado) => estado.permiteNube);
+  const { esMaestro, conectadoLAN } = useEstadoRed();
 
   useEffect(() => {
     const cargarRolCerebro = async () => {
-      if (!estaEnLinea) return;
+      if (!estaEnLinea || !permiteNube) return;
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId || !(window as any).apiLocal) return;
 
@@ -31,7 +34,7 @@ export function useSincronizacion() {
     };
 
     cargarRolCerebro();
-  }, [estaEnLinea]);
+  }, [estaEnLinea, permiteNube]);
 
   useEffect(() => {
     const handleOnline = () => setEstaEnLinea(true);
@@ -48,7 +51,7 @@ export function useSincronizacion() {
 
   useEffect(() => {
     const procesarColaPendientes = async () => {
-      if (!estaEnLinea) return;
+      if (!estaEnLinea || !permiteNube || (!esMaestro && conectadoLAN)) return;
       
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) return;
@@ -63,6 +66,11 @@ export function useSincronizacion() {
       for (const tarea of pendientes) {
         try {
           const { id, tabla, operacion, payload } = tarea;
+
+          if (tabla === 'ventas' && payload?.metodoPago === 'FIADO') {
+            await eliminarPendienteSync(id);
+            continue;
+          }
 
           if (operacion === 'ELIMINAR') {
             if (tabla === 'miembros_tienda') {
@@ -100,6 +108,8 @@ export function useSincronizacion() {
             } else if (tabla === 'categorias') {
               dataUpsert = { id: payload.id, tienda_id: tiendaId, nombre: payload.nombre, color: payload.color };
             } else if (tabla === 'miembros_tienda') {
+              const permisosNube = payload.permisos ? { ...payload.permisos } : payload.permisos;
+              if (permisosNube) delete permisosNube.permisoFiados;
               dataUpsert = {
                 tienda_id: tiendaId,
                 usuario_id: payload.id,
@@ -108,7 +118,7 @@ export function useSincronizacion() {
                 pin_hash: cifrarPin(payload.pin),
                 activo: payload.activo,
                 horario: payload.horarioSemanal,
-                permisos: payload.permisos
+                permisos: permisosNube
               };
             } else if (tabla === 'asistencias') {
               dataUpsert = {
@@ -191,14 +201,14 @@ export function useSincronizacion() {
     if (estaEnLinea) {
       procesarColaPendientes();
     }
-  }, [estaEnLinea]);
+  }, [estaEnLinea, permiteNube, esMaestro, conectadoLAN]);
 
   useEffect(() => {
     let canalTiempoReal: any;
     let cancelado = false;
 
     const suscribirTiempoReal = async () => {
-      if (!estaEnLinea) return;
+      if (!estaEnLinea || !permiteNube || (!esMaestro && conectadoLAN)) return;
       
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId || cancelado) return;
@@ -238,7 +248,7 @@ export function useSincronizacion() {
       cancelado = true;
       if (canalTiempoReal) supabase.removeChannel(canalTiempoReal);
     };
-  }, [estaEnLinea, trabajadorActivo]);
+  }, [estaEnLinea, trabajadorActivo, permiteNube, esMaestro, conectadoLAN]);
 
   return { estaEnLinea };
 }

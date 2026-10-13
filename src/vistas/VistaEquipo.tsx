@@ -49,7 +49,8 @@ export default function VistaEquipo() {
           hacerCancelaciones: rol === "SUPERVISOR",
           cambiarInfoTicket: false,
           cambiarPrecios: false,
-          verSalarios: false
+          verSalarios: false,
+          permisoFiados: false
         },
         horarioSemanal: {
           tipo: "GENERAL",

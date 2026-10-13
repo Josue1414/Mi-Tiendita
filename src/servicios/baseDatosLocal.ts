@@ -1,6 +1,8 @@
 // src/servicios/baseDatosLocal.ts
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Producto } from "../tipos/producto";
+import type { Fiado } from "../estado/estadoFiados"; // <-- NUEVA IMPORTACIÓN
+import type { Venta } from "../estado/estadoVentas";
 
 // Estructura de nuestra base de datos local
 interface BaseDatosMiTienda extends DBSchema {
@@ -13,20 +15,35 @@ interface BaseDatosMiTienda extends DBSchema {
     key: string;
     value: Blob; 
   };
+  fiados: { // <-- NUEVO ALMACÉN
+    key: string;
+    value: Fiado;
+  };
+  ventasFiado: {
+    key: string;
+    value: Venta;
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<BaseDatosMiTienda>>;
 
 export function inicializarDB() {
   if (!dbPromise) {
-    dbPromise = openDB<BaseDatosMiTienda>("MiTiendaLocal", 1, {
-      upgrade(db) {
+    // Se incrementa la versión para agregar almacenes sin perder datos existentes
+    dbPromise = openDB<BaseDatosMiTienda>("MiTiendaLocal", 3, {
+      upgrade(db, oldVersion) {
         if (!db.objectStoreNames.contains("productos")) {
           const store = db.createObjectStore("productos", { keyPath: "id" });
           store.createIndex("por-codigo", "codigo_barras", { unique: false });
         }
         if (!db.objectStoreNames.contains("imagenes")) {
           db.createObjectStore("imagenes");
+        }
+        if (oldVersion < 2 && !db.objectStoreNames.contains("fiados")) {
+          db.createObjectStore("fiados", { keyPath: "id" });
+        }
+        if (oldVersion < 3 && !db.objectStoreNames.contains("ventasFiado")) {
+          db.createObjectStore("ventasFiado", { keyPath: "id" });
         }
       },
     });
@@ -65,9 +82,38 @@ export async function obtenerUrlImagenLocal(id: string): Promise<string | null> 
   return URL.createObjectURL(blob);
 }
 
-// --- NUEVA FUNCIÓN: LIMPIEZA TOTAL ---
+// --- UTILIDADES PARA FIADOS (DEUDORES LOCALES) ---
+
+export async function guardarFiadoLocal(fiado: Fiado) {
+  const db = await inicializarDB();
+  await db.put("fiados", fiado);
+}
+
+export async function obtenerTodosLosFiadosLocales(): Promise<Fiado[]> {
+  const db = await inicializarDB();
+  return await db.getAll("fiados");
+}
+
+export async function eliminarFiadoLocal(id: string) {
+  const db = await inicializarDB();
+  await db.delete("fiados", id);
+}
+
+export async function guardarVentaFiadoLocal(venta: Venta) {
+  const db = await inicializarDB();
+  await db.put("ventasFiado", venta);
+}
+
+export async function obtenerVentasFiadoLocales(): Promise<Venta[]> {
+  const db = await inicializarDB();
+  return await db.getAll("ventasFiado");
+}
+
+// --- LIMPIEZA TOTAL ---
 export async function limpiarBaseDatosLocal() {
   const db = await inicializarDB();
   await db.clear("productos");
   await db.clear("imagenes");
+  await db.clear("fiados"); // Limpiar también los fiados
+  await db.clear("ventasFiado");
 }

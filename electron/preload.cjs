@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld('apiLocal', {
 
   obtenerIpLocal: () => ipcRenderer.invoke('obtener-ip-local'),
   iniciarServidorLAN: () => ipcRenderer.invoke('iniciar-servidor-lan'),
+  obtenerEstadoLAN: () => ipcRenderer.invoke('obtener-estado-lan'),
+  onEstadoLAN: (callback) => {
+    ipcRenderer.removeAllListeners('estado-servidor-lan');
+    ipcRenderer.on('estado-servidor-lan', (event, estado) => callback(estado));
+  },
+  onSolicitudSnapshotLAN: (callback) => {
+    ipcRenderer.removeAllListeners('solicitar-snapshot-lan');
+    ipcRenderer.on('solicitar-snapshot-lan', (event, socketId) => callback(socketId));
+  },
+  emitirSnapshotLAN: (socketId, snapshot) => ipcRenderer.invoke('emitir-snapshot-a-cliente', socketId, snapshot),
   emitirAEsclavos: (data) => ipcRenderer.invoke('emitir-a-esclavos', data),
   onAccionDeEsclavo: (callback) => {
     ipcRenderer.removeAllListeners('accion-de-esclavo');

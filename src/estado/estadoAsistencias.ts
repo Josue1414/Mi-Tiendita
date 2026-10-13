@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -19,6 +20,12 @@ interface EstadoAsistencias {
   cargarAsistencias: () => Promise<void>;
   registrarEntrada: (trabajadorId: string) => Promise<void>;
   registrarSalida: (trabajadorId: string) => Promise<void>;
+  aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
+  hidratarEstadoLAN: (snapshot: {
+    trabajadores: unknown[];
+    asistencias: RegistroAsistencia[];
+    configuracion: object;
+  }) => Promise<void>;
   sincronizarAsistencia: (payload: any) => Promise<void>;
 }
 
@@ -27,9 +34,10 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
 
   cargarAsistencias: async () => {
     try {
-      const tiendaId = await obtenerTiendaIdActual();
+      const permiteSincronizar = debeSincronizarConNube();
+      const tiendaId = permiteSincronizar ? await obtenerTiendaIdActual() : null;
 
-      if (navigator.onLine && tiendaId) {
+      if (permiteSincronizar && navigator.onLine && tiendaId) {
         const { data: nubeData, error } = await supabase
           .from("asistencias")
           .select("*")
@@ -107,8 +115,10 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
       asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
     }));
 
+    if (enviarAccionLAN({ tipo: "LAN_ASISTENCIA_UPSERT", payload: nuevoRegistro })) return;
+
     // Guardado en la nube o en cola pendiente
-    if (navigator.onLine) {
+    if (debeSincronizarConNube() && navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) {
         await supabase.from("asistencias").upsert({
@@ -121,7 +131,7 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
           desconexiones: nuevoRegistro.desconexiones
         }, { onConflict: 'id' });
       }
-    } else {
+    } else if (debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'asistencias', operacion: operacionTipo, payload: nuevoRegistro });
     }
   },
@@ -149,19 +159,72 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
         asistencias: estado.asistencias.filter((a) => a.id !== idRegistro).concat(nuevoRegistro),
       }));
 
+      if (enviarAccionLAN({ tipo: "LAN_ASISTENCIA_UPSERT", payload: nuevoRegistro })) return;
+
       // Guardado en la nube o en cola pendiente
-      if (navigator.onLine) {
+      if (debeSincronizarConNube() && navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from("asistencias").update({
+          await supabase.from("asistencias").upsert({
+            id: nuevoRegistro.id,
+            tienda_id: tiendaId,
+            trabajador_id: nuevoRegistro.trabajadorId,
+            fecha: nuevoRegistro.fecha,
+            hora_entrada: nuevoRegistro.horaEntrada,
             hora_salida: nuevoRegistro.horaSalida,
             desconexiones: nuevoRegistro.desconexiones
-          }).eq("id", nuevoRegistro.id).eq("tienda_id", tiendaId);
+          }, { onConflict: 'id' });
         }
-      } else {
+      } else if (debeSincronizarConNube()) {
         await registrarPendienteSync({ tabla: 'asistencias', operacion: 'ACTUALIZAR', payload: nuevoRegistro });
       }
     }
+  },
+
+  aplicarAccionLAN: async (tipo, payload) => {
+    if (tipo !== "LAN_ASISTENCIA_UPSERT") return;
+    const asistencia = payload as RegistroAsistencia;
+    if (!asistencia?.id) return;
+    const operacion: "AGREGAR" | "ACTUALIZAR" = get().asistencias.some(
+      (actual) => actual.id === asistencia.id
+    ) ? "ACTUALIZAR" : "AGREGAR";
+
+    await guardarRegistro("asistencias", asistencia);
+    set((estado) => ({
+      asistencias: estado.asistencias.some((actual) => actual.id === asistencia.id)
+        ? estado.asistencias.map((actual) => actual.id === asistencia.id ? asistencia : actual)
+        : [...estado.asistencias, asistencia]
+    }));
+
+    if (debeSincronizarConNube() && navigator.onLine) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        await supabase.from("asistencias").upsert({
+          id: asistencia.id,
+          tienda_id: tiendaId,
+          trabajador_id: asistencia.trabajadorId,
+          fecha: asistencia.fecha,
+          hora_entrada: asistencia.horaEntrada,
+          hora_salida: asistencia.horaSalida,
+          desconexiones: asistencia.desconexiones
+        }, { onConflict: 'id' });
+      }
+    } else if (debeSincronizarConNube()) {
+      await registrarPendienteSync({ tabla: 'asistencias', operacion, payload: asistencia });
+    }
+  },
+
+  hidratarEstadoLAN: async (snapshot) => {
+    const asistenciasLAN = snapshot.asistencias;
+    const idsIncluidos = new Set(asistenciasLAN.map((asistencia) => asistencia.id));
+    const locales = await obtenerRegistros("asistencias");
+    for (const asistencia of locales) {
+      if (!idsIncluidos.has(asistencia.id)) await eliminarRegistro("asistencias", asistencia.id);
+    }
+    for (const asistencia of asistenciasLAN) {
+      await guardarRegistro("asistencias", asistencia);
+    }
+    set({ asistencias: asistenciasLAN });
   },
 
   sincronizarAsistencia: async (payload: any) => {
@@ -198,5 +261,6 @@ export const useEstadoAsistencias = create<EstadoAsistencias>((set, get) => ({
         ? estado.asistencias.map((a) => a.id === asistencia.id ? asistencia : a)
         : [...estado.asistencias, asistencia]
     }));
+    enviarAccionLAN({ tipo: "LAN_ASISTENCIA_UPSERT", payload: asistencia });
   },
 }));

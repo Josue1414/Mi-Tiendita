@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoCaja } from "../estado/estadoCaja";
-import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar } from "lucide-react";
+import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 
@@ -19,8 +19,8 @@ export default function VistaCorteCaja() {
   const { ventas } = useEstadoVentas();
   
   const { 
-    fondoBaseActual, notaGeneralDueno, turnos, forzarRecepcionCaja, requerirPinCancelacion, cargando,
-    cargarCaja, actualizarConfiguracion, abrirTurno, cerrarTurno, obtenerTurnoActivo 
+    fondoBaseActual, notaGeneralDueno, turnos, controlTurnosHabilitado, forzarRecepcionCaja, requerirPinCancelacion, cargando,
+    cargarCaja, actualizarConfiguracion, setControlTurnosHabilitado, abrirTurno, cerrarTurno, obtenerTurnoActivo 
   } = useEstadoCaja();
 
   const [inputFondo, setInputFondo] = useState<number | "">(fondoBaseActual);
@@ -83,6 +83,12 @@ export default function VistaCorteCaja() {
     setTimeout(() => setAjustesGuardados(false), 2000);
   };
 
+  const manejarToggleControlTurnos = async () => {
+    const nuevoEstado = !controlTurnosHabilitado;
+    setInputForzar(nuevoEstado);
+    await setControlTurnosHabilitado(nuevoEstado);
+  };
+
   const calcularMetricasDeVentas = (nombreTrabajador: string, fechaInicio: string, fechaFin?: string | null) => {
     const ventasDelTurno = ventas.filter(v => 
       v.trabajador === nombreTrabajador && 
@@ -96,12 +102,13 @@ export default function VistaCorteCaja() {
     const totalVendido = ventasValidas.reduce((acc, v) => acc + (v.total || 0), 0);
     const totalEfectivo = ventasValidas.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
     const totalElectronico = ventasValidas.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+    const totalFiado = ventasValidas.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
 
     const articulosAutorizados = ventasValidas.flatMap(v => (v.articulos || []).filter(a => a.autorizacion_confirmada));
     const totalAutorizado = articulosAutorizados.reduce((acc, a) => acc + (a.subtotal || 0), 0);
 
     return { 
-      totalVendido, totalEfectivo, totalElectronico, 
+      totalVendido, totalEfectivo, totalElectronico, totalFiado,
       cantAutorizaciones: articulosAutorizados.length, totalAutorizado,
       cantCancelaciones: ventasCanceladas.length,
       totalCancelado: ventasCanceladas.reduce((acc, v) => acc + (v.total || 0), 0)
@@ -113,8 +120,9 @@ export default function VistaCorteCaja() {
     const ventasDiaValidas = ventas.filter(v => v.fecha.slice(0, 10) === fechaFiltro && !v.cancelada);
     const total = ventasDiaValidas.reduce((acc, v) => acc + (v.total || 0), 0);
     const efectivo = ventasDiaValidas.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
-    const electronico = ventasDiaValidas.filter(v => v.metodoPago !== "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
-    return { total, efectivo, electronico };
+    const electronico = ventasDiaValidas.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+    const fiado = ventasDiaValidas.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
+    return { total, efectivo, electronico, fiado };
   }, [ventas, fechaFiltro]);
 
   const manejarAbrirTurno = async () => {
@@ -124,7 +132,7 @@ export default function VistaCorteCaja() {
   };
 
   const metricasTurnoActivo = useMemo(() => {
-    if (!turnoActivo) return { totalVendido: 0, totalEfectivo: 0, totalElectronico: 0, cantAutorizaciones: 0, totalAutorizado: 0, cantCancelaciones: 0, totalCancelado: 0 };
+    if (!turnoActivo) return { totalVendido: 0, totalEfectivo: 0, totalElectronico: 0, totalFiado: 0, cantAutorizaciones: 0, totalAutorizado: 0, cantCancelaciones: 0, totalCancelado: 0 };
     return calcularMetricasDeVentas(turnoActivo.nombreTrabajador, turnoActivo.fechaInicio, turnoActivo.fechaFin);
   }, [turnoActivo, ventas]);
 
@@ -172,20 +180,47 @@ export default function VistaCorteCaja() {
       />
 
       <div className="mb-2 border-b border-slate-200/50 dark:border-white/10 pb-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
-          <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
-            <Wallet size={24} />
-          </div>
-          Corte de Caja y Turnos
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
+              <Wallet size={24} />
+            </div>
+            Corte de Caja y Turnos
+          </h1>
+          {esDueñoOSupervisor && (
+            <button
+              type="button"
+              onClick={manejarToggleControlTurnos}
+              aria-pressed={controlTurnosHabilitado}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-colors",
+                controlTurnosHabilitado
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              )}
+            >
+              <Power size={16} />
+              {controlTurnosHabilitado ? "Deshabilitar control de turnos" : "Habilitar control de turnos"}
+            </button>
+          )}
+        </div>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
           {esDueñoOSupervisor ? "Audita los cortes, configura el fondo de caja y revisa las notas de tus trabajadores." : "Abre tu caja, revisa tus métricas y declara el cierre al finalizar tu horario."}
         </p>
+        <div className={cn(
+          "mt-3 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wide",
+          controlTurnosHabilitado
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-400"
+            : "border-slate-200 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-slate-800 dark:text-slate-400"
+        )}>
+          <span className={cn("h-2 w-2 rounded-full", controlTurnosHabilitado ? "bg-emerald-500" : "bg-slate-400")} />
+          {controlTurnosHabilitado ? "Sección de turnos habilitada" : "Sección de turnos deshabilitada"}
+        </div>
       </div>
 
       {esDueñoOSupervisor ? (
         <div className="flex flex-col gap-6 w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="efecto-cristal p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/30 flex items-center gap-4 bg-emerald-50/30 dark:bg-emerald-900/10">
               <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400"><TrendingUp size={24}/></div>
               <div>
@@ -207,6 +242,13 @@ export default function VistaCorteCaja() {
                 <p className="text-xl font-bold text-slate-900 dark:text-white">${ventasTotalesHoy.electronico.toFixed(2)}</p>
               </div>
             </div>
+            <div className="efecto-cristal p-5 rounded-2xl border border-amber-200 dark:border-amber-900/30 flex items-center gap-4 bg-amber-50/30 dark:bg-amber-900/10">
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400"><HandCoins size={24}/></div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Total Fiado</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">${ventasTotalesHoy.fiado.toFixed(2)}</p>
+              </div>
+            </div>
             <div className="efecto-cristal p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400"><DollarSign size={24}/></div>
               <div>
@@ -223,6 +265,7 @@ export default function VistaCorteCaja() {
               </h2>
               
               <form onSubmit={manejarGuardarConfiguracion} className="flex flex-col gap-4">
+                <fieldset disabled={!controlTurnosHabilitado} className={cn("flex flex-col gap-4 transition-opacity", !controlTurnosHabilitado && "opacity-40")}>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Fondo Base Actual</label>
                   <div className="relative">
@@ -256,6 +299,7 @@ export default function VistaCorteCaja() {
                   {ajustesGuardados ? <CheckCircle size={16} /> : <Save size={16} />}
                   {ajustesGuardados ? "Actualizado" : "Guardar Cambios"}
                 </button>
+                </fieldset>
               </form>
             </div>
 
@@ -296,7 +340,7 @@ export default function VistaCorteCaja() {
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-5 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
+                      <div className="grid grid-cols-6 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
                         <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5">Fondo Inicial:</span> 
                           <strong className="text-slate-700 dark:text-slate-300 text-sm">${turno.fondoInicial.toFixed(2)}</strong>
@@ -308,6 +352,10 @@ export default function VistaCorteCaja() {
                         <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5 text-[10px]">Tarj/Trans:</span> 
                           <strong className="text-blue-600 dark:text-blue-400 text-sm">${mets.totalElectronico.toFixed(2)}</strong>
+                        </div>
+                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-amber-100 dark:border-amber-900/30">
+                          <span className="text-amber-600 dark:text-amber-400 block mb-0.5 text-[10px]">Fiados:</span>
+                          <strong className="text-amber-700 dark:text-amber-300 text-sm">${mets.totalFiado.toFixed(2)}</strong>
                         </div>
                         <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5 text-[10px]">Canceladas:</span> 
@@ -389,7 +437,7 @@ export default function VistaCorteCaja() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
                 <div className="efecto-cristal p-4 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                     <Wallet size={16} /> <h3 className="text-xs font-bold">Fondo Recibido</h3>
@@ -411,6 +459,13 @@ export default function VistaCorteCaja() {
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-auto">${metricasTurnoActivo.totalElectronico.toFixed(2)}</p>
                 </div>
 
+                <div className="efecto-cristal p-4 rounded-2xl border border-amber-200 dark:border-amber-900/30 flex flex-col gap-2 bg-amber-50/30 dark:bg-amber-900/10">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <HandCoins size={16} /> <h3 className="text-xs font-bold">Fiados</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-auto">${metricasTurnoActivo.totalFiado.toFixed(2)}</p>
+                </div>
+
                 <div className="efecto-cristal p-4 rounded-2xl border border-red-200 dark:border-red-900/30 flex flex-col gap-2 bg-red-50/30 dark:bg-red-900/10">
                   <div className="flex items-center gap-2 text-red-700 dark:text-red-500">
                     <Ban size={16} /> <h3 className="text-xs font-bold">Cancelaciones</h3>
@@ -426,7 +481,7 @@ export default function VistaCorteCaja() {
                     <DollarSign size={16} /> <h3 className="text-xs font-bold">Efectivo Esperado en Caja</h3>
                   </div>
                   <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-auto">${(turnoActivo.fondoInicial + metricasTurnoActivo.totalEfectivo).toFixed(2)}</p>
-                  <span className="text-[10px] text-emerald-700/60 dark:text-emerald-400/60 leading-tight">Es lo que deberás contar al corte (Fondo + Efectivo)</span>
+                  <span className="text-[10px] text-emerald-700/60 dark:text-emerald-400/60 leading-tight">Fondo + ventas en efectivo; no incluye ventas fiadas</span>
                 </div>
               </div>
 

@@ -6,12 +6,14 @@ import { useEstadoInventario } from "./estado/estadoInventario";
 import { useEstadoVentas } from "./estado/estadoVentas";
 import { useEstadoConfiguracion } from "./estado/estadoConfiguracion";
 import { useEstadoAsistencias } from "./estado/estadoAsistencias";
+import { useEstadoCaja } from "./estado/estadoCaja";
+import { useEstadoFiados } from "./estado/estadoFiados";
 import { useEstadoRed } from "./estado/estadoRed";
-import { useEstadoPlan } from "./estado/estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { useEstadoPlan } from "./estado/estadoPlan";
 import { conectarLAN } from "./servicios/socketCliente";
 import { useSincronizacion } from "./hooks/useSincronizacion";
 import { cn } from "./utilidades/utils";
-import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff, MonitorPlay } from "lucide-react";
+import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff, MonitorPlay, BookUser } from "lucide-react";
 import { claseTemaVisual, EVENTO_TEMA, obtenerTemaVisual, type TemaVisual } from "./utilidades/temas";
 
 import VistaInventario from "./vistas/VistaInventario";
@@ -29,9 +31,14 @@ import VistaCorteCaja from "./vistas/VistaCorteCaja";
 import { tieneAlertaStock } from "./utilidades/stock";
 import AccionEscaneoInventario from "./componentes/movil/AccionEscaneoInventario";
 import ModalSeleccionDispositivo from "./componentes/ui/ModalSeleccionDispositivo";
-import ModalQRCliente from "./componentes/ui/ModalQRCliente"; 
+import ModalQRCliente from "./componentes/ui/ModalQRCliente";
+import VistaFiados from "./vistas/VistaFiados";
 
-const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
+
+
+
+// Añadimos 'fiados' al mapa (asegúrate de que en estadoNavegacion.ts 'fiados' exista en el type SeccionApp)
+const componentesSeccion: Record<SeccionApp | "fiados", React.ComponentType> = {
   pos: VistaPOS,
   inventario: VistaInventario,
   panel: VistaPanel,
@@ -43,31 +50,104 @@ const componentesSeccion: Record<SeccionApp, React.ComponentType> = {
   configuracion: VistaConfiguracion,
   perfil: VistaPerfil,
   caja: VistaCorteCaja,
+  fiados: VistaFiados, // <-- AGREGADO
+};
+
+const crearSnapshotLAN = () => {
+  const caja = useEstadoCaja.getState();
+  const configuracion = useEstadoConfiguracion.getState();
+  return {
+    productos: useEstadoInventario.getState().productos,
+    categorias: useEstadoInventario.getState().categorias,
+    ventas: useEstadoVentas.getState().ventas,
+    trabajadores: useEstadoTrabajadores.getState().trabajadores,
+    asistencias: useEstadoAsistencias.getState().asistencias,
+    fiados: useEstadoFiados.getState().deudores,
+    caja: {
+      turnos: caja.turnos,
+      fondoBaseActual: caja.fondoBaseActual,
+      notaGeneralDueno: caja.notaGeneralDueno,
+      controlTurnosHabilitado: caja.controlTurnosHabilitado,
+      forzarRecepcionCaja: caja.forzarRecepcionCaja,
+      requerirPinCancelacion: caja.requerirPinCancelacion
+    },
+    configuracion: {
+      nombreTienda: configuracion.nombreTienda,
+      mensajeTicket: configuracion.mensajeTicket,
+      direccionTienda: configuracion.direccionTienda,
+      logoTienda: configuracion.logoTienda,
+      sincronizacionNube: configuracion.sincronizacionNube,
+      teclaCobro: configuracion.teclaCobro,
+      mensajePago: configuracion.mensajePago,
+      bancoTransferencia: configuracion.bancoTransferencia,
+      titularTransferencia: configuracion.titularTransferencia,
+      cuentaTransferencia: configuracion.cuentaTransferencia,
+      teclaEfectivo: configuracion.teclaEfectivo,
+      teclaTarjeta: configuracion.teclaTarjeta,
+      teclaTransferencia: configuracion.teclaTransferencia
+    }
+  };
+};
+
+const aplicarAccionLANRecibida = (accion: any) => {
+  if (typeof accion?.tipo !== "string") return;
+  if (accion.tipo === "LAN_VENTA_AGREGAR" || accion.tipo === "LAN_VENTA_CANCELAR") {
+    void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else if (accion.tipo.startsWith("LAN_FIADO_")) {
+    void useEstadoFiados.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else if (accion.tipo.startsWith("LAN_CAJA_")) {
+    void useEstadoCaja.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else if (accion.tipo.startsWith("LAN_TRABAJADOR_")) {
+    void useEstadoTrabajadores.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else if (accion.tipo === "LAN_ASISTENCIA_UPSERT") {
+    void useEstadoAsistencias.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else if (accion.tipo.startsWith("LAN_CONFIG_")) {
+    void useEstadoConfiguracion.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+  } else {
+    useEstadoInventario.getState().aplicarSincronizacionRemota(accion);
+  }
+};
+
+const hidratarDesdeLAN = async (snapshot: ReturnType<typeof crearSnapshotLAN>) => {
+  await useEstadoInventario.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoVentas.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoTrabajadores.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoAsistencias.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoCaja.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoConfiguracion.getState().hidratarEstadoLAN(snapshot);
+  await useEstadoFiados.getState().hidratarEstadoLAN(snapshot);
 };
 
 export default function App() {
   const { seccionActual, setSeccionActual } = useEstadoNavegacion();
   
   const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
-  const { productos, cargarProductos, cargando: cargandoInventario, aplicarSincronizacionRemota } = useEstadoInventario();
+  const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
   const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
-  const { cargarConfiguracion, cargando: cargandoConfiguracion } = useEstadoConfiguracion();
+  // <-- IMPORTAMOS LA VARIABLE habilitarFiados -->
+  const { cargarConfiguracion, cargando: cargandoConfiguracion, habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
   const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
   
-  const { esMaestro, ipMaestro, conectadoLAN } = useEstadoRed();
+  const {
+    esMaestro,
+    ipMaestro,
+    conectadoLAN,
+    servidorLANActivo,
+    dispositivosLANConectados,
+    setIpMaestro,
+    setEstadoLAN
+  } = useEstadoRed();
   const { estaEnLinea } = useSincronizacion();
-  const { planActivo } = useEstadoPlan(); // <-- EXTRAEMOS EL PLAN ACTIVO
+  const permiteNube = useEstadoPlan((estado) => estado.permiteNube);
   
   const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
   
-  // NUEVO ESTADO: Escala de la interfaz
   const [escalaUI, setEscalaUI] = useState(() => localStorage.getItem("escala_ui") || "normal");
   
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
 
-  // NUEVO EFECTO: Escuchar cambios de escala y aplicarlos a la raíz del documento
   useEffect(() => {
     const aplicarCambioEscala = (evento: Event) => {
       const nuevaEscala = (evento as CustomEvent<string>).detail;
@@ -81,7 +161,7 @@ export default function App() {
     const root = document.documentElement;
     if (escalaUI === "chica") root.style.fontSize = "14px";
     else if (escalaUI === "grande") root.style.fontSize = "18px";
-    else root.style.fontSize = "16px"; // normal
+    else root.style.fontSize = "16px";
   }, [escalaUI]);
 
   useEffect(() => {
@@ -100,16 +180,40 @@ export default function App() {
   useEffect(() => {
     const api = (window as any).apiLocal;
     if (esMaestro && api) {
-      api.iniciarServidorLAN();
-      api.onAccionDeEsclavo((accion: any) => {
-         aplicarSincronizacionRemota(accion);
+      api.iniciarServidorLAN().then((estado: { activo: boolean; dispositivosConectados: number }) => {
+        setEstadoLAN(estado.activo, estado.dispositivosConectados);
+      }).catch((error: unknown) => {
+        console.error("No se pudo iniciar el servidor LAN:", error);
+      });
+      api.onEstadoLAN((estado: { activo: boolean; dispositivosConectados: number }) => {
+        setEstadoLAN(estado.activo, estado.dispositivosConectados);
+      });
+      api.onSolicitudSnapshotLAN((socketId: string) => {
+        void (async () => {
+          await useEstadoVentas.getState().cargarVentas();
+          await useEstadoFiados.getState().cargarDeudores();
+          await api.emitirSnapshotLAN(socketId, crearSnapshotLAN());
+        })().catch((error: unknown) => {
+          console.error("No se pudo enviar el estado inicial por LAN:", error);
+        });
+      });
+      api.onAccionDeEsclavo(aplicarAccionLANRecibida);
+    } else if (!esMaestro && window.location.protocol === "http:" && window.location.port === "4000") {
+      const ipServidorLocal = window.location.hostname;
+      if (ipMaestro !== ipServidorLocal) setIpMaestro(ipServidorLocal);
+      conectarLAN(ipServidorLocal, aplicarAccionLANRecibida, (snapshot) => {
+        void hidratarDesdeLAN(snapshot).catch((error: unknown) => {
+          console.error("No se pudo cargar el estado local del Cerebro:", error);
+        });
       });
     } else if (!esMaestro && ipMaestro) {
-      conectarLAN(ipMaestro, (accion) => {
-         aplicarSincronizacionRemota(accion);
+      conectarLAN(ipMaestro, aplicarAccionLANRecibida, (snapshot) => {
+        void hidratarDesdeLAN(snapshot).catch((error: unknown) => {
+          console.error("No se pudo cargar el estado local del Cerebro:", error);
+        });
       });
     }
-  }, [esMaestro, ipMaestro, aplicarSincronizacionRemota]);
+  }, [esMaestro, ipMaestro, setIpMaestro, setEstadoLAN]);
 
   useEffect(() => {
     cargarProductos();
@@ -139,12 +243,17 @@ export default function App() {
     return <VistaLogin />;
   }
 
-  const ComponenteActivo = componentesSeccion[seccionActual];
+  const puedeAccederFiados = habilitarFiados && (
+    trabajadorActivo.rol === "DUENO" ||
+    modoAccesoFiados === "TODOS" ||
+    trabajadorActivo.permisos?.permisoFiados === true
+  );
+  const ComponenteActivo = seccionActual === "fiados" && !puedeAccederFiados
+    ? VistaPOS
+    : componentesSeccion[seccionActual as SeccionApp | "fiados"] || VistaPOS;
 
   const abrirPantallaCliente = () => {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
-    
-    // Obtenemos el nombre en el instante del clic
     const nombreTienda = useEstadoConfiguracion.getState().nombreTienda;
     
     const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
@@ -152,14 +261,14 @@ export default function App() {
 
     if (esEscritorio || !esDispositivoMovil) {
       const rutaBase = window.location.href.split('?')[0];
-      // Agregamos el parámetro a la ventana emergente
       window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
     } else {
       setModalQRAbierto(true);
     }
   };
 
-  const menusOperativos = [
+  // Construcción dinámica de menús según si Fiados está habilitado
+  const baseMenusOperativos = [
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
     { id: "caja", icono: Wallet, texto: "Corte de Caja" },
     { id: "inventario", icono: Package, texto: "Inventario" },
@@ -167,16 +276,24 @@ export default function App() {
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
     { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
     { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
-  ] as const;
+  ];
 
-  const menusMovilesOperativos = [
+  if (puedeAccederFiados) {
+    baseMenusOperativos.splice(4, 0, { id: "fiados", icono: BookUser, texto: "Libreta de Fiados" });
+  }
+
+  const baseMenusMovilesOperativos = [
     { id: "inventario", icono: Package, texto: "Inventario" },
     { id: "stock-bajo", icono: AlertTriangle, texto: "Stock" },
     { id: "historial", icono: History, texto: "Historial" },
     { id: "caja", icono: Wallet, texto: "Corte de Caja" },
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
-  ] as const;
-  
+  ];
+
+  if (puedeAccederFiados) {
+    baseMenusMovilesOperativos.splice(3, 0, { id: "fiados", icono: BookUser, texto: "Fiados" });
+  }
+
   const productosConAlerta = productos.filter(tieneAlertaStock);
   const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
   const alertasPorTerminar = productosConAlerta.length - alertasAgotados;
@@ -192,8 +309,8 @@ export default function App() {
   
   const menuPantallaCliente = { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" };
   const menusMoviles = esVistaMovil
-    ? [...menusMovilesOperativos, ...(esAdmin ? menusAdmin : []), menuPantallaCliente]
-    : [...menusOperativos, ...(esAdmin ? menusAdmin : [])];
+    ? [...baseMenusMovilesOperativos, ...(esAdmin ? menusAdmin : []), menuPantallaCliente]
+    : [...baseMenusOperativos, ...(esAdmin ? menusAdmin : [])];
     
   const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
 
@@ -255,32 +372,49 @@ export default function App() {
           </button>
         </div>
 
-        {/* CORRECCIÓN: Ocultar sincronización si el plan es Básico */}
-        {planActivo !== 'BASICO' && (
+        <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10 flex flex-col gap-1.5">
+          {permiteNube && (
           <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10">
             <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold", 
               estaEnLinea ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
-              esMaestro ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" :
-              conectadoLAN ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : 
               "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
             )}>
-              {estaEnLinea ? <Cloud size={14} /> : esMaestro ? <Server size={14} /> : conectadoLAN ? <Wifi size={14} /> : <CloudOff size={14} />}
+              {estaEnLinea ? <Cloud size={14} /> : <CloudOff size={14} />}
               {menuAbierto && (
                 <span>
-                  {estaEnLinea ? "Sincronizado a Internet" :
-                   esMaestro ? "Servidor Local (Sin Internet)" :
-                   conectadoLAN ? "LAN Conectado (Sin Internet)" :
-                   "Sin Conexión"}
+                  {estaEnLinea ? "Internet disponible · nube habilitada" : "Nube sin conexión"}
                 </span>
               )}
             </div>
           </div>
-        )}
+          )}
+          <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold",
+            (esMaestro && servidorLANActivo) || conectadoLAN
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+          )}>
+            {esMaestro ? <Server size={14} /> : <Wifi size={14} />}
+            {menuAbierto && (
+              <span>
+                {esMaestro
+                  ? servidorLANActivo
+                    ? `LAN activa · ${dispositivosLANConectados} conectado(s)`
+                    : "Servidor LAN no activo"
+                  : conectadoLAN
+                    ? "LAN conectada al Cerebro"
+                    : "LAN desconectada"}
+              </span>
+            )}
+          </div>
+          {!permiteNube && menuAbierto && (
+            <span className="px-2 text-[10px] text-slate-500">Plan local · sin sincronización de nube</span>
+          )}
+        </div>
 
         <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 scrollbar-hide">
           <div className="mb-2">
             {menuAbierto && <p className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Operaciones</p>}
-            {menusOperativos.map((menu) => {
+            {baseMenusOperativos.map((menu) => {
               const Icono = menu.icono;
               const activo = menu.id !== "pantalla-cliente" && (seccionActual === menu.id || (menu.id === "inventario" && seccionActual === "nuevo-producto"));
               

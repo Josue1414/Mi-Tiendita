@@ -15,6 +15,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
   const {
     nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, direccionTienda, logoTienda,
     teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
+    habilitarFiados, setHabilitarFiados, modoAccesoFiados, setModoAccesoFiados,
     actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago
   } = useEstadoConfiguracion();
 
@@ -208,6 +209,47 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
             ))}
           </div>
           <input disabled={!esDueño} value={formPago.mensajePago} onChange={(e) => actualizarDatoPago("mensajePago", e.target.value)} placeholder="Mensaje después del pago" className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500" />
+          
+          {/* ACTIVAR FIADOS */}
+          <div className="mt-2 flex items-center justify-between bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-white/10">
+            <div className="pr-4">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                Habilitar Libreta de Fiados
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">Activa la opción de cobrar "Fiado". La libreta y sus deudas solo se guardan en este equipo y no se suben a la nube. Puedes elegir quién tiene acceso aquí o asignar el permiso individualmente en la sección Equipo.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input 
+                type="checkbox" 
+                disabled={!esDueño} 
+                checked={habilitarFiados} 
+                onChange={(e) => setHabilitarFiados(e.target.checked)} 
+                className="sr-only peer" 
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+
+          {habilitarFiados && (
+            <label className="flex flex-col gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Acceso a fiados
+              <select
+                disabled={!esDueño}
+                value={modoAccesoFiados}
+                onChange={(e) => setModoAccesoFiados(e.target.value as "TODOS" | "MANUAL")}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal dark:border-white/10 dark:bg-slate-950"
+              >
+                <option value="TODOS">Todos pueden dar fiado y consultar la libreta</option>
+                <option value="MANUAL">Elegir manualmente en la sección Equipo</option>
+              </select>
+              <span className="font-normal text-slate-500">
+                {modoAccesoFiados === "TODOS"
+                  ? "Todos los trabajadores pueden dar fiado y ver la libreta."
+                  : "En Equipo, activa “Permitir dar fiado y consultar la libreta” para cada trabajador autorizado."}
+              </span>
+            </label>
+          )}
+
           {esDueño && cambiosPago && (
             <button type="submit" className="self-end mt-2 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm">
               {guardadoPago ? <CheckCircle2 size={16} /> : <Save size={16} />} {guardadoPago ? "Guardado" : "Guardar Cambios"}
