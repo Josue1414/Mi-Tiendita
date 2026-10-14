@@ -31,26 +31,6 @@ const evaluarEstadoSuscripcion = (fechaString: string | null) => {
   return "VIGENTE";
 };
 
-// NUEVA FUNCIÓN: Purga todos los datos en caché excepto la identificación de hardware
-const limpiarCachesLocales = async () => {
-  const hwid = localStorage.getItem('web_hardware_id');
-  const nombrePC = localStorage.getItem('nombre_dispositivo_local');
-  const emailSaaS = localStorage.getItem(CLAVE_EMAIL_SAAS);
-  
-  localStorage.clear();
-  
-  if (hwid) localStorage.setItem('web_hardware_id', hwid);
-  if (nombrePC) localStorage.setItem('nombre_dispositivo_local', nombrePC);
-  if (emailSaaS) localStorage.setItem(CLAVE_EMAIL_SAAS, emailSaaS);
-
-  try {
-    const { limpiarBaseDatosLocal } = await import('../servicios/baseDatosLocal');
-    await limpiarBaseDatosLocal();
-  } catch (e) {
-    console.error("Error al limpiar IndexedDB", e);
-  }
-};
-
 export default function VistaLogin() {
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
   const { nombreTienda, cargarConfiguracion } = useEstadoConfiguracion();
@@ -183,7 +163,6 @@ export default function VistaLogin() {
 
       const tiendaAnterior = localStorage.getItem("tienda_id");
       if (tiendaAnterior && tiendaAnterior !== tienda.id) {
-        await limpiarCachesLocales();
         localStorage.setItem("tienda_id", tienda.id);
         window.location.reload(); 
         return;
@@ -364,7 +343,6 @@ export default function VistaLogin() {
 
   const manejarRegresoCuenta = async () => {
     if (navigator.onLine) await supabase.auth.signOut();
-    await limpiarCachesLocales();
     setCuentaSaaSLogueada(false);
     window.location.reload(); 
   };

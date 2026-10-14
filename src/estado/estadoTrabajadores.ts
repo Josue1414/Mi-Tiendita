@@ -244,15 +244,14 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   actualizarTrabajador: async (trabajador, propagado = false) => {
     try {
       guardarPermisoFiadosLocal(trabajador.id, trabajador.permisos?.permisoFiados ?? false);
-      await guardarRegistro("trabajadores", {
-        ...trabajador,
-        pin: esEscritorio ? cifrarPin(trabajador.pin) : trabajador.pin
-      });
-      
       set((estado) => ({ 
         trabajadores: estado.trabajadores.map((actual) => actual.id === trabajador.id ? trabajador : actual),
         trabajadorActivo: estado.trabajadorActivo?.id === trabajador.id ? trabajador : estado.trabajadorActivo
       }));
+      await guardarRegistro("trabajadores", {
+        ...trabajador,
+        pin: esEscritorio ? cifrarPin(trabajador.pin) : trabajador.pin
+      });
 
       const trabajadorSinPermisoFiados = {
         ...trabajador,

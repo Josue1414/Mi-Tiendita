@@ -3,6 +3,10 @@ import { openDB } from "idb";
 
 const DB_NOMBRE = "mitiendita_db";
 const DB_VERSION = 4; // Subimos la versión a 4 para agregar la tabla turnos_caja
+const obtenerTablaLocal = (tabla: string) => {
+  const tiendaId = localStorage.getItem("tienda_id");
+  return tiendaId ? `${tabla}__tienda_${encodeURIComponent(tiendaId).replace(/%/g, "_")}` : `${tabla}__local`;
+};
 
 const puedeGuardarCopiaLocal = () => {
   if (!window.apiLocal) return true;
@@ -40,7 +44,11 @@ declare global {
 
 // Inicializamos IndexedDB como respaldo (para navegador)
 const initDB = async () => {
-  return openDB(DB_NOMBRE, DB_VERSION, {
+  const tiendaId = localStorage.getItem("tienda_id");
+  const nombreDB = tiendaId
+    ? `${DB_NOMBRE}_${encodeURIComponent(tiendaId)}`
+    : `${DB_NOMBRE}_local`;
+  return openDB(nombreDB, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains("trabajadores")) {
         db.createObjectStore("trabajadores", { keyPath: "id" });
@@ -76,7 +84,8 @@ const initDB = async () => {
 export const guardarRegistro = async (tabla: string, dato: any) => {
   if (window.apiLocal) {
     if (!puedeGuardarCopiaLocal()) return;
-    const todosLosRegistros = await obtenerRegistros(tabla);
+    const tablaLocal = obtenerTablaLocal(tabla);
+    const todosLosRegistros = await window.apiLocal.leerDatos(tablaLocal);
     const index = todosLosRegistros.findIndex((r: any) => r.id === dato.id);
     
     if (index >= 0) {
@@ -85,7 +94,7 @@ export const guardarRegistro = async (tabla: string, dato: any) => {
       todosLosRegistros.push(dato);
     }
     
-    await window.apiLocal.guardarDatos(tabla, todosLosRegistros);
+    await window.apiLocal.guardarDatos(tablaLocal, todosLosRegistros);
     return;
   }
 
@@ -96,7 +105,7 @@ export const guardarRegistro = async (tabla: string, dato: any) => {
 export const obtenerRegistros = async (tabla: string) => {
   if (window.apiLocal) {
     if (!puedeGuardarCopiaLocal()) return [];
-    const datos = await window.apiLocal.leerDatos(tabla);
+    const datos = await window.apiLocal.leerDatos(obtenerTablaLocal(tabla));
     return datos;
   }
 
@@ -107,9 +116,10 @@ export const obtenerRegistros = async (tabla: string) => {
 export const eliminarRegistro = async (tabla: string, id: string) => {
   if (window.apiLocal) {
     if (!puedeGuardarCopiaLocal()) return;
-    const todosLosRegistros = await obtenerRegistros(tabla);
+    const tablaLocal = obtenerTablaLocal(tabla);
+    const todosLosRegistros = await window.apiLocal.leerDatos(tablaLocal);
     const filtrados = todosLosRegistros.filter((r: any) => r.id !== id);
-    await window.apiLocal.guardarDatos(tabla, filtrados);
+    await window.apiLocal.guardarDatos(tablaLocal, filtrados);
     return;
   }
 

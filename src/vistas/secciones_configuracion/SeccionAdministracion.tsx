@@ -218,16 +218,25 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
               </h3>
               <p className="text-xs text-slate-500 mt-1">Activa la opción de cobrar "Fiado". La libreta y sus deudas solo se guardan en este equipo y no se suben a la nube. Puedes elegir quién tiene acceso aquí o asignar el permiso individualmente en la sección Equipo.</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input 
-                type="checkbox" 
-                disabled={!esDueño} 
-                checked={habilitarFiados} 
-                onChange={(e) => setHabilitarFiados(e.target.checked)} 
-                className="sr-only peer" 
+            <button
+              type="button"
+              role="switch"
+              aria-checked={habilitarFiados}
+              aria-label="Habilitar Libreta de Fiados"
+              disabled={!esDueño}
+              onClick={() => void setHabilitarFiados(!habilitarFiados)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                habilitarFiados ? "bg-emerald-600" : "bg-slate-200 dark:bg-slate-700"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-5 w-5 transform rounded-full border border-slate-300 bg-white transition-transform dark:border-slate-600",
+                  habilitarFiados ? "translate-x-5" : "translate-x-0.5"
+                )}
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
-            </label>
+            </button>
           </div>
 
           {habilitarFiados && (

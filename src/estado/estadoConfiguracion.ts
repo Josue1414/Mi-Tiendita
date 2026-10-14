@@ -429,10 +429,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const configBase = get();
       const nuevaConfig = { ...configBase, habilitarFiados: activo };
       guardarPreferenciasFiados({ habilitarFiados: activo, modoAccesoFiados: configBase.modoAccesoFiados });
+      set({ habilitarFiados: activo });
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
       }
-      set({ habilitarFiados: activo });
     } catch (error) {
       console.error("Error al guardar configuración de fiados:", error);
     }
@@ -443,10 +443,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const configBase = get();
       const nuevaConfig = { ...configBase, modoAccesoFiados: modo };
       guardarPreferenciasFiados({ habilitarFiados: configBase.habilitarFiados, modoAccesoFiados: modo });
+      set({ modoAccesoFiados: modo });
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
       }
-      set({ modoAccesoFiados: modo });
     } catch (error) {
       console.error("Error al guardar el modo de acceso a fiados:", error);
     }

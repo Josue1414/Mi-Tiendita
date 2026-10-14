@@ -374,19 +374,27 @@ export default function App() {
 
         <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10 flex flex-col gap-1.5">
           {permiteNube && (
-          <div className="px-3 py-2 border-b border-slate-200/50 dark:border-white/10">
-            <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold", 
-              estaEnLinea ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
-              "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            <div className={cn(
+              "py-2 border-b border-slate-200/50 dark:border-white/10",
+              menuAbierto ? "px-3" : "flex justify-center"
             )}>
-              {estaEnLinea ? <Cloud size={14} /> : <CloudOff size={14} />}
-              {menuAbierto && (
-                <span>
-                  {estaEnLinea ? "Internet disponible · nube habilitada" : "Nube sin conexión"}
-                </span>
-              )}
+              <div
+                title={!menuAbierto ? (estaEnLinea ? "Internet disponible · nube habilitada" : "Nube sin conexión") : undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg text-xs font-bold",
+                  menuAbierto ? "px-2 py-1.5" : "justify-center p-1.5",
+                  estaEnLinea ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                  "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                )}
+              >
+                {estaEnLinea ? <Cloud size={14} className="shrink-0" /> : <CloudOff size={14} className="shrink-0" />}
+                {menuAbierto && (
+                  <span>
+                    {estaEnLinea ? "Internet disponible · nube habilitada" : "Nube sin conexión"}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
           )}
           <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold",
             (esMaestro && servidorLANActivo) || conectadoLAN

@@ -25,12 +25,15 @@ interface BaseDatosMiTienda extends DBSchema {
   };
 }
 
-let dbPromise: Promise<IDBPDatabase<BaseDatosMiTienda>>;
+const dbPromises = new Map<string, Promise<IDBPDatabase<BaseDatosMiTienda>>>();
 
 export function inicializarDB() {
+  const tiendaId = typeof localStorage === "undefined" ? null : localStorage.getItem("tienda_id");
+  const nombreDB = tiendaId ? `MiTiendaLocal_${encodeURIComponent(tiendaId)}` : "MiTiendaLocal_local";
+  let dbPromise = dbPromises.get(nombreDB);
+
   if (!dbPromise) {
-    // Se incrementa la versión para agregar almacenes sin perder datos existentes
-    dbPromise = openDB<BaseDatosMiTienda>("MiTiendaLocal", 3, {
+    dbPromise = openDB<BaseDatosMiTienda>(nombreDB, 3, {
       upgrade(db, oldVersion) {
         if (!db.objectStoreNames.contains("productos")) {
           const store = db.createObjectStore("productos", { keyPath: "id" });
@@ -47,6 +50,7 @@ export function inicializarDB() {
         }
       },
     });
+    dbPromises.set(nombreDB, dbPromise);
   }
   return dbPromise;
 }
