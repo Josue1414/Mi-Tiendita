@@ -16,6 +16,7 @@ export interface Configuracion {
   directorioImagenes: string | null;
   directorioHandle: any | null; 
   sincronizacionNube: boolean;
+  configuracionNubePendiente?: boolean;
   teclaCobro: string;
   teclaEfectivo: string;
   teclaTarjeta: string;
@@ -70,7 +71,12 @@ const guardarPreferenciasFiados = (preferencias: PreferenciasFiados) => {
 interface EstadoConfiguracion extends Configuracion {
   cargando: boolean;
   cargarConfiguracion: () => Promise<void>;
-  actualizarDatosTienda: (nombre: string, mensaje: string, direccion: string, logo: string) => Promise<void>;
+  actualizarDatosTienda: (
+    nombre: string,
+    mensaje: string,
+    direccion: string,
+    logo: string,
+  ) => Promise<{ sincronizacionPendiente: boolean; errorNube?: string }>;
   setDirectorioImagenes: (nombreCarpeta: string, handle: any) => Promise<void>;
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
@@ -117,6 +123,7 @@ const CONFIG_INICIAL: Configuracion = {
   cuentaTransferencia: "",
   mensajePago: "Pago realizado. Gracias por su compra, vuelva pronto.",
   correoDueno: "",
+  configuracionNubePendiente: false,
   basculaModelo: "Ohaus Valor 2000",
   basculaPuerto: "USB",
   basculaBaudRate: "9600",
@@ -133,16 +140,26 @@ const CONFIG_INICIAL: Configuracion = {
   modoAccesoFiados: "TODOS",
 };
 
+const obtenerConfiguracionPersistible = (configuracion: Configuracion): Configuracion =>
+  Object.fromEntries(
+    (Object.keys(CONFIG_INICIAL) as (keyof Configuracion)[]).map((clave) => [
+      clave,
+      configuracion[clave]
+    ])
+  ) as Configuracion;
+
 const guardarConfiguracionLocal = async (configuracion: Configuracion) => {
+  const configuracionPersistible = obtenerConfiguracionPersistible(configuracion);
+
   if (esEscritorio) {
     await guardarRegistro("configuracion", {
-      ...configuracion,
+      ...configuracionPersistible,
       directorioHandle: configuracion.directorioHandle
     });
     return;
   }
 
-  const configuracionWeb = { ...configuracion };
+  const configuracionWeb = { ...configuracionPersistible };
   delete configuracionWeb.directorioHandle;
   await guardarRegistro("configuracion", configuracionWeb);
 };
@@ -162,11 +179,14 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
 
         if (tiendaNube) {
-          const estadoActualizado = {
+          const datosLocales = await obtenerRegistros("configuracion");
+          const configLocal = datosLocales[0] as Configuracion | undefined;
+          const estadoActualizado: Configuracion = {
             ...CONFIG_INICIAL,
             nombreTienda: tiendaNube.nombre || CONFIG_INICIAL.nombreTienda,
             mensajeTicket: tiendaNube.mensaje_ticket ?? CONFIG_INICIAL.mensajeTicket,
             direccionTienda: tiendaNube.direccion_tienda ?? CONFIG_INICIAL.direccionTienda,
+            logoTienda: configLocal?.logoTienda ?? CONFIG_INICIAL.logoTienda,
             teclaCobro: tiendaNube.tecla_cobro ?? CONFIG_INICIAL.teclaCobro,
             teclaEfectivo: tiendaNube.tecla_efectivo ?? CONFIG_INICIAL.teclaEfectivo,
             teclaTarjeta: tiendaNube.tecla_tarjeta ?? CONFIG_INICIAL.teclaTarjeta,
@@ -176,11 +196,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             titularTransferencia: tiendaNube.titular_transferencia || "",
             cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
             id: CONFIG_ID,
-            sincronizacionNube: permiteNube ? get().sincronizacionNube : false 
+            sincronizacionNube: permiteNube ? configLocal?.sincronizacionNube ?? get().sincronizacionNube : false,
+            configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false
           };
 
-          const datosLocales = await obtenerRegistros("configuracion");
-          const configLocal = datosLocales[0] as Configuracion | undefined;
           const preferenciasFiados = leerPreferenciasFiados();
           estadoActualizado.habilitarFiados = preferenciasFiados.habilitarFiados ?? configLocal?.habilitarFiados ?? false;
           estadoActualizado.modoAccesoFiados = preferenciasFiados.modoAccesoFiados ?? configLocal?.modoAccesoFiados ?? "TODOS";
@@ -190,9 +209,36 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
                estadoActualizado.sincronizacionNube = permiteNube ? configLocal.sincronizacionNube : false;
                estadoActualizado.directorioImagenes = configLocal.directorioImagenes;
             }
-            await guardarRegistro("configuracion", estadoActualizado);
           }
 
+          if (configLocal?.configuracionNubePendiente) {
+            estadoActualizado.nombreTienda = configLocal.nombreTienda;
+            estadoActualizado.mensajeTicket = configLocal.mensajeTicket;
+            estadoActualizado.direccionTienda = configLocal.direccionTienda;
+
+            if (navigator.onLine) {
+              try {
+                const { data, error } = await supabase
+                  .from("tiendas")
+                  .update({
+                    nombre: configLocal.nombreTienda,
+                    mensaje_ticket: configLocal.mensajeTicket,
+                    direccion_tienda: configLocal.direccionTienda
+                  })
+                  .eq("id", tiendaId)
+                  .select("id")
+                  .maybeSingle();
+
+                if (error) throw error;
+                if (!data) throw new Error("No se encontró la tienda para sincronizar su configuración.");
+                estadoActualizado.configuracionNubePendiente = false;
+              } catch (error) {
+                console.error("No se pudo sincronizar la configuración pendiente con la nube:", error);
+              }
+            }
+          }
+
+          await guardarConfiguracionLocal(estadoActualizado);
           set({ ...estadoActualizado, cargando: false });
           return;
         }
@@ -228,36 +274,74 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   },
 
   actualizarDatosTienda: async (nombre, mensaje, direccion, logo) => {
+    const sincronizaNube = debeSincronizarConNube();
+    const nuevaConfig: Configuracion = {
+      ...get(),
+      nombreTienda: nombre,
+      mensajeTicket: mensaje,
+      direccionTienda: direccion,
+      logoTienda: logo,
+      configuracionNubePendiente: sincronizaNube
+    };
+
     try {
-      const configBase = get();
-      const nuevaConfig = { 
-        ...configBase, 
-        nombreTienda: nombre, 
-        mensajeTicket: mensaje,
-        direccionTienda: direccion,
-        logoTienda: logo
-      };
-      
       await guardarConfiguracionLocal(nuevaConfig);
-      set({ 
+      set({
         nombreTienda: nombre, 
         mensajeTicket: mensaje, 
         direccionTienda: direccion, 
-        logoTienda: logo 
+        logoTienda: logo,
+        configuracionNubePendiente: nuevaConfig.configuracionNubePendiente
       });
-
-      const payloadLAN = { nombreTienda: nombre, mensajeTicket: mensaje, direccionTienda: direccion, logoTienda: logo };
-      if (enviarAccionLAN({ tipo: "LAN_CONFIG_TIENDA", payload: payloadLAN })) return;
-
-      const payloadNube = { nombre, mensaje_ticket: mensaje, direccion_tienda: direccion };
-      if (debeSincronizarConNube() && navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) await supabase.from('tiendas').update(payloadNube).eq('id', tiendaId);
-      } else if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: payloadNube });
-      }
     } catch (error) {
-      console.error("Error al guardar datos de la tienda:", error);
+      console.error("Error al guardar localmente los datos de la tienda:", error);
+      throw error;
+    }
+
+    const payloadLAN = { nombreTienda: nombre, mensajeTicket: mensaje, direccionTienda: direccion, logoTienda: logo };
+    if (enviarAccionLAN({ tipo: "LAN_CONFIG_TIENDA", payload: payloadLAN })) {
+      return { sincronizacionPendiente: false };
+    }
+
+    if (!sincronizaNube) return { sincronizacionPendiente: false };
+
+    const payloadNube = { nombre, mensaje_ticket: mensaje, direccion_tienda: direccion };
+    if (!navigator.onLine) {
+      try {
+        await registrarPendienteSync({ tabla: "tiendas", operacion: "ACTUALIZAR", payload: payloadNube });
+        return { sincronizacionPendiente: true };
+      } catch (error) {
+        console.error("La configuración se guardó localmente, pero no se pudo registrar su sincronización pendiente:", error);
+        return {
+          sincronizacionPendiente: true,
+          errorNube: error instanceof Error ? error.message : "No se pudo registrar la sincronización pendiente."
+        };
+      }
+    }
+
+    try {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) throw new Error("No se encontró la tienda vinculada para sincronizar.");
+
+      const { data, error } = await supabase
+        .from("tiendas")
+        .update(payloadNube)
+        .eq("id", tiendaId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("No se encontró la tienda para sincronizar su configuración.");
+
+      const configSincronizada = { ...nuevaConfig, configuracionNubePendiente: false };
+      await guardarConfiguracionLocal(configSincronizada);
+      set({ configuracionNubePendiente: false });
+      return { sincronizacionPendiente: false };
+    } catch (error) {
+      console.error("Los datos se guardaron localmente, pero no se pudieron sincronizar con la nube:", error);
+      return {
+        sincronizacionPendiente: true,
+        errorNube: error instanceof Error ? error.message : "Error desconocido al sincronizar con la nube."
+      };
     }
   },
   

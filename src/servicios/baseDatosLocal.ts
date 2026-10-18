@@ -28,6 +28,9 @@ interface BaseDatosMiTienda extends DBSchema {
 const dbPromises = new Map<string, Promise<IDBPDatabase<BaseDatosMiTienda>>>();
 
 export function inicializarDB() {
+  // En Android, IndexedDB usa el almacenamiento del origen de WebView dentro
+  // del espacio privado de datos de la aplicación; no guarda datos en una SD extraíble.
+  // Esto aplica a productos, fiados, ventas fiadas e imágenes almacenadas aquí.
   const tiendaId = typeof localStorage === "undefined" ? null : localStorage.getItem("tienda_id");
   const nombreDB = tiendaId ? `MiTiendaLocal_${encodeURIComponent(tiendaId)}` : "MiTiendaLocal_local";
   let dbPromise = dbPromises.get(nombreDB);

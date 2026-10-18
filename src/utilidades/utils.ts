@@ -1,6 +1,9 @@
 // src/utilidades/utils.ts
 import { type ClassValue, clsx } from "clsx";
+import { Capacitor } from "@capacitor/core";
 import { twMerge } from "tailwind-merge";
+
+export const esAndroidNativo = Capacitor.isNativePlatform();
 
 /**
  * Combina clases de Tailwind de forma segura, resolviendo conflictos.

@@ -31,6 +31,7 @@ declare global {
       obtenerHardwareId: () => Promise<string>;
       validarSuscripcionOffline: () => Promise<{ activo: boolean; error?: string }>;
       sincronizarReloj: (fechaVencimiento: string) => Promise<{ exito: boolean; error?: string }>;
+      imprimirSilencioso?: (html: string) => Promise<boolean>;
       iniciarServidorLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
       obtenerEstadoLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
       onEstadoLAN: (callback: (estado: { activo: boolean; dispositivosConectados: number; ip: string }) => void) => void;
@@ -94,7 +95,10 @@ export const guardarRegistro = async (tabla: string, dato: any) => {
       todosLosRegistros.push(dato);
     }
     
-    await window.apiLocal.guardarDatos(tablaLocal, todosLosRegistros);
+    const resultado = await window.apiLocal.guardarDatos(tablaLocal, todosLosRegistros);
+    if (!resultado.exito) {
+      throw new Error(resultado.error || `No se pudo guardar la tabla local "${tabla}".`);
+    }
     return;
   }
 

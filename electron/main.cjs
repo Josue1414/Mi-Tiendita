@@ -218,6 +218,9 @@ app.whenReady().then(() => {
   ipcMain.handle('imprimir-silencioso', async (event, htmlContent) => {
     const winPrint = new BrowserWindow({ show: false });
     await winPrint.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+    await winPrint.webContents.executeJavaScript(
+      "Promise.all(Array.from(document.images, imagen => imagen.decode().catch(error => console.error('Error al cargar una imagen del ticket:', error))))"
+    );
     winPrint.webContents.print({ silent: true, printBackground: true }, (success, errorType) => {
       if (!success) console.error("Fallo impresión silenciosa:", errorType);
       winPrint.close();

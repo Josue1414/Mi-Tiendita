@@ -1,5 +1,6 @@
 // src/utilidades/impresion.ts
 import type { Venta } from "../estado/estadoVentas";
+import { esAndroidNativo } from "./utils";
 
 export const imprimirTicket = async (
   venta: Venta, 
@@ -29,7 +30,7 @@ export const imprimirTicket = async (
   const nombreCajero = venta.trabajador ? venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim() : "Cajero";
 
   // Se prepara el HTML del logo y la dirección si existen
-  const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" style="max-width: 150px; max-height: 80px;" /></div>` : '';
+  const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" alt="Logo de la tienda" style="display: block; max-width: 150px; max-height: 80px; margin: 0 auto; object-fit: contain;" /></div>` : '';
   const direccionHtml = direccionTienda ? `<div class="center" style="margin-bottom: 15px; font-size: 10px; white-space: pre-wrap;">${direccionTienda}</div>` : '';
 
   const html = `
@@ -102,10 +103,12 @@ export const imprimirTicket = async (
     </html>
   `;
 
-  // Intentar impresión silenciosa en entorno de escritorio (Electron)
-  if (typeof window !== 'undefined' && (window as any).apiLocal && (window as any).apiLocal.imprimirSilencioso) {
+  if (esAndroidNativo) {
+    // TODO: Integrar plugin nativo de Capacitor (Bluetooth/Serial) para Android
+  } else if (typeof window !== 'undefined' && window.apiLocal?.imprimirSilencioso) {
+    // Impresión silenciosa en entorno de escritorio (Electron)
     try {
-      await (window as any).apiLocal.imprimirSilencioso(html);
+      await window.apiLocal.imprimirSilencioso(html);
       return;
     } catch (error) {
       console.error("Error en impresión silenciosa:", error);
@@ -135,13 +138,21 @@ export const imprimirTicket = async (
   
   // Pequeño retraso para que el navegador procese el documento antes de lanzar la ventana de impresión
   setTimeout(() => {
-    contentWindow.print();
-    
-    // Limpieza del DOM eliminando el iframe tras la interacción
-    setTimeout(() => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe);
-      }
-    }, 1000);
+    void Promise.all(
+      Array.from(doc.images, imagen =>
+        imagen.decode().catch(error => {
+          console.error("Error al cargar una imagen del ticket:", error);
+        })
+      )
+    ).then(() => {
+      contentWindow.print();
+
+      // Limpieza del DOM eliminando el iframe tras la interacción
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 1000);
+    });
   }, 300);
 };

@@ -5,11 +5,36 @@ import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import { useEstadoInventario } from "../../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { leerProductosExcel } from "../../servicios/importadorProductos";
-import { cn } from "../../utilidades/utils";
+import { cn, esAndroidNativo } from "../../utilidades/utils";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
 interface DirectorioHandle { name: string; kind: string; }
 interface NavegadorExtendido { showDirectoryPicker?: (options?: { mode: string }) => Promise<DirectorioHandle>; apiLocal?: { seleccionarCarpeta?: () => Promise<string>; }; }
+
+const optimizarImagenLogo = async (dataUrl: string): Promise<string> => {
+  if (!dataUrl.startsWith("data:image/")) return dataUrl;
+
+  const imagen = new Image();
+  await new Promise<void>((resolve, reject) => {
+    imagen.onload = () => resolve();
+    imagen.onerror = () => reject(new Error("No se pudo leer la imagen del logo."));
+    imagen.src = dataUrl;
+  });
+
+  const maxAncho = 640;
+  const maxAlto = 320;
+  const escala = Math.min(1, maxAncho / imagen.naturalWidth, maxAlto / imagen.naturalHeight);
+  if (escala === 1 && dataUrl.length <= 250_000) return dataUrl;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(imagen.naturalWidth * escala));
+  canvas.height = Math.max(1, Math.round(imagen.naturalHeight * escala));
+  const contexto = canvas.getContext("2d");
+  if (!contexto) throw new Error("No se pudo preparar la imagen del logo para guardarla.");
+
+  contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/webp", 0.85);
+};
 
 export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) {
   const {
@@ -31,6 +56,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
   const [inputDireccion, setInputDireccion] = useState(direccionTienda || "");
   const [inputLogo, setInputLogo] = useState(logoTienda || "");
   const [guardadoTienda, setGuardadoTienda] = useState(false);
+  const [guardandoTienda, setGuardandoTienda] = useState(false);
   const [formPago, setFormPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
   const [cambiosPago, setCambiosPago] = useState(false);
   const [guardadoPago, setGuardadoPago] = useState(false);
@@ -47,12 +73,33 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
     }
   }, [teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago, cambiosPago]);
 
-  const manejarGuardarTienda = (e: React.FormEvent) => {
+  const manejarGuardarTienda = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!puedeEditarTicket && !esDueño) return;
-    actualizarDatosTienda(inputNombre, inputMensaje, inputDireccion, inputLogo);
-    setGuardadoTienda(true);
-    setTimeout(() => setGuardadoTienda(false), 2000);
+    if ((!puedeEditarTicket && !esDueño) || guardandoTienda) return;
+
+    setGuardandoTienda(true);
+    try {
+      const logoOptimizado = await optimizarImagenLogo(inputLogo);
+      const resultado = await actualizarDatosTienda(inputNombre, inputMensaje, inputDireccion, logoOptimizado);
+      if (logoOptimizado !== inputLogo) setInputLogo(logoOptimizado);
+      setGuardadoTienda(true);
+      setTimeout(() => setGuardadoTienda(false), 2000);
+
+      if (resultado.errorNube) {
+        setAviso({
+          titulo: "Guardado en este dispositivo",
+          mensaje: `Los datos se guardaron localmente, pero no se sincronizaron con la nube. Se volverá a intentar al abrir la aplicación con conexión. ${resultado.errorNube}`
+        });
+      }
+    } catch (error) {
+      console.error("No se pudo guardar la configuración de la tienda:", error);
+      setAviso({
+        titulo: "Error al guardar",
+        mensaje: `No se pudieron guardar los datos de la tienda en este dispositivo. Inténtalo de nuevo. ${error instanceof Error ? error.message : String(error)}`
+      });
+    } finally {
+      setGuardandoTienda(false);
+    }
   };
 
   const manejarGuardarPagos = async (e: React.FormEvent) => {
@@ -163,7 +210,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
                   Subir Imagen <input type="file" accept="image/*" onChange={manejarLogo} className="hidden" />
                 </label>
               )}
-              <p className="text-[10px] text-amber-600 flex gap-1 items-start mt-1"><AlertTriangle size={12} className="shrink-0 mt-0.5" /> Considera que el logo se imprimirá en cada ticket.</p>
+              <p className="text-[10px] text-amber-600 flex gap-1 items-start mt-1"><AlertTriangle size={12} className="shrink-0 mt-0.5" /> Considera que el logo se imprimirá en cada ticket. Debes subirlo en cada dispositivo, ya que la imagen no se guarda en la nube.</p>
             </div>
           </div>
           <div>
@@ -179,8 +226,8 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
             <textarea disabled={!puedeEditarTicket} value={inputMensaje} onChange={(e) => setInputMensaje(e.target.value)} rows={2} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm resize-none text-slate-900 dark:text-slate-100" />
           </div>
           {(esDueño || puedeEditarTicket) && (
-            <button type="submit" className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-medium text-sm">
-              {guardadoTienda ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />} {guardadoTienda ? "Guardado" : "Guardar"}
+            <button type="submit" disabled={guardandoTienda} className="self-end flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white px-6 py-2.5 rounded-xl font-medium text-sm">
+              {guardandoTienda ? <Save size={16} className="animate-pulse" /> : guardadoTienda ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Save size={16} />} {guardandoTienda ? "Guardando..." : guardadoTienda ? "Guardado" : "Guardar"}
             </button>
           )}
         </form>
@@ -267,14 +314,16 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
         </form>
       </div>
 
-      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico</h2>
-        <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
-          {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
-          <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
+      {!esAndroidNativo && (
+        <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+          <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico</h2>
+          <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
+            {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
+            <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
         <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" /> Importar Excel</h2>

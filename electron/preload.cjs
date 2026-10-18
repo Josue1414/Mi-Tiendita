@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('apiLocal', {
   obtenerHardwareId: () => ipcRenderer.invoke('obtener-hardware-id'),
   validarSuscripcionOffline: () => ipcRenderer.invoke('validar-suscripcion-offline'),
   sincronizarReloj: (fechaVencimiento) => ipcRenderer.invoke('sincronizar-reloj', fechaVencimiento),
+  imprimirSilencioso: (html) => ipcRenderer.invoke('imprimir-silencioso', html),
 
   escucharPeticionDispositivos: (callback) => {
     ipcRenderer.on('mostrar-lista-dispositivos', (event, datos) => callback(datos));

@@ -1,4 +1,6 @@
 // src/servicios/bascula.ts
+import { esAndroidNativo } from "../utilidades/utils";
+
 export type PuertoBascula = "USB" | "Serial COM" | "Bluetooth" | "TCP/IP";
 export type BaudRateBascula = "9600" | "19200" | "38400" | "57600";
 export type FormatoBascula = "serial" | "text" | "csv" | "scale";
@@ -46,6 +48,14 @@ export function agregarModeloBascula(nuevoModelo: BasculaModeloConfig) {
 }
 
 export function detectarBasculaDesdeDriver() {
+  if (esAndroidNativo) {
+    // TODO: Integrar plugin nativo de Capacitor (Bluetooth/Serial) para Android
+    return {
+      detectado: false,
+      mensaje: "La conexión con básculas en Android requiere integración nativa."
+    };
+  }
+
   const serialSoportado = typeof navigator !== "undefined" && "serial" in navigator;
   
   if (serialSoportado) {

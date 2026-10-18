@@ -23,7 +23,7 @@ export default function VistaPanel() {
   const { ventas } = useEstadoVentas();
   const { productos } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
-  const { nombreTienda } = useEstadoConfiguracion();
+  const { nombreTienda, mensajeTicket, direccionTienda, logoTienda } = useEstadoConfiguracion();
   
   const [fechaSeleccionada, setFechaSeleccionada] = useState(obtenerFechaLocal());
 
@@ -280,7 +280,7 @@ export default function VistaPanel() {
                       </td>
                       <td className="py-2.5 text-center">
                         <button 
-                          onClick={() => imprimirTicket(venta, nombreTienda)} 
+                          onClick={() => imprimirTicket(venta, nombreTienda, mensajeTicket, direccionTienda, logoTienda)}
                           className="p-1.5 mx-auto flex items-center justify-center text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" 
                           title="Reimprimir Ticket"
                         >
