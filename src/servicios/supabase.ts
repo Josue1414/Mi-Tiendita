@@ -1,5 +1,6 @@
 // src/servicios/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -17,13 +18,12 @@ let tiendaIdCache: string | null = null;
 
 // CORREGIDO: Prioriza la tienda seleccionada localmente para cuentas con múltiples sucursales
 export const obtenerTiendaIdActual = async () => {
-  if (tiendaIdCache) return tiendaIdCache;
-  
   const localTiendaId = localStorage.getItem("tienda_id");
   if (localTiendaId) {
     tiendaIdCache = localTiendaId;
     return tiendaIdCache;
   }
+  if (tiendaIdCache) return tiendaIdCache;
   
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
@@ -43,9 +43,25 @@ export const obtenerTiendaIdActual = async () => {
   return null;
 };
 
-const obtenerIdentificadorDispositivo = async () => {
+export const establecerTiendaIdActual = (tiendaId: string) => {
+  tiendaIdCache = tiendaId;
+  localStorage.setItem("tienda_id", tiendaId);
+};
+
+export const obtenerIdentificadorDispositivo = async () => {
   const apiLocal = (window as Window & { apiLocal?: { obtenerHardwareId: () => Promise<string> } }).apiLocal;
   if (apiLocal) return apiLocal.obtenerHardwareId();
+
+  if (Capacitor.getPlatform() === 'android') {
+    let identificador = localStorage.getItem('android_hardware_id');
+    if (!identificador) {
+      const idWebAnterior = localStorage.getItem('web_hardware_id');
+      const sufijo = idWebAnterior?.startsWith('web-') ? idWebAnterior.slice(4) : crypto.randomUUID();
+      identificador = `android-${sufijo}`;
+      localStorage.setItem('android_hardware_id', identificador);
+    }
+    return identificador;
+  }
 
   let identificador = localStorage.getItem('web_hardware_id');
   if (!identificador) {
@@ -56,7 +72,11 @@ const obtenerIdentificadorDispositivo = async () => {
 };
 
 const obtenerNombreDispositivoProximo = async (tiendaId: string, hardwareId: string) => {
-  const baseNombre = hardwareId.startsWith('web-') ? 'Navegador Web' : 'PC Local';
+  const baseNombre = hardwareId.startsWith('android-')
+    ? 'Android'
+    : hardwareId.startsWith('web-')
+      ? 'Navegador Web'
+      : 'PC Local';
 
   const { data: dispositivos, error } = await supabase
     .from('dispositivos_vinculados')
@@ -88,11 +108,37 @@ export const registrarDispositivoActual = async (tienda: { id: string; max_dispo
 
   if (errorConsulta) throw errorConsulta;
 
+  if (!existente && Capacitor.getPlatform() === 'android') {
+    const idWebAnterior = localStorage.getItem('web_hardware_id');
+    if (idWebAnterior?.startsWith('web-')) {
+      const { data: dispositivoWebAnterior, error: errorMigracionConsulta } = await supabase
+        .from('dispositivos_vinculados')
+        .select('*')
+        .eq('tienda_id', tienda.id)
+        .eq('hardware_id', idWebAnterior)
+        .maybeSingle();
+      if (errorMigracionConsulta) throw errorMigracionConsulta;
+
+      if (dispositivoWebAnterior) {
+        const { data: dispositivoMigrado, error: errorMigracion } = await supabase
+          .from('dispositivos_vinculados')
+          .update({ hardware_id: hardwareId, ultimo_acceso: new Date().toISOString() })
+          .eq('id', dispositivoWebAnterior.id)
+          .select()
+          .single();
+        if (errorMigracion) throw errorMigracion;
+        localStorage.setItem('nombre_dispositivo_local', dispositivoMigrado.nombre_dispositivo);
+        return { hardwareId, dispositivo: dispositivoMigrado };
+      }
+    }
+  }
+
   if (existente) {
-    await supabase.from('dispositivos_vinculados')
+    const { error: errorActualizacion } = await supabase.from('dispositivos_vinculados')
       .update({ ultimo_acceso: new Date().toISOString() })
       .eq('tienda_id', tienda.id)
       .eq('hardware_id', hardwareId);
+    if (errorActualizacion) throw errorActualizacion;
     localStorage.setItem('nombre_dispositivo_local', existente.nombre_dispositivo);
     return { hardwareId, dispositivo: existente };
   }

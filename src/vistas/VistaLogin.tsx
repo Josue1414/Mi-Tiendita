@@ -6,9 +6,9 @@ import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { restaurarPlanCacheado, useEstadoPlan } from "../estado/estadoPlan"; 
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown } from "lucide-react"; 
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, KeyRound, CheckCircle2 } from "lucide-react";
 import { cn } from "../utilidades/utils";
-import { supabase, registrarDispositivoActual } from "../servicios/supabase";
+import { supabase, registrarDispositivoActual, establecerTiendaIdActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
 import ModalAviso from "../componentes/ui/ModalAviso"; 
 
@@ -50,6 +50,13 @@ export default function VistaLogin() {
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
+  // NUEVOS ESTADOS PARA CAMBIO DE CONTRASEÑA
+  const [modoActualizarPassword, setModoActualizarPassword] = useState(false);
+  const [nuevaPassword, setNuevaPassword] = useState("");
+  const [confirmarPassword, setConfirmarPassword] = useState("");
+  const [mostrarNuevaPassword, setMostrarNuevaPassword] = useState(false);
+  const [mostrarConfirmarPassword, setMostrarConfirmarPassword] = useState(false);
+
   const [avisoSuscripcion, setAvisoSuscripcion] = useState<{ titulo: string; mensaje: string; tipo: "bloqueo" | "advertencia" } | null>(null);
   const [avisoRecordatorio, setAvisoRecordatorio] = useState<{ titulo: string; mensaje: string } | null>(null);
   const [loginPendiente, setLoginPendiente] = useState<{ id: string, pin: string } | null>(null);
@@ -64,6 +71,30 @@ export default function VistaLogin() {
   const [mostrarPin, setMostrarPin] = useState(false); 
 
   const usuariosActivos = trabajadores.filter(t => t.activo);
+  const cumpleLongitudPassword = nuevaPassword.length >= 8;
+  const cumpleMayusculaPassword = /[A-Z]/.test(nuevaPassword);
+  const cumpleCaracterEspecialPassword = /[^A-Za-z0-9]/.test(nuevaPassword);
+  const contrasenasCoinciden = confirmarPassword.length > 0 && nuevaPassword === confirmarPassword;
+  const criterioPasswordClass = (cumple: boolean) =>
+    cumple ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500";
+
+  // ESCUCHA EVENTO DE RECUPERACIÓN DE SUPABASE
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setModoRecuperacion(false);
+        setModoActualizarPassword(true);
+        setNuevaPassword("");
+        setConfirmarPassword("");
+        setMostrarNuevaPassword(false);
+        setMostrarConfirmarPassword(false);
+        setErrorSaaS("");
+        setMensajeExito("");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const validarSesionPrevia = async () => {
@@ -163,7 +194,7 @@ export default function VistaLogin() {
 
       const tiendaAnterior = localStorage.getItem("tienda_id");
       if (tiendaAnterior && tiendaAnterior !== tienda.id) {
-        localStorage.setItem("tienda_id", tienda.id);
+        establecerTiendaIdActual(tienda.id);
         window.location.reload(); 
         return;
       }
@@ -172,19 +203,6 @@ export default function VistaLogin() {
       const { data: planData } = await supabase.from('planes').select('*').eq('id', planId).single();
       
       if (planData) {
-        let hwId = window.apiLocal ? await window.apiLocal.obtenerHardwareId() : (localStorage.getItem('web_hardware_id') || "");
-        if (!window.apiLocal && !hwId) {
-          hwId = "web-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-          localStorage.setItem('web_hardware_id', hwId);
-        }
-
-        const { data: dispNube } = await supabase.from('dispositivos_vinculados').select('hardware_id').eq('tienda_id', tienda.id);
-        const yaVinculado = dispNube?.some(d => d.hardware_id === hwId);
-
-        if (!yaVinculado && (dispNube?.length || 0) >= planData.max_dispositivos) {
-          throw new Error(`Límite de ${planData.max_dispositivos} PC(s) alcanzado en "${tienda.nombre}". Libera espacio desvinculando un equipo.`);
-        }
-
         useEstadoPlan.getState().cargarPlan(planData.id, planData.max_dispositivos, planData.max_usuarios, planData.permite_nube, tienda.fecha_vencimiento);
       }
 
@@ -197,7 +215,7 @@ export default function VistaLogin() {
 
       if (window.apiLocal) await window.apiLocal.sincronizarReloj(tienda.fecha_vencimiento);
 
-      localStorage.setItem("tienda_id", tienda.id);
+      establecerTiendaIdActual(tienda.id);
 
       await Promise.all([cargarConfiguracion(), cargarTrabajadores(), cargarProductos(), cargarVentas(), cargarAsistencias()]);
 
@@ -275,6 +293,43 @@ export default function VistaLogin() {
     } catch (err: any) {
       setErrorSaaS(err.message);
     } finally {
+      setCargandoSaaS(false);
+    }
+  };
+
+  // FUNCIÓN PARA GUARDAR LA NUEVA CONTRASEÑA
+  const manejarActualizarPassword = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
+    if (nuevaPassword.length < 8 || !/[A-Z]/.test(nuevaPassword) || !/[^A-Za-z0-9]/.test(nuevaPassword)) {
+      setErrorSaaS("La contraseña debe cumplir todos los criterios de seguridad.");
+      return;
+    }
+    if (nuevaPassword !== confirmarPassword) {
+      setErrorSaaS("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setCargandoSaaS(true);
+    setErrorSaaS("");
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: nuevaPassword
+      });
+      if (error) throw error;
+
+      setMensajeExito("¡Contraseña actualizada con éxito! Ingresando...");
+      setTimeout(() => {
+        setModoActualizarPassword(false);
+        setNuevaPassword("");
+        setConfirmarPassword("");
+        setMensajeExito("");
+        setCargandoSaaS(false);
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error("Error al actualizar la contraseña:", error);
+      setErrorSaaS(error instanceof Error ? error.message : "No se pudo actualizar la contraseña.");
       setCargandoSaaS(false);
     }
   };
@@ -394,13 +449,111 @@ export default function VistaLogin() {
         </div>
 
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-medium px-4">
-          {cuentaSaaSLogueada ? "Selecciona tu usuario de caja" : seleccionandoSucursal ? "Elige a qué negocio deseas acceder" : "Inicia sesión en tu cuenta para acceder a tu sucursal."}
+          {modoActualizarPassword ? "Crea una nueva contraseña" : cuentaSaaSLogueada ? "Selecciona tu usuario de caja" : seleccionandoSucursal ? "Elige a qué negocio deseas acceder" : "Inicia sesión en tu cuenta para acceder a tu sucursal."}
         </p>
       </div>
 
       <div className="efecto-cristal w-full max-w-md bg-white/90 dark:bg-slate-900/90 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200/50 dark:border-white/10 relative overflow-hidden z-10">
         
-        {!cuentaSaaSLogueada ? (
+        {modoActualizarPassword ? (
+          <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <KeyRound className="text-emerald-600" /> Crear Nueva Contraseña
+            </h2>
+            <p className="text-xs text-slate-500 mb-6">
+              Ingresa tu nueva contraseña para volver a acceder a la cuenta.
+            </p>
+
+            <form onSubmit={manejarActualizarPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Nueva Contraseña</label>
+                <div className="relative">
+                  <input
+                    type={mostrarNuevaPassword ? "text" : "password"}
+                    required
+                    autoFocus
+                    value={nuevaPassword}
+                    onChange={(e) => {
+                      setNuevaPassword(e.target.value);
+                      setErrorSaaS("");
+                    }}
+                    disabled={cargandoSaaS}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50"
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarNuevaPassword(!mostrarNuevaPassword)}
+                    aria-label={mostrarNuevaPassword ? "Ocultar nueva contraseña" : "Mostrar nueva contraseña"}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    disabled={cargandoSaaS}
+                  >
+                    {mostrarNuevaPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <ul className="space-y-1 text-xs" aria-live="polite">
+                <li className={`flex items-center gap-2 ${criterioPasswordClass(cumpleLongitudPassword)}`}><CheckCircle2 size={14} /> Al menos 8 caracteres</li>
+                <li className={`flex items-center gap-2 ${criterioPasswordClass(cumpleMayusculaPassword)}`}><CheckCircle2 size={14} /> Al menos una letra mayúscula</li>
+                <li className={`flex items-center gap-2 ${criterioPasswordClass(cumpleCaracterEspecialPassword)}`}><CheckCircle2 size={14} /> Al menos un carácter especial (por ejemplo, # o !)</li>
+              </ul>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Confirmar Contraseña</label>
+                <div className="relative">
+                  <input
+                    type={mostrarConfirmarPassword ? "text" : "password"}
+                    required
+                    value={confirmarPassword}
+                    onChange={(e) => {
+                      setConfirmarPassword(e.target.value);
+                      setErrorSaaS("");
+                    }}
+                    disabled={cargandoSaaS}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white transition-all disabled:opacity-50"
+                    placeholder="Escribe de nuevo tu contraseña"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarConfirmarPassword(!mostrarConfirmarPassword)}
+                    aria-label={mostrarConfirmarPassword ? "Ocultar confirmación de contraseña" : "Mostrar confirmación de contraseña"}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    disabled={cargandoSaaS}
+                  >
+                    {mostrarConfirmarPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {confirmarPassword.length > 0 && (
+                  <p className={`mt-2 flex items-center gap-2 text-xs ${criterioPasswordClass(contrasenasCoinciden)}`} aria-live="polite">
+                    <CheckCircle2 size={14} />
+                    {contrasenasCoinciden ? "Las contraseñas coinciden" : "Las contraseñas no coinciden"}
+                  </p>
+                )}
+              </div>
+
+              {errorSaaS && (
+                <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
+                  {errorSaaS}
+                </p>
+              )}
+              {mensajeExito && (
+                <p className="text-emerald-600 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                  {mensajeExito}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={cargandoSaaS || !cumpleLongitudPassword || !cumpleMayusculaPassword || !cumpleCaracterEspecialPassword || !contrasenasCoinciden}
+                className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+              >
+                {cargandoSaaS ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Guardando...</> : "Guardar Contraseña"}
+              </button>
+            </form>
+          </div>
+
+        ) : !cuentaSaaSLogueada ? (
           seleccionandoSucursal ? (
             <div className="flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
               <button onClick={() => { setSeleccionandoSucursal(false); supabase.auth.signOut(); }} className="self-start p-2 -ml-2 mb-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -474,7 +627,6 @@ export default function VistaLogin() {
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Contraseña</label>
                   <div className="relative">
-                    {/* SOLUCIÓN: Agregado "as any" para evitar errores de TypeScript */}
                     <input 
                       type="text" 
                       style={{ WebkitTextSecurity: mostrarPassword ? "none" : "disc" } as any}
@@ -563,7 +715,6 @@ export default function VistaLogin() {
             <div onKeyDown={(e) => { if (e.key === 'Enter') manejarEnvioPin(); }} className="flex flex-col gap-4">
               <div className="relative flex items-center justify-center">
                 <Lock className="absolute left-5 text-slate-400" size={20} />
-                {/* SOLUCIÓN: Agregado "as any" para evitar errores de TypeScript */}
                 <input 
                   type="text" 
                   style={{ WebkitTextSecurity: mostrarPin ? "none" : "disc" } as any}

@@ -27,3 +27,18 @@ export function generarIdCompra(): string {
 
   return `${anio}A${mes}BB${dia}A${sufijo}`.toUpperCase();
 }
+
+export function generarSlug(texto: string): string {
+  if (!texto?.trim()) return "tienda";
+
+  const slug = texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+  return slug || "tienda";
+}

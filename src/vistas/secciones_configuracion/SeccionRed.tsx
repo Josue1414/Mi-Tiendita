@@ -5,7 +5,7 @@ import QRCode from "react-qr-code";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoRed } from "../../estado/estadoRed";
 import { useEstadoPlan } from "../../estado/estadoPlan";
-import { supabase, obtenerTiendaIdActual } from "../../servicios/supabase";
+import { supabase, obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
 import { establecerRolCerebro } from "../../servicios/cerebroTienda";
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionDesvincularEquipo from "../../componentes/ui/ModalConfirmacionDesvincularEquipo";
@@ -14,6 +14,12 @@ import type { PropsSeccionConfig } from "../VistaConfiguracion";
 interface Dispositivo {
   id: string; hardware_id: string; nombre_dispositivo: string; ultimo_acceso: string; tienda_id: string; es_cerebro?: boolean;
 }
+
+const obtenerTipoDispositivo = (hardwareId: string) => {
+  if (hardwareId.startsWith("android-")) return "Android";
+  if (hardwareId.startsWith("web-")) return "WEB";
+  return "PC";
+};
 
 interface NavegadorExtendido {
   apiLocal?: { obtenerIpLocal?: () => Promise<string>; obtenerHardwareId?: () => Promise<string>; };
@@ -79,17 +85,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
         }
       }
 
-      if (esAppEscritorio && win.apiLocal?.obtenerHardwareId) {
-        const hw = await win.apiLocal.obtenerHardwareId();
-        setMiHwid(hw);
-      } else {
-        let webHwId = localStorage.getItem('web_hardware_id');
-        if (!webHwId) {
-          webHwId = "web-" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-          localStorage.setItem('web_hardware_id', webHwId);
-        }
-        setMiHwid(webHwId);
-      }
+      setMiHwid(await obtenerIdentificadorDispositivo());
     };
     cargarDispositivos();
 
@@ -189,7 +185,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
 
   const dispositivosFiltradosParaModal = useMemo(() => {
-    return dispositivos.filter(d => !d.hardware_id.startsWith("web-"));
+    return dispositivos.filter(d => obtenerTipoDispositivo(d.hardware_id) === "PC");
   }, [dispositivos]);
 
   return (
@@ -352,6 +348,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                       ) : (
                         <>
                           <span className={cn("font-bold", esMiEquipo ? "text-emerald-800 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200")}>{disp.nombre_dispositivo}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">{obtenerTipoDispositivo(disp.hardware_id)}</span>
                           <button onClick={() => { setEditandoDispId(disp.id); setNombreDispTemp(disp.nombre_dispositivo); }} className="p-1 text-slate-400 hover:text-emerald-600"><Pencil size={14} /></button>
                           {esMiEquipo && <span className="flex items-center gap-1 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider shadow-sm"><MonitorDown size={10} /> Este equipo</span>}
                           {disp.es_cerebro && <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Cerebro</span>}

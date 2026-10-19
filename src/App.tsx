@@ -34,9 +34,6 @@ import ModalSeleccionDispositivo from "./componentes/ui/ModalSeleccionDispositiv
 import ModalQRCliente from "./componentes/ui/ModalQRCliente";
 import VistaFiados from "./vistas/VistaFiados";
 
-
-
-
 // Añadimos 'fiados' al mapa (asegúrate de que en estadoNavegacion.ts 'fiados' exista en el type SeccionApp)
 const componentesSeccion: Record<SeccionApp | "fiados", React.ComponentType> = {
   pos: VistaPOS,

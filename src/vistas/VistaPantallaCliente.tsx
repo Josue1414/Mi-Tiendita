@@ -29,7 +29,7 @@ export default function VistaPantallaCliente() {
   // SOLUCIÓN: Obtenemos el nombre de la tienda extraído de los parámetros del link
   const params = new URLSearchParams(window.location.search);
   const esConexionRemota = params.has("peer");
-  const nombreTienda = params.get("tienda") || "Mi Tienda";
+  const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
 
   useEffect(() => {
     const actualizarHora = () => setHora(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));

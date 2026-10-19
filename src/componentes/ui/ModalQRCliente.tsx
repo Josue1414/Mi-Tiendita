@@ -2,6 +2,7 @@
 import QRCode from "react-qr-code";
 import { X, MonitorSmartphone, Wifi } from "lucide-react";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion"; // <-- IMPORTACIÓN
+import { generarSlug } from "../../utilidades/utils";
 
 interface Props {
   abierto: boolean;
@@ -18,14 +19,22 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
   const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
   const idUnico = `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-  let baseUrl = window.location.origin;
-  
-  if (baseUrl.includes("file://") || baseUrl.includes("localhost")) {
-      baseUrl = "https://ahorratiempo-mitienda.pages.dev"; 
-  }
-
-  // SOLUCIÓN: Agregamos &tienda= al final del enlace
-  const urlCliente = `${baseUrl}?peer=${idUnico}&cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`;
+  const hostname = window.location.hostname;
+  const usaDominioPublico =
+    window.location.protocol === "file:" ||
+    window.location.protocol === "capacitor:" ||
+    hostname === "localhost" ||
+    hostname === "pages.dev" ||
+    hostname.endsWith(".pages.dev");
+  const baseUrl = usaDominioPublico
+    ? "https://mitienda.ahorratiempo.com.mx"
+    : window.location.origin;
+  const urlCliente = new URL(baseUrl);
+  urlCliente.searchParams.set("peer", idUnico);
+  urlCliente.searchParams.set("cliente", nombreCaja);
+  urlCliente.searchParams.set("tienda", generarSlug(nombreTienda));
+  urlCliente.searchParams.set("nombreTienda", nombreTienda);
+  const enlaceCliente = urlCliente.toString();
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={alCerrar}>
@@ -49,7 +58,7 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
           </p>
 
           <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 relative flex items-center justify-center shrink-0">
-            <QRCode value={urlCliente} size={180} className="rounded-lg" />
+            <QRCode value={enlaceCliente} size={180} className="rounded-lg" />
           </div>
 
           <div className="w-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 p-3.5 rounded-xl text-xs text-left border border-emerald-200 dark:border-emerald-800/30 flex gap-3 items-start shadow-sm shrink-0">
@@ -62,7 +71,7 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
           <div className="w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-white/5 shrink-0">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">O ingresa esta URL en la tablet:</p>
             <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 break-all select-all font-semibold">
-              {urlCliente}
+              {enlaceCliente}
             </p>
           </div>
         </div>
