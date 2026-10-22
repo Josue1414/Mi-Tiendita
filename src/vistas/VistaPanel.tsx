@@ -12,6 +12,7 @@ import { useState } from "react";
 import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
+import AyudaContextual from "../componentes/ui/AyudaContextual";
 
 const obtenerFechaLocal = () => {
   const fecha = new Date();
@@ -98,7 +99,10 @@ export default function VistaPanel() {
       `}</style>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Panel Principal</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Panel Principal
+          <AyudaContextual etiqueta="Panel principal" texto="Consulta un resumen de ventas y ganancias para el día seleccionado. Cambia la fecha para revisar otro día; las tarjetas y gráficas se actualizan según los datos disponibles." />
+        </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Resumen de ventas y ganancias del día seleccionado.</p>
         <label className="mt-3 inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-300">
           <Calendar size={15} className="text-emerald-600" />

@@ -4,6 +4,7 @@ import { guardarRegistro, obtenerRegistros, registrarPendienteSync } from "../se
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { useEstadoPlan } from "./estadoPlan"; 
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
+import { DIAS_ALERTA_CADUCIDAD } from "../utilidades/lotes";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -40,6 +41,7 @@ export interface Configuracion {
   escanerMensaje: string;
   habilitarFiados: boolean; // <-- NUEVO ESTADO
   modoAccesoFiados: "TODOS" | "MANUAL";
+  diasAlertaCaducidad: number;
 }
 
 type PreferenciasFiados = Pick<Configuracion, "habilitarFiados" | "modoAccesoFiados">;
@@ -94,6 +96,7 @@ interface EstadoConfiguracion extends Configuracion {
   setCorreoDueno: (correo: string) => Promise<void>;
   setHabilitarFiados: (activo: boolean) => Promise<void>; // <-- NUEVA FUNCIÓN
   setModoAccesoFiados: (modo: PreferenciasFiados["modoAccesoFiados"]) => Promise<void>;
+  setDiasAlertaCaducidad: (dias: number) => Promise<void>;
   aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
   hidratarEstadoLAN: (snapshot: {
     trabajadores: unknown[];
@@ -138,6 +141,7 @@ const CONFIG_INICIAL: Configuracion = {
   escanerMensaje: "No se detectó un escáner habilitado. Configure el modelo manualmente.",
   habilitarFiados: false, // <-- VALOR INICIAL
   modoAccesoFiados: "TODOS",
+  diasAlertaCaducidad: DIAS_ALERTA_CADUCIDAD,
 };
 
 const obtenerConfiguracionPersistible = (configuracion: Configuracion): Configuracion =>
@@ -195,6 +199,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             bancoTransferencia: tiendaNube.banco_transferencia || "",
             titularTransferencia: tiendaNube.titular_transferencia || "",
             cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
+            diasAlertaCaducidad: configLocal?.diasAlertaCaducidad ?? CONFIG_INICIAL.diasAlertaCaducidad,
             id: CONFIG_ID,
             sincronizacionNube: permiteNube ? configLocal?.sincronizacionNube ?? get().sincronizacionNube : false,
             configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false
@@ -536,6 +541,19 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
+  setDiasAlertaCaducidad: async (dias) => {
+    if (!Number.isInteger(dias) || dias < 1 || dias > 365) {
+      throw new Error("Los días de alerta deben ser un número entero entre 1 y 365.");
+    }
+    const configuracionActualizada = { ...get(), diasAlertaCaducidad: dias };
+    await guardarConfiguracionLocal(configuracionActualizada);
+    set({ diasAlertaCaducidad: dias });
+    enviarAccionLAN({
+      tipo: "LAN_CONFIG_CADUCIDAD",
+      payload: { diasAlertaCaducidad: dias }
+    });
+  },
+
   aplicarAccionLAN: async (tipo, payload) => {
     const configuracionLAN = (payload || {}) as Partial<Configuracion>;
     let actualizacion: Partial<Configuracion>;
@@ -575,6 +593,13 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     } else if (tipo === "LAN_CONFIG_TECLA") {
       actualizacion = { teclaCobro: configuracionLAN.teclaCobro };
       payloadNube = { tecla_cobro: actualizacion.teclaCobro };
+    } else if (tipo === "LAN_CONFIG_CADUCIDAD") {
+      const dias = configuracionLAN.diasAlertaCaducidad;
+      if (typeof dias !== "number" || !Number.isInteger(dias) || dias < 1 || dias > 365) return;
+      const configuracionActualizada = { ...get(), diasAlertaCaducidad: dias };
+      await guardarConfiguracionLocal(configuracionActualizada);
+      set({ diasAlertaCaducidad: dias });
+      return;
     } else {
       return;
     }
@@ -604,7 +629,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       "bancoTransferencia",
       "titularTransferencia",
       "cuentaTransferencia",
-      "mensajePago"
+      "mensajePago",
+      "diasAlertaCaducidad"
     ];
     const actualizacion: Partial<Configuracion> = {};
     for (const clave of clavesCompartidas) {

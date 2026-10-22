@@ -24,6 +24,7 @@ import { imprimirTicket } from "../utilidades/impresion";
 import PanelEscaner from "../componentes/pos/PanelEscaner";
 import PanelCamaraEscaner from "../componentes/pos/PanelCamaraEscaner";
 import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
+import { estadoCaducidad } from "../utilidades/lotes";
 
 export default function VistaPOS() {
   const { productos, categorias, descontarStock } = useEstadoInventario();
@@ -335,7 +336,12 @@ export default function VistaPOS() {
               <p className="text-sm">El carrito está vacío</p>
             </div>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const producto = productos.find((actual) => actual.id === item.producto_id);
+              const tieneLoteVencido = producto?.lotes?.some(
+                (lote) => lote.cantidad > 0 && estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "vencido"
+              ) ?? false;
+              return (
               <div
                 key={item.id}
                 onDoubleClick={() => {
@@ -362,6 +368,11 @@ export default function VistaPOS() {
                       ${item.subtotal.toFixed(2)}
                     </span>
                   </div>
+                  {tieneLoteVencido && (
+                    <span className="mt-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+                      Valida la fecha de caducidad
+                    </span>
+                  )}
 
                   <div className="flex justify-between items-center mt-auto pt-1">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -396,7 +407,8 @@ export default function VistaPOS() {
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 

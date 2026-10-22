@@ -1,6 +1,6 @@
 // src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
-import { Lock, Crown, Type, CalendarClock } from "lucide-react"; 
+import { Lock, Crown, Type, CalendarClock } from "lucide-react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoPlan } from "../estado/estadoPlan"; 
 import ModalAviso from "../componentes/ui/ModalAviso";
@@ -8,6 +8,7 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 import SeccionHardware from "./secciones_configuracion/SeccionHardware";
 import SeccionRed from "./secciones_configuracion/SeccionRed";
 import SeccionAdministracion from "./secciones_configuracion/SeccionAdministracion";
+import AyudaContextual from "../componentes/ui/AyudaContextual";
 
 export interface PropsSeccionConfig {
   setAviso: React.Dispatch<React.SetStateAction<{ titulo: string; mensaje: string } | null>>;
@@ -90,7 +91,10 @@ export default function VistaConfiguracion() {
             <Type size={20} />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Tamaño de la Interfaz</h2>
+            <div className="flex items-center gap-1">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Tamaño de la Interfaz</h2>
+              <AyudaContextual etiqueta="Tamaño de la interfaz" texto="Cambia el tamaño global del texto y de algunos controles. La preferencia se guarda en este dispositivo y puedes volver a cambiarla cuando quieras." />
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Ajusta el tamaño global de las letras y botones de la aplicación.</p>
           </div>
         </div>

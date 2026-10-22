@@ -8,6 +8,7 @@ import { obtenerModelosEscaner, agregarModeloEscaner, DRIVERS_ESCANER, PUERTOS_E
 import { obtenerModelosImpresora, agregarModeloImpresora, PUERTOS_IMPRESORA, TAMANIOS_ETIQUETA, type ImpresoraModelo, type PuertoImpresora, type TamanioEtiqueta } from "../../servicios/impresoraEtiquetas";
 import { obtenerModelosBascula, agregarModeloBascula, PUERTOS_BASCULA, BAUD_RATES_BASCULA, FORMATOS_BASCULA, UNIDADES_BASCULA, type BasculaModeloConfig, type PuertoBascula, type BaudRateBascula, type FormatoBascula, type UnidadBascula } from "../../servicios/bascula";
 import ModalPrompt from "../../componentes/ui/ModalPrompt";
+import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
 export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
@@ -141,7 +142,7 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
       <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100"><Palette size={20} className="text-emerald-600 dark:text-emerald-400" /> Apariencia de la aplicación</h2>
+            <h2 className="flex items-center gap-1 text-lg font-bold text-slate-900 dark:text-slate-100"><Palette size={20} className="text-emerald-600 dark:text-emerald-400" /> Apariencia de la aplicación <AyudaContextual etiqueta="Apariencia de la aplicación" texto="Elige el tema de colores que se usará en esta aplicación. Puedes cambiarlo en cualquier momento; no modifica los datos de la tienda." /></h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Elige el mismo lenguaje visual disponible en la pantalla cliente.</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">Tema: {temaVisual}</span>
@@ -161,7 +162,7 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
       </section>
 
       {/* SECCIÓN: BÁSCULA */}
-      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <section className="relative mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         <details className="group">
           <summary className="cursor-pointer list-none flex items-center justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
             <span className="flex items-center gap-2"><Scale size={20} className="text-emerald-600 dark:text-emerald-400" />Báscula y peso</span>
@@ -219,10 +220,13 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
             <span className="text-xs text-slate-500 dark:text-slate-400">{formBascula.mensaje}</span>
           </div>
         </details>
+        <span className="absolute right-24 top-4 z-10">
+          <AyudaContextual etiqueta="Báscula y peso" texto="Selecciona el modelo y los parámetros de comunicación de la báscula. Usa Detectar para solicitar conexión al dispositivo y Guardar para conservar la configuración." />
+        </span>
       </section>
 
       {/* SECCIÓN: ESCÁNER */}
-      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <section className="relative mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         <details className="group">
           <summary className="cursor-pointer list-none flex items-center justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
             <span className="flex items-center gap-2"><ScanBarcode size={20} className="text-emerald-600 dark:text-emerald-400" />Escáneres de códigos de barras</span>
@@ -279,10 +283,13 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
             <span className="text-xs text-slate-500 dark:text-slate-400">{formEscaner.mensaje}</span>
           </div>
         </details>
+        <span className="absolute right-24 top-4 z-10">
+          <AyudaContextual etiqueta="Escáner de códigos" texto="Configura el modelo, tipo de conexión y controlador del lector de códigos. La detección solicita acceso al dispositivo; si el lector funciona como teclado, también puedes seleccionarlo manualmente." />
+        </span>
       </section>
 
       {/* SECCIÓN: IMPRESORA */}
-      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <section className="relative mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
         <details className="group">
           <summary className="cursor-pointer list-none flex items-center justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
             <span className="flex items-center gap-2"><Printer size={20} className="text-emerald-600 dark:text-emerald-400" />Impresora de Etiquetas</span>
@@ -338,6 +345,9 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
             <span className="text-xs text-slate-500 dark:text-slate-400">{formImpresora.mensaje}</span>
           </div>
         </details>
+        <span className="absolute right-24 top-4 z-10">
+          <AyudaContextual etiqueta="Impresora de etiquetas" texto="Configura la impresora que utilizarás para las etiquetas, el tipo de conexión y el tamaño del papel. La detección puede pedir permiso para acceder al dispositivo." />
+        </span>
       </section>
     </>
   );

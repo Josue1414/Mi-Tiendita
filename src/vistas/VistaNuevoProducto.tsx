@@ -1,9 +1,10 @@
 // src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock } from "lucide-react";
+import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock, CalendarDays, Check, CircleHelp } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { precioVenta, type Producto } from "../tipos/producto";
 import { cn } from "../utilidades/utils";
 import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, imprimirEtiqueta, svgCodigoBarras } from "../utilidades/codigoBarras";
@@ -12,11 +13,14 @@ import ModalCategoria from "../componentes/ui/ModalCategoria";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
+import AyudaContextual from "../componentes/ui/AyudaContextual";
+import { ajustarLotes, estadoCaducidad } from "../utilidades/lotes";
 
 export default function VistaNuevoProducto() {
   const { productos, categorias, agregarProducto, actualizarProducto, agregarCategoria } = useEstadoInventario();
-  const { setSeccionActual, productoEditandoId } = useEstadoNavegacion();
+  const { setSeccionActual, productoEditandoId, abrirLoteCaducidad } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
+  const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
   
   const productoExistente = productos.find((p) => p.id === productoEditandoId);
   const editando = Boolean(productoExistente);
@@ -43,6 +47,11 @@ export default function VistaNuevoProducto() {
   const [paquete, setPaquete] = useState("");
   const [controlaStock, setControlaStock] = useState<boolean>(true);
   const [stockActual, setStockActual] = useState<number>(0);
+  const [cantidadNuevoLote, setCantidadNuevoLote] = useState<number>(0);
+  const [mostrarAyudaLotes, setMostrarAyudaLotes] = useState(false);
+  const [fechaCaducidadNuevoLote, setFechaCaducidadNuevoLote] = useState("");
+  const [loteCaducidadEditando, setLoteCaducidadEditando] = useState<string | null>(null);
+  const [fechaCaducidadEditada, setFechaCaducidadEditada] = useState("");
   const [stockMinimo, setStockMinimo] = useState<number>(5);
   const [unidad, setUnidad] = useState<Producto["unidad"]>("PIEZA");
   const [precio, setPrecio] = useState<number>(0);
@@ -73,6 +82,7 @@ export default function VistaNuevoProducto() {
     setPaquete(productoExistente.paquete || "");
     setControlaStock(productoExistente.controla_stock);
     setStockActual(productoExistente.stock_actual);
+    setCantidadNuevoLote(0);
     setStockMinimo(productoExistente.stock_minimo);
     setUnidad(productoExistente.unidad);
     setPrecio(productoExistente.precio);
@@ -121,6 +131,24 @@ export default function VistaNuevoProducto() {
     if (inputArchivoRef.current) inputArchivoRef.current.value = "";
   };
 
+  const guardarCaducidadLote = async (loteId: string) => {
+    if (!productoExistente || !puedeEditar) return;
+    await actualizarProducto({
+      ...productoExistente,
+      lotes: (productoExistente.lotes ?? []).map((lote) =>
+        lote.id === loteId
+          ? {
+            ...lote,
+            fecha_caducidad: fechaCaducidadEditada || undefined,
+            editado_por: trabajadorActivo?.nombre ?? "Sistema",
+            fecha_edicion: new Date().toISOString(),
+          }
+          : lote
+      ),
+    });
+    setLoteCaducidadEditando(null);
+  };
+
   const convertirABase64 = (archivo: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -166,6 +194,18 @@ export default function VistaNuevoProducto() {
       imagenBase64 = undefined;
     }
 
+    const cantidadAgregada = editando ? cantidadNuevoLote : stockActual;
+    const stockFinal = editando
+      ? (productoExistente?.stock_actual ?? 0) + cantidadAgregada
+      : stockActual;
+    const lotes = cantidadAgregada === 0
+      ? productoExistente?.lotes ?? []
+      : ajustarLotes(productoExistente?.lotes, cantidadAgregada, {
+        fechaCaducidad: fechaCaducidadNuevoLote,
+        agregadoPor: trabajadorActivo?.nombre ?? "Sistema",
+        diasAlerta: diasAlertaCaducidad,
+      });
+
     const producto: Producto = {
       id: productoExistente?.id ?? crypto.randomUUID(),
       nombre: puedeEditar ? nombre : productoExistente?.nombre || "",
@@ -175,7 +215,8 @@ export default function VistaNuevoProducto() {
       ubicacion: puedeEditar ? ubicacion : productoExistente?.ubicacion || "",
       paquete: puedeEditar ? paquete : productoExistente?.paquete || "",
       controla_stock: puedeEditar ? controlaStock : (productoExistente?.controla_stock ?? true),
-      stock_actual: stockActual,
+      stock_actual: stockFinal,
+      lotes,
       stock_minimo: puedeEditar ? stockMinimo : (productoExistente?.stock_minimo ?? 5),
       unidad: puedeEditar ? unidad : (productoExistente?.unidad || "PIEZA"),
       precio: puedeEditarPrecio ? precio : (productoExistente?.precio ?? 0),
@@ -194,6 +235,9 @@ export default function VistaNuevoProducto() {
   };
 
   const campo = "w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 text-sm disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:cursor-not-allowed transition-colors";
+  const lotesRecientes = [...(productoExistente?.lotes ?? [])]
+    .sort((a, b) => b.fecha_ingreso.localeCompare(a.fecha_ingreso))
+    .slice(0, 4);
 
   return (
     <div className="w-full h-full flex flex-col p-5 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
@@ -300,13 +344,21 @@ export default function VistaNuevoProducto() {
           </div>
 
           <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <label className="flex items-center justify-between gap-3 cursor-pointer">
-              <span className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                <ShieldCheck size={18} className="text-amber-600" /> Requiere autorización
-                {!puedeEditar && <Lock size={14} className="text-slate-400" />}
-              </span>
-              <input type="checkbox" disabled={!puedeEditar} checked={requiereAutorizacion} onChange={(evento) => setRequiereAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ShieldCheck size={18} className="shrink-0 text-amber-600" /> Requiere autorización
+                    {!puedeEditar && <Lock size={14} className="text-slate-400" />}
+                  </span>
+                  <input type="checkbox" disabled={!puedeEditar} checked={requiereAutorizacion} onChange={(evento) => setRequiereAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
+                </label>
+                <AyudaContextual
+                  etiqueta="Requiere autorización"
+                  texto="Activa esta opción para que, antes de vender el producto, el personal tenga que solicitar autorización de un supervisor o dueño. Puedes indicar el motivo o requisito y permitir que se adjunte una foto como evidencia."
+                />
+              </div>
+            </div>
             {requiereAutorizacion && (
               <>
                 <input disabled={!puedeEditar} value={mensajeAutorizacion} onChange={(evento) => setMensajeAutorizacion(evento.target.value)} className={campo} placeholder="Ej: Requiere receta médica" />
@@ -342,8 +394,12 @@ export default function VistaNuevoProducto() {
 
             <div className={cn("grid grid-cols-1 sm:grid-cols-3 gap-3", !controlaStock && "opacity-50 pointer-events-none")}>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Cantidad en stock</label>
-                <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
+                <label className="block text-xs font-medium text-slate-600 mb-1">{editando ? "Cantidad actual" : "Cantidad inicial"}</label>
+                {editando ? (
+                  <div className={cn(campo, "font-bold")}>{productoExistente?.stock_actual ?? 0} {unidad.toLowerCase()}</div>
+                ) : (
+                  <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Stock mínimo {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
@@ -354,6 +410,135 @@ export default function VistaNuevoProducto() {
                 <input type="text" disabled={!puedeEditar} value={paquete} onChange={(e) => setPaquete(e.target.value)} className={campo} placeholder="Ej: 1 kg" />
               </div>
             </div>
+
+            {controlaStock && (!editando && puedeAjustarStock || editando && puedeAjustarStock) && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                {editando && (
+                  <div className="mb-3 flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Agregar nueva cantidad o lote</label>
+                    <button
+                      type="button"
+                      onClick={() => setMostrarAyudaLotes((mostrar) => !mostrar)}
+                      aria-label="Ayuda sobre agregar lotes"
+                      aria-expanded={mostrarAyudaLotes}
+                      className="rounded-full text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                    >
+                      <CircleHelp size={16} />
+                    </button>
+                    {mostrarAyudaLotes && (
+                      <span className="text-xs text-slate-600 dark:text-slate-300">
+                        Añade unidades a la cantidad actual como un lote nuevo. La fecha de caducidad es opcional y se usa para alertas y para descontar primero los lotes que vencen antes.
+                      </span>
+                    )}
+                  </div>
+                )}
+                {editando && (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Cantidad que agregas</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={cantidadNuevoLote || ""}
+                      onChange={(evento) => setCantidadNuevoLote(Math.max(0, Number(evento.target.value) || 0))}
+                      className={campo}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+                {(!editando || cantidadNuevoLote > 0) && (
+                  <div>
+                  <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <CalendarDays size={13} /> Caducidad del stock que agregas (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaCaducidadNuevoLote}
+                    onChange={(evento) => setFechaCaducidadNuevoLote(evento.target.value)}
+                    className={campo}
+                  />
+                  </div>
+                )}
+                {editando && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">El stock actual no cambia; la cantidad agregada se registra por separado.</p>}
+              </div>
+            )}
+
+            {editando && lotesRecientes.length > 0 && (
+              <div className="border-t border-slate-200 pt-3 dark:border-white/10">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Últimas fechas de caducidad</h3>
+                <div className="flex flex-wrap gap-2">
+                  {lotesRecientes.map((lote) => {
+                    const estado = estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta);
+                    const claseFecha = lote.cantidad <= 0
+                      ? "bg-slate-100 text-slate-500 opacity-60 dark:bg-slate-800 dark:text-slate-400"
+                      : estado === "vencido"
+                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
+                        : estado === "proximo"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+                    return (
+                      <button
+                        key={lote.id}
+                        type="button"
+                        onClick={() => abrirLoteCaducidad(lote.id)}
+                        className={cn("rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors hover:ring-2 hover:ring-emerald-500", claseFecha)}
+                        title={`Ir al lote ${lote.id} en Fechas de Caducidad`}
+                      >
+                        <span className="block">{lote.fecha_caducidad || "Sin fecha"}</span>
+                        <span className="mt-0.5 block text-[10px] font-normal">Ingreso {lote.fecha_ingreso} · {lote.cantidad} {unidad.toLowerCase()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {editando && (productoExistente?.lotes?.length ?? 0) > 0 && (
+              <div className="border-t border-slate-200 pt-3 dark:border-white/10">
+                <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                  <CalendarDays size={14} /> Lotes registrados
+                </h3>
+                <div className="space-y-2">
+                  {productoExistente?.lotes?.map((lote) => (
+                    <div key={lote.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{lote.cantidad} {unidad.toLowerCase()}</span>
+                        <span className="ml-2 text-slate-500">Ingresó {lote.fecha_ingreso} · {lote.agregado_por}</span>
+                        {lote.editado_por && <span className="ml-2 text-purple-700 dark:text-purple-300">Editó {lote.editado_por}</span>}
+                      </div>
+                      {loteCaducidadEditando === lote.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            aria-label="Corregir fecha de caducidad"
+                            type="date"
+                            value={fechaCaducidadEditada}
+                            onChange={(evento) => setFechaCaducidadEditada(evento.target.value)}
+                            className={cn(campo, "w-auto")}
+                          />
+                          <button type="button" onClick={() => void guardarCaducidadLote(lote.id)} aria-label="Guardar fecha" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"><Check size={15} /></button>
+                          <button type="button" onClick={() => setLoteCaducidadEditando(null)} aria-label="Cancelar edición" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={15} /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{lote.fecha_caducidad || "Sin fecha de caducidad"}</span>
+                          {puedeEditar && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLoteCaducidadEditando(lote.id);
+                                setFechaCaducidadEditada(lote.fecha_caducidad ?? "");
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                            >
+                              <Pencil size={12} /> Editar
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1 flex justify-between">Tipo de unidad {!puedeEditar && <Lock size={12} className="text-slate-400" />}</label>

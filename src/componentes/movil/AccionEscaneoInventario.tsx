@@ -1,20 +1,26 @@
 // src/hooks/useEscanerCodigoBarras.ts
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, ExternalLink, Minus, Package, Plus, Save, X } from "lucide-react";
+import { Camera, CalendarDays, ExternalLink, Minus, Package, Plus, Save, X } from "lucide-react";
 import type { Producto } from "../../tipos/producto";
 import { useEstadoInventario } from "../../estado/estadoInventario";
 import { useEstadoNavegacion } from "../../estado/estadoNavegacion";
+import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import ModalEscanerCodigo from "../ui/ModalEscanerCodigo";
+import { ajustarLotes } from "../../utilidades/lotes";
 
 const CLAVE_CODIGO_NUEVO = "codigo_producto_pendiente";
 
 export default function AccionEscaneoInventario() {
   const { productos, actualizarProducto } = useEstadoInventario();
+  const trabajadorActivo = useEstadoTrabajadores((estado) => estado.trabajadorActivo);
+  const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
   const { seccionActual, setSeccionActual } = useEstadoNavegacion();
   const [escanerAbierto, setEscanerAbierto] = useState(false);
   const [producto, setProducto] = useState<Producto | null>(null);
   const [stock, setStock] = useState(0);
+  const [fechaCaducidad, setFechaCaducidad] = useState("");
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const seccionAlAbrir = useRef(seccionActual);
@@ -31,6 +37,7 @@ export default function AccionEscaneoInventario() {
     seccionAlAbrir.current = seccionActual;
     setProducto(null);
     setCodigoNoEncontrado(null);
+    setFechaCaducidad("");
     setEscanerAbierto(true);
   };
 
@@ -47,10 +54,21 @@ export default function AccionEscaneoInventario() {
 
   const guardarStock = async () => {
     if (!producto) return;
+    const stockNuevo = Math.max(0, Number.isFinite(stock) ? stock : producto.stock_actual);
+    const ajuste = stockNuevo - producto.stock_actual;
     setGuardando(true);
     try {
-      await actualizarProducto({ ...producto, stock_actual: Math.max(0, stock) });
-      setProducto({ ...producto, stock_actual: Math.max(0, stock) });
+      const actualizado = {
+        ...producto,
+        stock_actual: stockNuevo,
+        lotes: ajustarLotes(producto.lotes, ajuste, {
+          fechaCaducidad,
+          agregadoPor: trabajadorActivo?.nombre ?? "Sistema",
+          diasAlerta: diasAlertaCaducidad,
+        }),
+      };
+      await actualizarProducto(actualizado);
+      setProducto(actualizado);
     } finally {
       setGuardando(false);
     }
@@ -95,6 +113,19 @@ export default function AccionEscaneoInventario() {
               <input type="number" min="0" step="0.001" value={stock} onChange={(evento) => setStock(Number(evento.target.value))} className="w-28 bg-transparent text-center text-3xl font-bold text-slate-900 outline-none dark:text-white" />
               <button type="button" onClick={() => setStock((valor) => valor + 1)} className="rounded-lg bg-white p-2 text-slate-600 shadow-sm hover:text-emerald-600 dark:bg-slate-800 dark:text-slate-300"><Plus size={18} /></button>
             </div>
+            {stock > producto.stock_actual && (
+              <div className="mt-3">
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+                  <CalendarDays size={14} /> Caducidad del stock agregado (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={fechaCaducidad}
+                  onChange={(evento) => setFechaCaducidad(evento.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={irAProducto} className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-slate-800"><ExternalLink size={15} /> Ver información</button><button type="button" onClick={guardarStock} disabled={guardando} className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60"><Save size={15} /> {guardando ? "Guardando" : "Guardar stock"}</button></div>
           </div>
         </div>

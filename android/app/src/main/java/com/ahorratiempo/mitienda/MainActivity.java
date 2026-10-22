@@ -2,4 +2,12 @@ package com.ahorratiempo.mitienda;
 
 import com.getcapacitor.BridgeActivity;
 
-public class MainActivity extends BridgeActivity {}
+import android.os.Bundle;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AndroidLanPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+}

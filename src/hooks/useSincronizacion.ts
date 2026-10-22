@@ -103,6 +103,7 @@ export function useSincronizacion() {
                 requiere_autorizacion: payload.requiere_autorizacion,
                 mensaje_autorizacion: payload.mensaje_autorizacion || null,
                 permite_foto_autorizacion: payload.permite_foto_autorizacion,
+                lotes: payload.lotes ?? [],
                 nombre_archivo_local: payload.imagen_url || null
               };
             } else if (tabla === 'categorias') {

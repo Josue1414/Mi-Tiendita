@@ -6,6 +6,7 @@ import { useEstadoInventario } from "../../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { leerProductosExcel } from "../../servicios/importadorProductos";
 import { cn, esAndroidNativo } from "../../utilidades/utils";
+import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
 interface DirectorioHandle { name: string; kind: string; }
@@ -193,7 +194,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
   return (
     <>
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !puedeEditarTicket && !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100"><Store size={20} className="text-emerald-600 dark:text-emerald-400" /> Datos de la Tienda</h2>
+        <h2 className="text-lg font-bold flex items-center gap-1 text-slate-900 dark:text-slate-100"><Store size={20} className="text-emerald-600 dark:text-emerald-400" /> Datos de la Tienda <AyudaContextual etiqueta="Datos de la tienda" texto="Edita el nombre, dirección, logo y mensaje que aparece al pie de los tickets. El logo debe cargarse en cada dispositivo porque no se sincroniza con la nube." /></h2>
         <form onSubmit={manejarGuardarTienda} className="flex flex-col gap-4">
           <div className="flex gap-4 items-start">
             <div className="w-24 h-24 shrink-0 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 relative flex items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -234,7 +235,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
       </div>
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-        <h2 className="text-lg font-bold border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100">Atajos y Métodos de pago</h2>
+        <h2 className="text-lg font-bold border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100 flex items-center gap-1">Atajos y Métodos de pago <AyudaContextual etiqueta="Atajos y métodos de pago" texto="Configura las teclas rápidas de cobro y los datos que se muestran para pagos por transferencia. El mensaje se utiliza como confirmación después de registrar el pago. También puedes habilitar la Libreta de Fiados, guardar ventas pendientes de pago y definir quiénes pueden acceder; las cuentas fiadas se almacenan localmente en este equipo." /></h2>
          <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>No se recomienda usar la tecla Enter, ya que crea conflictos con el lector escáner.</p></div>
         <form onSubmit={manejarGuardarPagos} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -316,7 +317,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
       {!esAndroidNativo && (
         <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-          <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico</h2>
+          <h2 className="text-lg font-bold flex items-center gap-1 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico <AyudaContextual etiqueta="Directorio físico" texto="Selecciona la carpeta local donde la aplicación de escritorio guardará o buscará las imágenes de productos. Esta ubicación pertenece al dispositivo actual." /></h2>
           <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
             {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
@@ -326,7 +327,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
       )}
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-        <h2 className="text-lg font-bold flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" /> Importar Excel</h2>
+        <h2 className="text-lg font-bold flex items-center gap-1 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" /> Importar Excel <AyudaContextual etiqueta="Importar Excel" texto="Carga productos desde una hoja de cálculo compatible. La importación omite los nombres que ya existen para evitar duplicados." /></h2>
         
         <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 rounded-xl text-sm border border-emerald-200 dark:border-emerald-800/30">
           <Info size={20} className="shrink-0 mt-0.5" />

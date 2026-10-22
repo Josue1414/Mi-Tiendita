@@ -1,5 +1,6 @@
 // src/App.tsx
 import React, { useState, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useEstadoNavegacion, type SeccionApp } from "./estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "./estado/estadoTrabajadores";
 import { useEstadoInventario } from "./estado/estadoInventario";
@@ -11,10 +12,12 @@ import { useEstadoFiados } from "./estado/estadoFiados";
 import { useEstadoRed } from "./estado/estadoRed";
 import { useEstadoPlan } from "./estado/estadoPlan";
 import { conectarLAN } from "./servicios/socketCliente";
+import { androidLan } from "./servicios/androidLan";
 import { useSincronizacion } from "./hooks/useSincronizacion";
 import { cn } from "./utilidades/utils";
 import { Menu, ShoppingCart, Package, LayoutDashboard, History, ChevronLeft, AlertTriangle, Users, Settings, LogOut, UserCircle, Wallet, Wifi, Server, Cloud, CloudOff, MonitorPlay, BookUser } from "lucide-react";
 import { claseTemaVisual, EVENTO_TEMA, obtenerTemaVisual, type TemaVisual } from "./utilidades/temas";
+import { estadoCaducidad } from "./utilidades/lotes";
 
 import VistaInventario from "./vistas/VistaInventario";
 import VistaNuevoProducto from "./vistas/VistaNuevoProducto";
@@ -76,6 +79,7 @@ const crearSnapshotLAN = () => {
       sincronizacionNube: configuracion.sincronizacionNube,
       teclaCobro: configuracion.teclaCobro,
       mensajePago: configuracion.mensajePago,
+      diasAlertaCaducidad: configuracion.diasAlertaCaducidad,
       bancoTransferencia: configuracion.bancoTransferencia,
       titularTransferencia: configuracion.titularTransferencia,
       cuentaTransferencia: configuracion.cuentaTransferencia,
@@ -86,20 +90,21 @@ const crearSnapshotLAN = () => {
   };
 };
 
-const aplicarAccionLANRecibida = (accion: any) => {
-  if (typeof accion?.tipo !== "string") return;
+const aplicarAccionLANRecibida = (accion: unknown) => {
+  if (typeof accion !== "object" || accion === null || !("tipo" in accion) || typeof accion.tipo !== "string") return;
+  const payload = "payload" in accion ? accion.payload : undefined;
   if (accion.tipo === "LAN_VENTA_AGREGAR" || accion.tipo === "LAN_VENTA_CANCELAR") {
-    void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_FIADO_")) {
-    void useEstadoFiados.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoFiados.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_CAJA_")) {
-    void useEstadoCaja.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoCaja.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_TRABAJADOR_")) {
-    void useEstadoTrabajadores.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoTrabajadores.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo === "LAN_ASISTENCIA_UPSERT") {
-    void useEstadoAsistencias.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoAsistencias.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_CONFIG_")) {
-    void useEstadoConfiguracion.getState().aplicarAccionLAN(accion.tipo, accion.payload);
+    void useEstadoConfiguracion.getState().aplicarAccionLAN(accion.tipo, payload);
   } else {
     useEstadoInventario.getState().aplicarSincronizacionRemota(accion);
   }
@@ -144,6 +149,7 @@ export default function App() {
   const [menuAbierto, setMenuAbierto] = useState(true);
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
+  const esVistaCliente = window.location.search.includes("cliente=");
 
   useEffect(() => {
     const aplicarCambioEscala = (evento: Event) => {
@@ -170,12 +176,9 @@ export default function App() {
     return () => window.removeEventListener(EVENTO_TEMA, aplicarTema);
   }, []);
 
-  if (window.location.search.includes('cliente=')) {
-    return <VistaPantallaCliente />;
-  }
-
   useEffect(() => {
-    const api = (window as any).apiLocal;
+    if (esVistaCliente) return;
+    const api = window.apiLocal;
     if (esMaestro && api) {
       api.iniciarServidorLAN().then((estado: { activo: boolean; dispositivosConectados: number }) => {
         setEstadoLAN(estado.activo, estado.dispositivosConectados);
@@ -195,12 +198,63 @@ export default function App() {
         });
       });
       api.onAccionDeEsclavo(aplicarAccionLANRecibida);
+    } else if (esMaestro && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android") {
+      let cancelado = false;
+      let suscripciones: Awaited<ReturnType<typeof androidLan.addListener>>[] = [];
+      void (async () => {
+        try {
+          suscripciones = await Promise.all([
+            androidLan.addListener("serverStatus", (estado) => {
+              setEstadoLAN(estado.activo, estado.dispositivosConectados);
+            }),
+            androidLan.addListener("snapshotRequested", ({ socketId }) => {
+              void (async () => {
+                await useEstadoVentas.getState().cargarVentas();
+                await useEstadoFiados.getState().cargarDeudores();
+                await androidLan.emitSnapshot({ socketId, snapshot: crearSnapshotLAN() });
+              })().catch((error: unknown) => {
+                console.error("No se pudo enviar el estado inicial por LAN desde Android:", error);
+              });
+            }),
+            androidLan.addListener("slaveAction", aplicarAccionLANRecibida),
+          ]);
+          if (cancelado) {
+            suscripciones.forEach((suscripcion) => void suscripcion.remove());
+            return;
+          }
+          const estado = await androidLan.startServer();
+          if (cancelado) {
+            await androidLan.stopServer();
+            suscripciones.forEach((suscripcion) => void suscripcion.remove());
+          } else {
+            setEstadoLAN(estado.activo, estado.dispositivosConectados);
+          }
+        } catch (error) {
+          console.error("No se pudo iniciar el servidor LAN de Android:", error);
+          if (!cancelado) setEstadoLAN(false, 0);
+        }
+      })();
+      return () => {
+        cancelado = true;
+        suscripciones.forEach((suscripcion) => void suscripcion.remove());
+        void androidLan.stopServer().catch((error: unknown) => {
+          console.error("No se pudo detener el servidor LAN de Android:", error);
+        });
+      };
     } else if (!esMaestro && window.location.protocol === "http:" && window.location.port === "4000") {
       const ipServidorLocal = window.location.hostname;
       if (ipMaestro !== ipServidorLocal) setIpMaestro(ipServidorLocal);
       conectarLAN(ipServidorLocal, aplicarAccionLANRecibida, (snapshot) => {
         void hidratarDesdeLAN(snapshot).catch((error: unknown) => {
           console.error("No se pudo cargar el estado local del Cerebro:", error);
+        });
+      });
+    } else if (!esMaestro && window.location.protocol === "http:" && window.location.port === "4001") {
+      const ipServidorLocal = window.location.hostname;
+      if (ipMaestro !== ipServidorLocal) setIpMaestro(ipServidorLocal);
+      conectarLAN(ipServidorLocal, aplicarAccionLANRecibida, (snapshot) => {
+        void hidratarDesdeLAN(snapshot).catch((error: unknown) => {
+          console.error("No se pudo cargar el estado local del Cerebro Android:", error);
         });
       });
     } else if (!esMaestro && ipMaestro) {
@@ -210,20 +264,24 @@ export default function App() {
         });
       });
     }
-  }, [esMaestro, ipMaestro, setIpMaestro, setEstadoLAN]);
+  }, [esMaestro, esVistaCliente, ipMaestro, setIpMaestro, setEstadoLAN]);
 
   useEffect(() => {
+    if (esVistaCliente) return;
     cargarProductos();
     cargarVentas();
     cargarTrabajadores();
     cargarConfiguracion();
     cargarAsistencias();
-  }, [cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
+  }, [esVistaCliente, cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
 
   useEffect(() => {
+    if (esVistaCliente) return;
     const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito";
     document.documentElement.classList.toggle("dark", usaModoOscuro);
-  }, [temaVisual]);
+  }, [esVistaCliente, temaVisual]);
+
+  if (esVistaCliente) return <VistaPantallaCliente />;
   
   const estaCargandoGlobal = cargandoTrabajadores || cargandoInventario || cargandoVentas || cargandoConfiguracion;
   
@@ -253,7 +311,7 @@ export default function App() {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
     const nombreTienda = useEstadoConfiguracion.getState().nombreTienda;
     
-    const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
+    const esEscritorio = typeof window !== 'undefined' && window.apiLocal !== undefined;
     const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
 
     if (esEscritorio || !esDispositivoMovil) {
@@ -292,8 +350,18 @@ export default function App() {
   }
 
   const productosConAlerta = productos.filter(tieneAlertaStock);
+  const lotesConCaducidad = productos.flatMap((producto) =>
+    (producto.lotes ?? []).filter((lote) => lote.cantidad > 0).map((lote) => lote)
+  );
+  const alertasCaducadas = lotesConCaducidad.filter(
+    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "vencido"
+  ).length;
+  const alertasCaducidadProxima = lotesConCaducidad.filter(
+    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "proximo"
+  ).length;
   const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
-  const alertasPorTerminar = productosConAlerta.length - alertasAgotados;
+  const alertasPorTerminar = productosConAlerta.filter(p => p.stock_actual > 0).length
+    + alertasCaducidadProxima;
 
   const menusAdmin = [
     { id: "panel", icono: LayoutDashboard, texto: "Panel Principal" },
@@ -448,6 +516,11 @@ export default function App() {
                         {alertasAgotados > 99 ? "99+" : alertasAgotados}
                       </span>
                     )}
+                    {!menuAbierto && menu.id === "stock-bajo" && alertasCaducadas > 0 && (
+                      <span className="absolute -bottom-2 left-1/2 flex h-4 min-w-4 -translate-x-1/2 items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-sm border border-emerald-50 dark:border-slate-950">
+                        {alertasCaducadas > 99 ? "99+" : alertasCaducadas}
+                      </span>
+                    )}
                   </div>
                   
                   {menuAbierto && (
@@ -463,6 +536,11 @@ export default function App() {
                       {menu.id === "stock-bajo" && alertasAgotados > 0 && (
                         <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
                           {alertasAgotados > 99 ? "99+" : alertasAgotados}
+                        </span>
+                      )}
+                      {menu.id === "stock-bajo" && alertasCaducadas > 0 && (
+                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] font-bold text-white shadow-sm">
+                          {alertasCaducadas > 99 ? "99+" : alertasCaducadas}
                         </span>
                       )}
                     </div>
@@ -533,6 +611,11 @@ export default function App() {
                   {alertasAgotados > 99 ? "99+" : alertasAgotados}
                 </span>
               )}
+              {menu.id === "stock-bajo" && alertasCaducadas > 0 && (
+                <span className="absolute bottom-[21px] left-1/2 flex h-4 min-w-4 -translate-x-1/2 items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasCaducadas > 99 ? "99+" : alertasCaducadas}
+                </span>
+              )}
             </button>
           );
           })}
@@ -566,6 +649,11 @@ export default function App() {
               {menu.id === "stock-bajo" && alertasAgotados > 0 && (
                 <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
                   {alertasAgotados > 99 ? "99+" : alertasAgotados}
+                </span>
+              )}
+              {menu.id === "stock-bajo" && alertasCaducadas > 0 && (
+                <span className="absolute bottom-[21px] left-1/2 flex h-4 min-w-4 -translate-x-1/2 items-center justify-center rounded-full bg-purple-600 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {alertasCaducadas > 99 ? "99+" : alertasCaducadas}
                 </span>
               )}
             </button>

@@ -5,6 +5,7 @@ import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendiente
 import { CATEGORIAS_INICIALES, siguienteColor } from "../utilidades/coloresCategoria";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
+import { descontarDeLotes } from "../utilidades/lotes";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -44,6 +45,7 @@ const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
   requiere_autorizacion: p.requiere_autorizacion,
   mensaje_autorizacion: p.mensaje_autorizacion || null,
   permite_foto_autorizacion: p.permite_foto_autorizacion,
+  lotes: p.lotes ?? [],
   nombre_archivo_local: p.imagen_url || null
 });
 
@@ -66,6 +68,7 @@ const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Prod
   requiere_autorizacion: p.requiere_autorizacion,
   mensaje_autorizacion: p.mensaje_autorizacion || "",
   permite_foto_autorizacion: p.permite_foto_autorizacion,
+  lotes: Array.isArray(p.lotes) ? p.lotes : [],
   imagen_url: p.nombre_archivo_local || undefined
 });
 
@@ -147,7 +150,11 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
       if (esEscritorio) {
         const dataLocal = await obtenerRegistros("productos");
-        productosEstado = (dataLocal as Producto[]).map((p) => ({ ...p, descuento_porcentaje: p.descuento_porcentaje ?? 0 }));
+        productosEstado = (dataLocal as Producto[]).map((p) => ({
+          ...p,
+          descuento_porcentaje: p.descuento_porcentaje ?? 0,
+          lotes: Array.isArray(p.lotes) ? p.lotes : [],
+        }));
         categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
 
         if (categoriasEstado.length === 0) {
@@ -326,11 +333,24 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   descontarStock: async (items, propagado = false) => {
+    const cantidadesPorProducto = new Map<string, number>();
+    for (const item of items) {
+      cantidadesPorProducto.set(
+        item.producto_id,
+        (cantidadesPorProducto.get(item.producto_id) ?? 0) + Math.max(0, item.cantidad),
+      );
+    }
+
     if (!propagado && enviarAccionLAN({ tipo: 'DESCONTAR_STOCK', payload: items })) {
       const productosActualizados = get().productos.map((producto) => {
-        const item = items.find((entrada) => entrada.producto_id === producto.id);
-        if (!item || !producto.controla_stock) return producto;
-        return { ...producto, stock_actual: Math.max(0, producto.stock_actual - item.cantidad) };
+        const cantidadSolicitada = cantidadesPorProducto.get(producto.id);
+        if (cantidadSolicitada === undefined || !producto.controla_stock) return producto;
+        const cantidadDescontada = Math.min(Math.max(0, producto.stock_actual), cantidadSolicitada);
+        return {
+          ...producto,
+          stock_actual: Math.max(0, producto.stock_actual - cantidadDescontada),
+          lotes: descontarDeLotes(producto.lotes, cantidadDescontada),
+        };
       });
       for (const producto of productosActualizados) {
         const anterior = get().productos.find((actual) => actual.id === producto.id);
@@ -341,9 +361,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     }
 
     const productosActualizados = get().productos.map((producto) => {
-      const item = items.find((entrada) => entrada.producto_id === producto.id);
-      if (!item || !producto.controla_stock) return producto;
-      return { ...producto, stock_actual: Math.max(0, producto.stock_actual - item.cantidad) };
+      const cantidadSolicitada = cantidadesPorProducto.get(producto.id);
+      if (cantidadSolicitada === undefined || !producto.controla_stock) return producto;
+      const cantidadDescontada = Math.min(Math.max(0, producto.stock_actual), cantidadSolicitada);
+      return {
+        ...producto,
+        stock_actual: Math.max(0, producto.stock_actual - cantidadDescontada),
+        lotes: descontarDeLotes(producto.lotes, cantidadDescontada),
+      };
     });
 
     for (const producto of productosActualizados) {

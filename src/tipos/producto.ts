@@ -1,4 +1,15 @@
 // src/tipos/producto.ts
+export interface LoteProducto {
+  id: string;
+  cantidad: number;
+  fecha_caducidad?: string;
+  dias_alerta?: number;
+  fecha_ingreso: string;
+  agregado_por: string;
+  editado_por?: string;
+  fecha_edicion?: string;
+}
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -19,6 +30,7 @@ export interface Producto {
   requiere_autorizacion?: boolean;
   mensaje_autorizacion?: string;
   permite_foto_autorizacion?: boolean;
+  lotes?: LoteProducto[];
 }
 
 export interface Categoria {

@@ -1,19 +1,20 @@
 // src/servicios/cerebroTienda.ts
-import { supabase } from "./supabase";
+import { obtenerIdentificadorDispositivo, supabase } from "./supabase";
+import { Capacitor } from "@capacitor/core";
 
 const claveRolCerebro = (tiendaId: string) => `mi_tienda_es_cerebro:${tiendaId}`;
 
-const obtenerApiLocal = () => window.apiLocal;
+const puedeSerCerebro = () =>
+  (typeof window !== "undefined" && window.apiLocal !== undefined)
+  || (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android");
 
 const guardarRolLocal = (tiendaId: string, esCerebro: boolean) => {
   localStorage.setItem(claveRolCerebro(tiendaId), esCerebro ? "true" : "false");
 };
 
 export const obtenerRolCerebro = async (tiendaId: string): Promise<boolean> => {
-  const apiLocal = obtenerApiLocal();
-  if (!apiLocal) return false;
-
-  const hardwareId = await apiLocal.obtenerHardwareId();
+  if (!puedeSerCerebro()) return false;
+  const hardwareId = await obtenerIdentificadorDispositivo();
   const { data, error } = await supabase
     .from("dispositivos_vinculados")
     .select("es_cerebro")
@@ -28,10 +29,8 @@ export const obtenerRolCerebro = async (tiendaId: string): Promise<boolean> => {
 };
 
 export const establecerRolCerebro = async (tiendaId: string, esCerebro: boolean) => {
-  const apiLocal = obtenerApiLocal();
-  if (!apiLocal) throw new Error("El cerebro solo puede ser una PC de escritorio.");
-
-  const hardwareId = await apiLocal.obtenerHardwareId();
+  if (!puedeSerCerebro()) throw new Error("El Cerebro solo puede ser la aplicación de escritorio o una APK Android.");
+  const hardwareId = await obtenerIdentificadorDispositivo();
   const { data, error } = await supabase.rpc("configurar_cerebro", {
     p_tienda_id: tiendaId,
     p_hardware_id: hardwareId,
@@ -40,7 +39,7 @@ export const establecerRolCerebro = async (tiendaId: string, esCerebro: boolean)
 
   if (error) throw error;
   if (esCerebro && data !== true) {
-    throw new Error("Esta tienda ya tiene otra PC configurada como cerebro.");
+    throw new Error("Esta tienda ya tiene otro dispositivo configurado como Cerebro.");
   }
 
   guardarRolLocal(tiendaId, esCerebro);

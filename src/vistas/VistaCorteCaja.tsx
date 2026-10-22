@@ -6,6 +6,7 @@ import { useEstadoCaja } from "../estado/estadoCaja";
 import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
+import AyudaContextual from "../componentes/ui/AyudaContextual";
 
 // Helper para obtener la fecha local correctamente
 const obtenerFechaLocal = () => {
@@ -181,12 +182,15 @@ export default function VistaCorteCaja() {
 
       <div className="mb-2 border-b border-slate-200/50 dark:border-white/10 pb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
-            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
-              <Wallet size={24} />
-            </div>
-            Corte de Caja y Turnos
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+              <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
+                <Wallet size={24} />
+              </div>
+              Corte de Caja y Turnos
+            </h1>
+            <AyudaContextual etiqueta="Corte de caja y turnos" texto="Consulta las ventas y métodos de pago, configura el fondo base y administra los turnos. El personal abre su caja al iniciar y registra su declaración de cierre al terminar; dueños y supervisores pueden revisar los cortes y notas." />
+          </div>
           {esDueñoOSupervisor && (
             <button
               type="button"

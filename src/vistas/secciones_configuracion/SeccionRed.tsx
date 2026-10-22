@@ -1,5 +1,6 @@
 // src/vistas/secciones_configuracion/SeccionRed.tsx
 import { useState, useEffect, useMemo } from "react";
+import { Capacitor } from "@capacitor/core";
 import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2, QrCode } from "lucide-react";
 import QRCode from "react-qr-code";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
@@ -7,8 +8,10 @@ import { useEstadoRed } from "../../estado/estadoRed";
 import { useEstadoPlan } from "../../estado/estadoPlan";
 import { supabase, obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
 import { establecerRolCerebro } from "../../servicios/cerebroTienda";
+import { androidLan } from "../../servicios/androidLan";
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionDesvincularEquipo from "../../componentes/ui/ModalConfirmacionDesvincularEquipo";
+import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
 interface Dispositivo {
@@ -45,6 +48,9 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const win = window as unknown as NavegadorExtendido;
   const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
+  const esAppAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const puedeSerCerebro = esAppEscritorio || esAppAndroid;
+  const puertoWebLAN = esAppAndroid ? 4001 : 4000;
   const suscripcionActiva = true;
 
   const [ipLocalPC, setIpLocalPC] = useState("");
@@ -62,8 +68,15 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   useEffect(() => {
     if (esMaestro && esAppEscritorio && win.apiLocal?.obtenerIpLocal) {
       win.apiLocal.obtenerIpLocal().then(setIpLocalPC);
+    } else if (esMaestro && esAppAndroid) {
+      androidLan.getServerStatus()
+        .then((estado) => setIpLocalPC(estado.ip))
+        .catch((error: unknown) => {
+          console.error("No se pudo obtener la dirección LAN del Cerebro Android:", error);
+          setAviso({ titulo: "Error de red local", mensaje: "No se pudo detectar la dirección IP del servidor Android." });
+        });
     }
-  }, [esMaestro, esAppEscritorio, win.apiLocal]);
+  }, [esMaestro, esAppEscritorio, esAppAndroid, win.apiLocal, setAviso]);
 
   useEffect(() => {
     const cargarDispositivos = async () => {
@@ -158,7 +171,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
 
   const copiarEnlaceLocal = async () => {
     if (!ipLocalPC) return setAviso({ titulo: "Sin enlace local", mensaje: "Primero habilita una dirección IP local." });
-    const enlace = `${window.location.protocol || "http:"}//${ipLocalPC}${window.location.port ? `:${window.location.port}` : ""}/?cliente=true`;
+    const enlace = `http://${ipLocalPC}:${puertoWebLAN}/`;
     try {
       await navigator.clipboard.writeText(enlace);
       setCopiado(true);
@@ -209,9 +222,9 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </div>
             <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">Conecta el móvil a la misma Wi-Fi y escanea este código para abrir Mi Tiendita desde el Cerebro.</p>
             <div className="mx-auto mb-4 w-fit rounded-xl border border-slate-200 bg-white p-3">
-              <QRCode value={`http://${ipLocalPC}:4000/`} size={220} />
+              <QRCode value={`http://${ipLocalPC}:${puertoWebLAN}/`} size={220} />
             </div>
-            <p className="break-all rounded-lg bg-slate-100 p-2 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">http://{ipLocalPC}:4000/</p>
+              <p className="break-all rounded-lg bg-slate-100 p-2 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">http://{ipLocalPC}:{puertoWebLAN}/</p>
             <p className="mt-3 text-xs text-slate-500">La conexión local funciona aunque Internet esté disponible o se interrumpa.</p>
           </div>
         </div>
@@ -220,6 +233,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-3">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <MonitorDown size={20} className="text-indigo-600 dark:text-indigo-400" /> Seguridad y Aplicación Nativa
+            <AyudaContextual etiqueta="Seguridad y aplicación nativa" texto="Muestra si esta sesión se ejecuta en la aplicación de escritorio y ofrece el instalador para Windows cuando se usa el navegador. La aplicación de escritorio resguarda localmente los datos del negocio." />
           </h2>
           {suscripcionActiva && (
             <span className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800/50">
@@ -251,8 +265,9 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2 bg-gradient-to-br from-indigo-50/50 to-transparent dark:from-indigo-950/20">
           <h2 className="text-lg font-bold flex items-center gap-2 text-indigo-700 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-900/50 pb-3">
             <Network size={20} /> Sincronización en Red Local (Offline/LAN)
+            <AyudaContextual etiqueta="Sincronización en red local" texto="Permite designar una PC con Windows o una APK Android como servidor local y conectar otros dispositivos a la misma red Wi-Fi. Así pueden compartir operaciones dentro de la tienda incluso si Internet se interrumpe." />
           </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Convierte esta PC en el "Cerebro" y conecta tus otros dispositivos.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Convierte este dispositivo en el "Cerebro" y conecta tus otros equipos.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
               <span className="block text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Cerebro registrado</span>
@@ -273,11 +288,11 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", esMaestro ? "border-indigo-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-indigo-500/20" : "border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/30")}>
               <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3"><Server size={24} /></div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">Cerebro del Negocio (Servidor)</h3>
-              {!esAppEscritorio ? (
-                <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">Requiere app de Windows (.exe)</span>
+              {!puedeSerCerebro ? (
+                <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">Requiere app de Windows (.exe) o APK Android</span>
               ) : (
                 <button onClick={() => cambiarRolCerebro(true)} disabled={esMaestro || cambiandoRolCerebro || (!esMaestro && limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid))} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
-                  {esMaestro ? "Esta PC es el Cerebro" : cambiandoRolCerebro ? "Validando..." : "Convertir en Cerebro"}
+                  {esMaestro ? "Este dispositivo es el Cerebro" : cambiandoRolCerebro ? "Validando..." : "Convertir en Cerebro"}
                 </button>
               )}
               {esMaestro && ipLocalPC && (
@@ -331,6 +346,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
         <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-white/10 pb-3">
             <Laptop size={20} className="text-blue-600 dark:text-blue-400" /> Equipos Vinculados ({dispositivos.length}/{maxDispositivos} permitidos)
+            <AyudaContextual etiqueta="Equipos vinculados" texto="Consulta los dispositivos autorizados para esta tienda. Desde aquí puedes reconocerlos, cambiar sus nombres o desvincular equipos que ya no deban tener acceso." />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {dispositivos.map(disp => {

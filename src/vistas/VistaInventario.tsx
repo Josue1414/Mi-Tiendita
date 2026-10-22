@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { precioVenta, type Producto } from "../tipos/producto";
@@ -14,7 +15,8 @@ import ImagenLocal from "../componentes/ui/ImagenLocal";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
-import ModalPrompt from "../componentes/ui/ModalPrompt";
+import ModalAjusteStock from "../componentes/ui/ModalAjusteStock";
+import { ajustarLotes } from "../utilidades/lotes";
 
 const PRODUCTOS_POR_PAGINA = 50;
 
@@ -22,6 +24,7 @@ export default function VistaInventario() {
   const { productos, categorias, eliminarProducto, actualizarProducto, agregarCategoria, eliminarCategoria } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
+  const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
 
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
@@ -135,17 +138,19 @@ export default function VistaInventario() {
     });
   };
 
-  const confirmarAjusteStock = async (entrada: string) => {
+  const confirmarAjusteStock = async (ajuste: number, fechaCaducidad?: string) => {
     if (!promptStock.producto) return;
-    const extra = Number(entrada);
-    if (Number.isNaN(extra) || extra === 0) {
-      setPromptStock({ abierto: false, producto: null });
-      return;
-    }
+    const producto = promptStock.producto;
+    const ajusteAplicado = ajuste < 0 ? Math.max(ajuste, -producto.stock_actual) : ajuste;
     await actualizarProducto({
-      ...promptStock.producto,
+      ...producto,
       controla_stock: true,
-      stock_actual: Math.max(0, promptStock.producto.stock_actual + extra),
+      stock_actual: Math.max(0, producto.stock_actual + ajusteAplicado),
+      lotes: ajustarLotes(producto.lotes, ajusteAplicado, {
+        fechaCaducidad,
+        agregadoPor: trabajadorActivo?.nombre ?? "Sistema",
+        diasAlerta: diasAlertaCaducidad,
+      }),
     });
     setPromptStock({ abierto: false, producto: null });
   };
@@ -161,14 +166,14 @@ export default function VistaInventario() {
         alCerrar={() => setConfirmacion({ ...confirmacion, abierto: false })} 
       />
 
-      <ModalPrompt
-        abierto={promptStock.abierto}
-        titulo="Ajustar Stock"
-        mensaje={promptStock.producto ? `Stock actual de "${promptStock.producto.nombre}": ${promptStock.producto.stock_actual}\nIngresa la cantidad que deseas sumar (puedes usar negativos para restar):` : ""}
-        placeholder="Ej: 10"
-        alConfirmar={confirmarAjusteStock}
-        alCerrar={() => setPromptStock({ abierto: false, producto: null })}
-      />
+      {promptStock.abierto && promptStock.producto && (
+        <ModalAjusteStock
+          key={promptStock.producto.id}
+          producto={promptStock.producto}
+          alConfirmar={confirmarAjusteStock}
+          alCerrar={() => setPromptStock({ abierto: false, producto: null })}
+        />
+      )}
 
       <ModalCategoria
         abierto={modalCategoria}

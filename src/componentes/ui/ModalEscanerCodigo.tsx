@@ -1,5 +1,6 @@
 // src/componentes/ui/ModalEscanerCodigo.tsx
 import { useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Barcode, Camera, X } from "lucide-react";
 import { useEscanerCodigoBarras } from "../../hooks/useEscanerCodigoBarras";
 
@@ -18,6 +19,9 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
   const [error, setError] = useState("");
   const [escaneando, setEscaneando] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
+  const [usarCamara, setUsarCamara] = useState(true);
+  const [iniciandoEscanerNativo, setIniciandoEscanerNativo] = useState(false);
+  const esAndroidNativo = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 
   // Permite que el modal intercepte el escáner físico directamente y se cierre solo
   useEscanerCodigoBarras((codigo) => {
@@ -35,13 +39,89 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
     alCerrar(); // Se agregó el cierre tras el envío manual
   };
 
+  const iniciarEscanerNativo = async () => {
+    setError("");
+    setIniciandoEscanerNativo(true);
+    try {
+      const {
+        BarcodeFormat,
+        BarcodeScanner,
+        GoogleBarcodeScannerModuleInstallState,
+      } = await import("@capacitor-mlkit/barcode-scanning");
+      type PluginListenerHandle = Awaited<ReturnType<typeof BarcodeScanner.addListener>>;
+
+      const { supported } = await BarcodeScanner.isSupported();
+      if (!supported) {
+        throw new Error("Este dispositivo no tiene una cámara disponible para escanear.");
+      }
+
+      const { available } = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+      if (!available) {
+        setError("Preparando el módulo de escaneo de Google...");
+        await new Promise<void>((resolve, reject) => {
+          let listener: PluginListenerHandle | undefined;
+          const timeout = window.setTimeout(() => {
+            void listener?.remove();
+            reject(new Error("La instalación del escáner tardó demasiado. Conéctate a internet e intenta de nuevo."));
+          }, 60000);
+
+          const finalizar = (errorInstalacion?: Error) => {
+            window.clearTimeout(timeout);
+            void listener?.remove();
+            if (errorInstalacion) reject(errorInstalacion);
+            else resolve();
+          };
+
+          BarcodeScanner.addListener("googleBarcodeScannerModuleInstallProgress", (evento) => {
+            if (evento.state === GoogleBarcodeScannerModuleInstallState.COMPLETED) {
+              finalizar();
+            } else if (
+              evento.state === GoogleBarcodeScannerModuleInstallState.FAILED ||
+              evento.state === GoogleBarcodeScannerModuleInstallState.CANCELED
+            ) {
+              finalizar(new Error("No se pudo instalar el módulo de escaneo de Google."));
+            }
+          }).then((manejador) => {
+            listener = manejador;
+            return BarcodeScanner.installGoogleBarcodeScannerModule();
+          }).catch((errorInstalacion: unknown) => {
+            finalizar(errorInstalacion instanceof Error ? errorInstalacion : new Error("No se pudo preparar el escáner."));
+          });
+        });
+      }
+
+      setError("");
+      const { barcodes } = await BarcodeScanner.scan({
+        formats: [
+          BarcodeFormat.Ean13,
+          BarcodeFormat.Ean8,
+          BarcodeFormat.Code128,
+          BarcodeFormat.Code39,
+          BarcodeFormat.UpcA,
+          BarcodeFormat.UpcE,
+          BarcodeFormat.Itf,
+          BarcodeFormat.Codabar,
+        ],
+      });
+      const codigo = barcodes[0]?.rawValue?.trim();
+      if (codigo) alDetectar(codigo);
+    } catch (errorEscaneo: unknown) {
+      setError(errorEscaneo instanceof Error ? errorEscaneo.message : "No se pudo iniciar el escáner de cámara.");
+    } finally {
+      setIniciandoEscanerNativo(false);
+    }
+  };
+
   useEffect(() => {
-    if (!abierto) return;
+    if (!abierto || esAndroidNativo || !usarCamara) return;
     let cancelado = false;
     const iniciar = async () => {
       try {
         const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-        if (cancelado || !stream || !videoRef.current) return;
+        if (cancelado || !stream || !videoRef.current) {
+          stream?.getTracks().forEach((pista) => pista.stop());
+          return;
+        }
         streamRef.current = stream;
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -79,7 +159,7 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
       streamRef.current = null;
       setEscaneando(false);
     };
-  }, [abierto, alCerrar, alDetectar]);
+  }, [abierto, alCerrar, alDetectar, esAndroidNativo, usarCamara]);
 
   if (!abierto) return null;
 
@@ -90,18 +170,46 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
           <h2 className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100"><Camera size={18} className="text-emerald-600" /> Escanear código</h2>
           <button onClick={alCerrar} aria-label="Cerrar cámara" className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
         </div>
-        <div className="relative aspect-video bg-slate-950">
-          <video ref={videoRef} muted playsInline className="h-full w-full object-cover" />
-          <div className="pointer-events-none absolute inset-8 rounded-xl border-2 border-emerald-400/90" />
-          {!escaneando && <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-white/80"><Barcode size={26} className="mr-2" /> Preparando cámara...</div>}
-        </div>
+        {esAndroidNativo ? (
+          <div className="p-4 pb-0">
+            <button
+              type="button"
+              onClick={() => setUsarCamara((activa) => !activa)}
+              aria-pressed={usarCamara}
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${usarCamara ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300"}`}
+            >
+              {usarCamara ? "Cámara activada · Toca para ocultarla" : "Cámara oculta · Toca para activarla"}
+            </button>
+            {usarCamara && (
+              <button
+                type="button"
+                onClick={iniciarEscanerNativo}
+                disabled={iniciandoEscanerNativo}
+                className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {iniciandoEscanerNativo ? "Preparando escáner..." : "Abrir escáner de cámara"}
+              </button>
+            )}
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {usarCamara ? "Usa el escáner nativo de Android." : "Conecta el lector OTG; puedes escanear directamente en el campo de código."}
+            </p>
+          </div>
+        ) : (
+          <div className="relative aspect-video bg-slate-950">
+            <video ref={videoRef} muted playsInline className="h-full w-full object-cover" />
+            <div className="pointer-events-none absolute inset-8 rounded-xl border-2 border-emerald-400/90" />
+            {!escaneando && <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-white/80"><Barcode size={26} className="mr-2" /> Preparando cámara...</div>}
+          </div>
+        )}
         <div className="p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Apunta al código de la envoltura y mantenlo dentro del recuadro.</p>
+          {!esAndroidNativo && <p className="text-xs text-slate-500 dark:text-slate-400">Apunta al código de la envoltura y mantenlo dentro del recuadro.</p>}
           {error && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{error}</p>}
-          <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">
-            <Camera size={16} /> Usar foto del código
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => setError("La lectura desde foto depende del soporte del navegador. Si no se detecta, escribe el código manualmente.")} />
-          </label>
+          {(!esAndroidNativo || usarCamara) && (
+            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">
+              <Camera size={16} /> Usar foto del código
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => setError("La lectura desde foto depende del soporte del navegador. Si no se detecta, escribe el código manualmente.")} />
+            </label>
+          )}
           <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
             <label htmlFor="codigo-manual" className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">Escribir código manualmente</label>
             <div className="flex gap-2">
@@ -110,6 +218,7 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
+                autoFocus={esAndroidNativo && !usarCamara}
                 value={codigoManual}
                 onChange={(evento) => setCodigoManual(evento.target.value)}
                 onKeyDown={(evento) => { if (evento.key === "Enter") enviarCodigoManual(); }}

@@ -1,6 +1,11 @@
 // src/estado/estadoRed.ts
 import { create } from "zustand";
 import { esCerebroLocal } from "../servicios/cerebroTienda";
+import { Capacitor } from "@capacitor/core";
+
+const puedeSerCerebroNativo = () =>
+  typeof window !== "undefined"
+  && (window.apiLocal !== undefined || (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android"));
 
 interface EstadoRed {
   esMaestro: boolean;
@@ -15,7 +20,7 @@ interface EstadoRed {
 }
 
 export const useEstadoRed = create<EstadoRed>((set) => ({
-  esMaestro: typeof window !== 'undefined' && window.apiLocal !== undefined && esCerebroLocal(),
+  esMaestro: puedeSerCerebroNativo() && esCerebroLocal(),
   ipMaestro: localStorage.getItem("ip_maestro") || "",
   conectadoLAN: false,
   servidorLANActivo: false,
