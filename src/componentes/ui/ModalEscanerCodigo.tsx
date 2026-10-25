@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Barcode, Camera, X } from "lucide-react";
 import { useEscanerCodigoBarras } from "../../hooks/useEscanerCodigoBarras";
+import PanelCamaraEscaner from "../pos/PanelCamaraEscaner";
 
 interface PropsModalEscanerCodigo {
   abierto: boolean;
@@ -20,7 +21,6 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
   const [escaneando, setEscaneando] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
   const [usarCamara, setUsarCamara] = useState(true);
-  const [iniciandoEscanerNativo, setIniciandoEscanerNativo] = useState(false);
   const esAndroidNativo = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 
   // Permite que el modal intercepte el escáner físico directamente y se cierre solo
@@ -37,79 +37,6 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
     }
     alDetectar(codigo);
     alCerrar(); // Se agregó el cierre tras el envío manual
-  };
-
-  const iniciarEscanerNativo = async () => {
-    setError("");
-    setIniciandoEscanerNativo(true);
-    try {
-      const {
-        BarcodeFormat,
-        BarcodeScanner,
-        GoogleBarcodeScannerModuleInstallState,
-      } = await import("@capacitor-mlkit/barcode-scanning");
-      type PluginListenerHandle = Awaited<ReturnType<typeof BarcodeScanner.addListener>>;
-
-      const { supported } = await BarcodeScanner.isSupported();
-      if (!supported) {
-        throw new Error("Este dispositivo no tiene una cámara disponible para escanear.");
-      }
-
-      const { available } = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
-      if (!available) {
-        setError("Preparando el módulo de escaneo de Google...");
-        await new Promise<void>((resolve, reject) => {
-          let listener: PluginListenerHandle | undefined;
-          const timeout = window.setTimeout(() => {
-            void listener?.remove();
-            reject(new Error("La instalación del escáner tardó demasiado. Conéctate a internet e intenta de nuevo."));
-          }, 60000);
-
-          const finalizar = (errorInstalacion?: Error) => {
-            window.clearTimeout(timeout);
-            void listener?.remove();
-            if (errorInstalacion) reject(errorInstalacion);
-            else resolve();
-          };
-
-          BarcodeScanner.addListener("googleBarcodeScannerModuleInstallProgress", (evento) => {
-            if (evento.state === GoogleBarcodeScannerModuleInstallState.COMPLETED) {
-              finalizar();
-            } else if (
-              evento.state === GoogleBarcodeScannerModuleInstallState.FAILED ||
-              evento.state === GoogleBarcodeScannerModuleInstallState.CANCELED
-            ) {
-              finalizar(new Error("No se pudo instalar el módulo de escaneo de Google."));
-            }
-          }).then((manejador) => {
-            listener = manejador;
-            return BarcodeScanner.installGoogleBarcodeScannerModule();
-          }).catch((errorInstalacion: unknown) => {
-            finalizar(errorInstalacion instanceof Error ? errorInstalacion : new Error("No se pudo preparar el escáner."));
-          });
-        });
-      }
-
-      setError("");
-      const { barcodes } = await BarcodeScanner.scan({
-        formats: [
-          BarcodeFormat.Ean13,
-          BarcodeFormat.Ean8,
-          BarcodeFormat.Code128,
-          BarcodeFormat.Code39,
-          BarcodeFormat.UpcA,
-          BarcodeFormat.UpcE,
-          BarcodeFormat.Itf,
-          BarcodeFormat.Codabar,
-        ],
-      });
-      const codigo = barcodes[0]?.rawValue?.trim();
-      if (codigo) alDetectar(codigo);
-    } catch (errorEscaneo: unknown) {
-      setError(errorEscaneo instanceof Error ? errorEscaneo.message : "No se pudo iniciar el escáner de cámara.");
-    } finally {
-      setIniciandoEscanerNativo(false);
-    }
   };
 
   useEffect(() => {
@@ -178,20 +105,22 @@ export default function ModalEscanerCodigo({ abierto, alCerrar, alDetectar }: Pr
               aria-pressed={usarCamara}
               className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${usarCamara ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300"}`}
             >
-              {usarCamara ? "Cámara activada · Toca para ocultarla" : "Cámara oculta · Toca para activarla"}
+              {usarCamara ? "Cámara activa · Toca para desactivarla" : "Cámara desactivada · Toca para activarla"}
             </button>
             {usarCamara && (
-              <button
-                type="button"
-                onClick={iniciarEscanerNativo}
-                disabled={iniciandoEscanerNativo}
-                className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
-              >
-                {iniciandoEscanerNativo ? "Preparando escáner..." : "Abrir escáner de cámara"}
-              </button>
+              <div className="mt-3">
+                <PanelCamaraEscaner
+                  activo={abierto}
+                  alDetectar={(codigo) => {
+                    alDetectar(codigo);
+                    alCerrar();
+                  }}
+                  className="w-full"
+                />
+              </div>
             )}
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              {usarCamara ? "Usa el escáner nativo de Android." : "Conecta el lector OTG; puedes escanear directamente en el campo de código."}
+              {usarCamara ? "La cámara se inicia automáticamente. Si no se activa, usa el botón de reintento del visor." : "Conecta el lector OTG; puedes escanear directamente en el campo de código."}
             </p>
           </div>
         ) : (

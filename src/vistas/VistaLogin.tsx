@@ -32,6 +32,9 @@ const evaluarEstadoSuscripcion = (fechaString: string | null) => {
 };
 
 export default function VistaLogin() {
+  const parametrosLAN = new URLSearchParams(window.location.search);
+  const esAccesoLAN = parametrosLAN.has("lanHost")
+    || (window.location.protocol === "http:" && ["4000", "4001"].includes(window.location.port));
   const { trabajadores, iniciarSesion, cargarTrabajadores } = useEstadoTrabajadores();
   const { nombreTienda, cargarConfiguracion } = useEstadoConfiguracion();
   const { registrarEntrada, cargarAsistencias } = useEstadoAsistencias();
@@ -40,13 +43,13 @@ export default function VistaLogin() {
   
   const planActivo = useEstadoPlan((estado) => estado.planActivo);
   
-  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(false);
+  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(esAccesoLAN);
   const [emailSaaS, setEmailSaaS] = useState("");
   const [passwordSaaS, setPasswordSaaS] = useState("");
   const [cargandoSaaS, setCargandoSaaS] = useState(false);
   const [errorSaaS, setErrorSaaS] = useState("");
   const [mensajeExito, setMensajeExito] = useState("");
-  const [modoOfflineInfo, setModoOfflineInfo] = useState(false);
+  const [modoOfflineInfo, setModoOfflineInfo] = useState(esAccesoLAN);
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
@@ -98,6 +101,12 @@ export default function VistaLogin() {
 
   useEffect(() => {
     const validarSesionPrevia = async () => {
+      if (esAccesoLAN) {
+        setModoOfflineInfo(true);
+        setCuentaSaaSLogueada(true);
+        return;
+      }
+
       if (window.apiLocal && !navigator.onLine) {
         setModoOfflineInfo(true);
         const validacion = (await window.apiLocal.validarSuscripcionOffline()) as { activo: boolean; error?: string; fechaVencimiento?: string };
@@ -172,7 +181,7 @@ export default function VistaLogin() {
     };
 
     validarSesionPrevia();
-  }, []);
+  }, [esAccesoLAN]);
 
   const procesarSeleccionSucursal = async (tienda: any) => {
     setCargandoSaaS(true);

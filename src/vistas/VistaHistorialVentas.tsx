@@ -10,6 +10,7 @@ import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import ModalGestionHistorial from "../componentes/ui/ModalGestionHistorial";
 import { cn } from "../utilidades/utils";
+import CampoFecha from "../componentes/ui/CampoFecha";
 
 export default function VistaHistorialVentas() {
   const { ventas, cancelarVenta } = useEstadoVentas();
@@ -153,8 +154,8 @@ export default function VistaHistorialVentas() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="text-xs font-medium text-slate-500">Desde <input type="date" value={fechaInicio} onChange={(e) => { setFechaInicio(e.target.value); setPagina(1); }} className="ml-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500" /></label>
-        <label className="text-xs font-medium text-slate-500">Hasta <input type="date" value={fechaFin} onChange={(e) => { setFechaFin(e.target.value); setPagina(1); }} className="ml-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 outline-none focus:border-emerald-500" /></label>
+        <label className="text-xs font-medium text-slate-500">Desde <CampoFecha value={fechaInicio} onChange={(fecha) => { setFechaInicio(fecha); setPagina(1); }} className="ml-1 h-8 text-xs" aria-label="Fecha inicial" /></label>
+        <label className="text-xs font-medium text-slate-500">Hasta <CampoFecha value={fechaFin} onChange={(fecha) => { setFechaFin(fecha); setPagina(1); }} className="ml-1 h-8 text-xs" aria-label="Fecha final" /></label>
         {(fechaInicio || fechaFin) && <button onClick={() => { setFechaInicio(""); setFechaFin(""); setPagina(1); }} className="rounded-lg px-2 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">Limpiar fechas</button>}
       </div>
 
@@ -246,8 +247,8 @@ export default function VistaHistorialVentas() {
                       <tr className="bg-emerald-50/60 dark:bg-emerald-950/20">
                         <td colSpan={9} className="px-5 py-3">
                           <div className="flex flex-wrap gap-2">
-                            {(venta.articulos || []).map((articulo) => (
-                              <span key={articulo.id || crypto.randomUUID()} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
+                            {(venta.articulos || []).map((articulo, index) => (
+                              <span key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
                                 <strong>{articulo.nombre}</strong> · {articulo.cantidad} {(articulo.unidad || 'PZA').toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}
                                 {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
                               </span>

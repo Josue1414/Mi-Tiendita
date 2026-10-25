@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { useEstadoPlan } from "./estadoPlan"; 
+import { useEstadoRed } from "./estadoRed";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 import { DIAS_ALERTA_CADUCIDAD } from "../utilidades/lotes";
 
@@ -168,6 +169,28 @@ const guardarConfiguracionLocal = async (configuracion: Configuracion) => {
   await guardarRegistro("configuracion", configuracionWeb);
 };
 
+const sincronizarDiasAlertaNube = async (dias: number) => {
+  if (navigator.onLine) {
+    const tiendaId = await obtenerTiendaIdActual();
+    if (!tiendaId) throw new Error("No se encontró la tienda para sincronizar los días de alerta.");
+    const { data, error } = await supabase
+      .from("tiendas")
+      .update({ dias_alerta_caducidad: dias })
+      .eq("id", tiendaId)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("No se encontró la tienda para guardar los días de alerta en Supabase.");
+    return;
+  }
+
+  await registrarPendienteSync({
+    tabla: "tiendas",
+    operacion: "ACTUALIZAR",
+    payload: { dias_alerta_caducidad: dias }
+  });
+};
+
 export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => ({
   ...CONFIG_INICIAL,
   cargando: true,
@@ -180,7 +203,12 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const permiteNube = useEstadoPlan.getState().permiteNube;
 
       if (sincronizacionNubePermitida && navigator.onLine && tiendaId) {
-        const { data: tiendaNube } = await supabase.from('tiendas').select('*').eq('id', tiendaId).single();
+        const { data: tiendaNube, error: errorTiendaNube } = await supabase
+          .from('tiendas')
+          .select('*')
+          .eq('id', tiendaId)
+          .single();
+        if (errorTiendaNube) throw errorTiendaNube;
 
         if (tiendaNube) {
           const datosLocales = await obtenerRegistros("configuracion");
@@ -191,6 +219,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             mensajeTicket: tiendaNube.mensaje_ticket ?? CONFIG_INICIAL.mensajeTicket,
             direccionTienda: tiendaNube.direccion_tienda ?? CONFIG_INICIAL.direccionTienda,
             logoTienda: configLocal?.logoTienda ?? CONFIG_INICIAL.logoTienda,
+            directorioImagenes: configLocal?.directorioImagenes ?? CONFIG_INICIAL.directorioImagenes,
             teclaCobro: tiendaNube.tecla_cobro ?? CONFIG_INICIAL.teclaCobro,
             teclaEfectivo: tiendaNube.tecla_efectivo ?? CONFIG_INICIAL.teclaEfectivo,
             teclaTarjeta: tiendaNube.tecla_tarjeta ?? CONFIG_INICIAL.teclaTarjeta,
@@ -199,7 +228,11 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             bancoTransferencia: tiendaNube.banco_transferencia || "",
             titularTransferencia: tiendaNube.titular_transferencia || "",
             cuentaTransferencia: tiendaNube.cuenta_transferencia || "",
-            diasAlertaCaducidad: configLocal?.diasAlertaCaducidad ?? CONFIG_INICIAL.diasAlertaCaducidad,
+            diasAlertaCaducidad: Number.isInteger(tiendaNube.dias_alerta_caducidad)
+              && tiendaNube.dias_alerta_caducidad >= 1
+              && tiendaNube.dias_alerta_caducidad <= 365
+              ? tiendaNube.dias_alerta_caducidad
+              : configLocal?.diasAlertaCaducidad ?? CONFIG_INICIAL.diasAlertaCaducidad,
             id: CONFIG_ID,
             sincronizacionNube: permiteNube ? configLocal?.sincronizacionNube ?? get().sincronizacionNube : false,
             configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false
@@ -212,7 +245,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           if (esEscritorio) {
             if (configLocal) {
                estadoActualizado.sincronizacionNube = permiteNube ? configLocal.sincronizacionNube : false;
-               estadoActualizado.directorioImagenes = configLocal.directorioImagenes;
             }
           }
 
@@ -352,10 +384,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   
   setDirectorioImagenes: async (nombreCarpeta, handle) => {
     try {
-      if (esEscritorio) {
-        const nuevaConfig = { ...get(), directorioImagenes: nombreCarpeta, directorioHandle: handle };
-        await guardarRegistro("configuracion", nuevaConfig);
-      }
+      const nuevaConfig = { ...get(), directorioImagenes: nombreCarpeta, directorioHandle: handle };
+      await guardarConfiguracionLocal(nuevaConfig);
       set({ directorioImagenes: nombreCarpeta, directorioHandle: handle });
     } catch (error) {
       console.error("Error al guardar el directorio:", error);
@@ -552,6 +582,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       tipo: "LAN_CONFIG_CADUCIDAD",
       payload: { diasAlertaCaducidad: dias }
     });
+    if (debeSincronizarConNube()) {
+      await sincronizarDiasAlertaNube(dias);
+    }
   },
 
   aplicarAccionLAN: async (tipo, payload) => {
@@ -599,6 +632,12 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const configuracionActualizada = { ...get(), diasAlertaCaducidad: dias };
       await guardarConfiguracionLocal(configuracionActualizada);
       set({ diasAlertaCaducidad: dias });
+      if (useEstadoRed.getState().esMaestro) {
+        enviarAccionLAN({ tipo: "LAN_CONFIG_CADUCIDAD", payload: { diasAlertaCaducidad: dias } });
+      }
+      if (debeSincronizarConNube()) {
+        await sincronizarDiasAlertaNube(dias);
+      }
       return;
     } else {
       return;
@@ -646,7 +685,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   sincronizarConfiguracion: async (payload: any) => {
     const { new: nuevo } = payload;
     if (nuevo) {
-      const actualizacion = {
+      const actualizacion: Partial<Configuracion> = {
         nombreTienda: nuevo.nombre,
         mensajeTicket: nuevo.mensaje_ticket ?? get().mensajeTicket,
         direccionTienda: nuevo.direccion_tienda ?? get().direccionTienda,
@@ -659,6 +698,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         titularTransferencia: nuevo.titular_transferencia || "",
         cuentaTransferencia: nuevo.cuenta_transferencia || ""
       };
+      if (Number.isInteger(nuevo.dias_alerta_caducidad) && nuevo.dias_alerta_caducidad >= 1 && nuevo.dias_alerta_caducidad <= 365) {
+        actualizacion.diasAlertaCaducidad = nuevo.dias_alerta_caducidad;
+      }
       
       set((state) => ({ ...state, ...actualizacion }));
       
@@ -668,6 +710,13 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           ...configBase, 
           ...actualizacion, 
           directorioHandle: configBase.directorioHandle 
+        });
+      }
+      if (actualizacion.diasAlertaCaducidad !== undefined) {
+        await guardarConfiguracionLocal({ ...get(), diasAlertaCaducidad: actualizacion.diasAlertaCaducidad });
+        enviarAccionLAN({
+          tipo: "LAN_CONFIG_CADUCIDAD",
+          payload: { diasAlertaCaducidad: actualizacion.diasAlertaCaducidad }
         });
       }
 
@@ -696,6 +745,13 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           teclaTransferencia: actualizacion.teclaTransferencia
         }
       });
+      if (actualizacion.diasAlertaCaducidad !== undefined) {
+        await guardarConfiguracionLocal({ ...get(), ...actualizacion });
+        enviarAccionLAN({
+          tipo: "LAN_CONFIG_CADUCIDAD",
+          payload: { diasAlertaCaducidad: actualizacion.diasAlertaCaducidad }
+        });
+      }
     }
   }
 }));

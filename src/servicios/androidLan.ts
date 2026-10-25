@@ -8,9 +8,13 @@ export interface EstadoServidorAndroid {
 }
 
 interface PluginLANAndroid {
-  startServer(): Promise<EstadoServidorAndroid>;
+  getLaunchUrl(): Promise<{ url: string | null }>;
+  startServer(options?: { tiendaId: string; deviceId: string }): Promise<EstadoServidorAndroid>;
   getServerStatus(): Promise<EstadoServidorAndroid>;
   stopServer(): Promise<EstadoServidorAndroid>;
+  startDiscovery(): Promise<void>;
+  stopDiscovery(): Promise<void>;
+  emitCustomerDisplay(options: { cajaId: string; payload: unknown }): Promise<{ enviado: boolean }>;
   emitSnapshot(options: { socketId: string; snapshot: unknown }): Promise<void>;
   emitAction(options: { action: unknown }): Promise<void>;
   addListener(
@@ -24,6 +28,18 @@ interface PluginLANAndroid {
   addListener(
     eventName: "slaveAction",
     listenerFunc: (action: unknown) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "customerDisplayConnected",
+    listenerFunc: (data: { cajaId: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "appUrlOpen",
+    listenerFunc: (data: { url: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: "brainDetected",
+    listenerFunc: (data: { ip: string; puertoWeb: number; tiendaId: string; deviceId: string; plataforma: string }) => void,
   ): Promise<PluginListenerHandle>;
 }
 

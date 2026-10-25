@@ -8,6 +8,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const os = require('os');
+const dgram = require('dgram');
+const net = require('net');
 const { exec } = require('child_process'); // <-- NUEVA IMPORTACIÓN
 
 const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
@@ -15,6 +17,15 @@ const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32);
 const IV_LENGTH = 16;
 let ioServidor;
 let servidorHttpLAN;
+let anuncioCerebro;
+let temporizadorAnuncioCerebro;
+let escuchaCerebro;
+let tiendaIdAnuncio = '';
+let deviceIdAnuncio = '';
+const dispositivosCajaLAN = new Set();
+const ultimosMensajesPantalla = new Map();
+const PUERTO_DESCUBRIMIENTO_LAN = 41234;
+const TIPO_CEREBRO = 'CEREBRO_MITIENDA';
 
 let dispositivoCallback = null;
 
@@ -93,9 +104,118 @@ function obtenerIpLocal() {
 function obtenerEstadoLAN() {
   return {
     activo: Boolean(servidorHttpLAN?.listening),
-    dispositivosConectados: ioServidor?.sockets.sockets.size ?? 0,
+    dispositivosConectados: dispositivosCajaLAN.size,
     ip: obtenerIpLocal()
   };
+}
+
+function ipANumero(ip) {
+  return ip.split('.').reduce((acumulado, octeto) => ((acumulado << 8) | Number(octeto)) >>> 0, 0);
+}
+
+function esIpPrivada(ip) {
+  if (!net.isIPv4(ip)) return false;
+  const [primero, segundo] = ip.split('.').map(Number);
+  return primero === 10
+    || (primero === 172 && segundo >= 16 && segundo <= 31)
+    || (primero === 192 && segundo === 168)
+    || (primero === 169 && segundo === 254);
+}
+
+function obtenerDireccionesBroadcast() {
+  const destinos = new Set(['255.255.255.255']);
+  for (const interfaces of Object.values(os.networkInterfaces())) {
+    for (const interfaz of interfaces ?? []) {
+      if (interfaz.family !== 'IPv4' || interfaz.internal || !interfaz.netmask) continue;
+      const ip = ipANumero(interfaz.address);
+      const mascara = ipANumero(interfaz.netmask);
+      const broadcast = (ip | (~mascara >>> 0)) >>> 0;
+      destinos.add([24, 16, 8, 0].map((desplazamiento) => (broadcast >>> desplazamiento) & 255).join('.'));
+    }
+  }
+  return destinos;
+}
+
+function iniciarAnuncioCerebro(tiendaId, deviceId) {
+  if (tiendaId) tiendaIdAnuncio = tiendaId;
+  if (deviceId) deviceIdAnuncio = deviceId;
+  if (temporizadorAnuncioCerebro) return;
+  anuncioCerebro = dgram.createSocket('udp4');
+  anuncioCerebro.on('error', (error) => console.error('Error en el anuncio UDP del Cerebro:', error));
+  const enviarAnuncio = () => {
+    if (!anuncioCerebro) return;
+    const mensaje = Buffer.from(JSON.stringify({
+      tipo: TIPO_CEREBRO,
+      ip: obtenerIpLocal(),
+      puertoWeb: 4000,
+      tiendaId: tiendaIdAnuncio,
+      deviceId: deviceIdAnuncio,
+      plataforma: 'windows'
+    }));
+    for (const destino of obtenerDireccionesBroadcast()) {
+      anuncioCerebro.send(mensaje, PUERTO_DESCUBRIMIENTO_LAN, destino, (error) => {
+        if (error) console.error(`No se pudo anunciar el Cerebro a ${destino}:`, error);
+      });
+    }
+  };
+  anuncioCerebro.bind(() => {
+    if (!anuncioCerebro) return;
+    anuncioCerebro.setBroadcast(true);
+    enviarAnuncio();
+    temporizadorAnuncioCerebro = setInterval(enviarAnuncio, 3000);
+  });
+}
+
+function detenerAnuncioCerebro() {
+  if (temporizadorAnuncioCerebro) clearInterval(temporizadorAnuncioCerebro);
+  temporizadorAnuncioCerebro = undefined;
+  if (anuncioCerebro) anuncioCerebro.close();
+  anuncioCerebro = undefined;
+}
+
+function iniciarDescubrimientoLAN() {
+  if (escuchaCerebro) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    let listo = false;
+    socket.on('error', (error) => {
+      if (!listo) {
+        socket.close();
+        reject(error);
+      } else {
+        console.error('Error escuchando anuncios LAN del Cerebro:', error);
+      }
+    });
+    socket.on('message', (mensaje, remitente) => {
+      try {
+        const anuncio = JSON.parse(mensaje.toString());
+        if (anuncio.tipo !== TIPO_CEREBRO || typeof anuncio.ip !== 'string' || !esIpPrivada(remitente.address)) return;
+        if (![4000, 4001].includes(anuncio.puertoWeb)) return;
+        const cerebro = {
+          ip: remitente.address,
+          puertoWeb: anuncio.puertoWeb,
+          tiendaId: anuncio.tiendaId,
+          deviceId: anuncio.deviceId,
+          plataforma: anuncio.plataforma
+        };
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('cerebro-detectado', cerebro);
+        }
+      } catch (error) {
+        console.error('Se recibió un anuncio UDP de Cerebro inválido:', error);
+      }
+    });
+    socket.bind(PUERTO_DESCUBRIMIENTO_LAN, '0.0.0.0', () => {
+      listo = true;
+      escuchaCerebro = socket;
+      resolve();
+    });
+  });
+}
+
+function detenerDescubrimientoLAN() {
+  if (escuchaCerebro) escuchaCerebro.close();
+  escuchaCerebro = undefined;
 }
 
 function emitirEstadoLAN() {
@@ -105,7 +225,9 @@ function emitirEstadoLAN() {
   }
 }
 
-function iniciarServidorLAN() {
+function iniciarServidorLAN(tiendaId, deviceId) {
+  if (tiendaId) tiendaIdAnuncio = tiendaId;
+  if (deviceId) deviceIdAnuncio = deviceId;
   if (servidorHttpLAN?.listening) return Promise.resolve(obtenerEstadoLAN());
   const appExpress = express();
   const server = http.createServer(appExpress);
@@ -114,17 +236,36 @@ function iniciarServidorLAN() {
   appExpress.use(express.static(distPath));
   appExpress.get(/.*/, (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
-  ioServidor = new Server(server, { cors: { origin: "*" } });
+  ioServidor = new Server(server, {
+    cors: { origin: "*" },
+    pingInterval: 5000,
+    pingTimeout: 10000
+  });
 
   ioServidor.on('connection', (socket) => {
     console.log('Dispositivo LAN conectado:', socket.id);
     emitirEstadoLAN();
 
     socket.on('disconnect', () => {
+      dispositivosCajaLAN.delete(socket.id);
       emitirEstadoLAN();
+    });
+
+    socket.on('registrar-dispositivo-lan', () => {
+      dispositivosCajaLAN.add(socket.id);
+      emitirEstadoLAN();
+    });
+
+    socket.on('registrar-pantalla-cliente', (data) => {
+      if (!data || typeof data.cajaId !== 'string') return;
+      const ultimoMensaje = ultimosMensajesPantalla.get(data.cajaId);
+      if (ultimoMensaje) socket.emit('update-pantalla-cliente', ultimoMensaje);
     });
     
     socket.on('sync-pantalla-cliente', (data) => {
+      if (data?.cajaId && data?.payload?.tipo === 'ACTUALIZAR_CARRITO') {
+        ultimosMensajesPantalla.set(data.cajaId, data);
+      }
       ioServidor.emit('update-pantalla-cliente', data);
     });
     
@@ -153,9 +294,41 @@ function iniciarServidorLAN() {
     });
     server.listen(4000, '0.0.0.0', () => {
       console.log('Servidor LAN iniciado en puerto 4000');
+      iniciarAnuncioCerebro(tiendaId, deviceId);
       emitirEstadoLAN();
       resolve(obtenerEstadoLAN());
     });
+  });
+}
+
+function detenerServidorLAN() {
+  detenerAnuncioCerebro();
+  const servidor = servidorHttpLAN;
+  if (!servidor?.listening) {
+    return new Promise((resolve) => {
+      const finalizar = () => {
+        ioServidor = undefined;
+        servidorHttpLAN = undefined;
+        dispositivosCajaLAN.clear();
+        emitirEstadoLAN();
+        resolve();
+      };
+      if (ioServidor) ioServidor.close(finalizar);
+      else finalizar();
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const finalizar = (error) => {
+      ioServidor = undefined;
+      servidorHttpLAN = undefined;
+      dispositivosCajaLAN.clear();
+      emitirEstadoLAN();
+      if (error) reject(error);
+      else resolve();
+    };
+    if (ioServidor) ioServidor.close(finalizar);
+    else servidor.close(finalizar);
   });
 }
 
@@ -265,8 +438,15 @@ app.whenReady().then(() => {
   // NUEVO: Ejecuta la reparación automática del Firewall solicitando permisos de administrador
   ipcMain.handle('reparar-firewall', async () => {
     return new Promise((resolve) => {
-      const comando = `Start-Process netsh.exe -ArgumentList 'advfirewall firewall add rule name="Mi Tiendita POS" dir=in action=allow protocol=TCP localport=4000' -Verb RunAs -WindowStyle Hidden`;
-      exec(`powershell.exe -Command "${comando}"`, (error) => {
+      const scriptElevado = [
+        'netsh advfirewall firewall add rule name="Mi Tiendita POS" dir=in action=allow protocol=TCP localport=4000',
+        'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
+        'netsh advfirewall firewall add rule name="Mi Tiendita Descubrimiento LAN" dir=in action=allow protocol=UDP localport=41234',
+        'exit $LASTEXITCODE'
+      ].join('; ');
+      const comandoCodificado = Buffer.from(scriptElevado, 'utf16le').toString('base64');
+      const comando = `$proceso = Start-Process powershell.exe -ArgumentList '-NoProfile -EncodedCommand ${comandoCodificado}' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; if ($proceso.ExitCode -ne 0) { exit $proceso.ExitCode }`;
+      exec(`powershell.exe -NoProfile -Command "${comando}"`, (error) => {
         if (error) {
           resolve({ exito: false, error: error.message });
         } else {
@@ -277,8 +457,11 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('obtener-ip-local', () => obtenerIpLocal());
-  ipcMain.handle('iniciar-servidor-lan', () => iniciarServidorLAN());
+  ipcMain.handle('iniciar-servidor-lan', (event, tiendaId, deviceId) => iniciarServidorLAN(tiendaId, deviceId));
+  ipcMain.handle('detener-servidor-lan', () => detenerServidorLAN());
   ipcMain.handle('obtener-estado-lan', () => obtenerEstadoLAN());
+  ipcMain.handle('iniciar-descubrimiento-lan', () => iniciarDescubrimientoLAN());
+  ipcMain.handle('detener-descubrimiento-lan', () => detenerDescubrimientoLAN());
   ipcMain.handle('emitir-a-esclavos', (event, data) => {
     if (ioServidor) ioServidor.emit('accion-maestro', data);
   });
@@ -296,4 +479,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  detenerDescubrimientoLAN();
+  detenerAnuncioCerebro();
 });

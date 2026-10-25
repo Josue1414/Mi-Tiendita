@@ -8,6 +8,7 @@ import { cn } from "../utilidades/utils";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalPrompt from "../componentes/ui/ModalPrompt";
 import ModalAviso from "../componentes/ui/ModalAviso";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
   const { actualizarDeudor, eliminarDeudor } = useEstadoFiados();
@@ -107,7 +108,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
     }
 
     const nuevoAbono = {
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       fecha: new Date().toISOString(),
       monto,
       cajero: cajeroActual,
@@ -125,7 +126,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
 
   const manejarLiquidacion = async () => {
     const nuevoAbono = {
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       fecha: new Date().toISOString(),
       monto: deudor.totalDeuda,
       cajero: cajeroActual,
@@ -163,7 +164,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
 
     const nuevoAbonoRestante = totalAbonado - montoALimpiar;
     const nuevosAbonos = nuevoAbonoRestante > 0 
-      ? [{ id: crypto.randomUUID(), fecha: new Date().toISOString(), monto: nuevoAbonoRestante, cajero: "Sistema (Ajuste por limpieza)", tipo: "ABONO" as const }] 
+      ? [{ id: crearIdentificadorUnico(), fecha: new Date().toISOString(), monto: nuevoAbonoRestante, cajero: "Sistema (Ajuste por limpieza)", tipo: "ABONO" as const }]
       : [];
 
     await actualizarDeudor({ ...deudor, tickets: ticketsMantenidos.reverse(), historialAbonos: nuevosAbonos });
@@ -507,7 +508,7 @@ export default function VistaFiados() {
     }
 
     await agregarDeudor({
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       nombre: datos.nombre.trim(),
       celular: datos.celular.trim(),
       notas: datos.notas.trim(),

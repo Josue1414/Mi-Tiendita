@@ -11,6 +11,7 @@ import type { Producto } from "../tipos/producto";
 import { ajustarLotes, DIAS_ALERTA_CADUCIDAD, estadoCaducidad } from "../utilidades/lotes";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
+import CampoFecha from "../componentes/ui/CampoFecha";
 
 export default function VistaStockBajo() {
   const { productos, actualizarProducto } = useEstadoInventario();
@@ -279,7 +280,7 @@ export default function VistaStockBajo() {
                     <tr key={producto.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100">
                       <td className="p-4 font-medium">
                         <div className="flex items-center gap-3 text-left">
-                          <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-10 w-10 shrink-0 rounded-lg object-cover text-sm" />
+                          <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-10 w-10 shrink-0 rounded-lg object-cover text-sm" />
                           <span>{producto.nombre}</span>
                         </div>
                       </td>
@@ -503,7 +504,7 @@ export default function VistaStockBajo() {
                         <dt className="text-slate-500">Caducidad</dt>
                         {loteEditando?.loteId === lote.id ? (
                           <div className="mt-1 flex items-center gap-1">
-                            <input type="date" value={loteEditando.fecha} onChange={(evento) => setLoteEditando({ ...loteEditando, fecha: evento.target.value })} className="min-w-0 rounded-md border border-slate-300 bg-white px-1.5 py-1 text-xs dark:border-white/10 dark:bg-slate-900" aria-label="Editar fecha de caducidad del lote" />
+                            <CampoFecha value={loteEditando.fecha} onChange={(fecha) => setLoteEditando({ ...loteEditando, fecha })} className="h-8 min-w-0 rounded-md px-1.5 text-xs" aria-label="Editar fecha de caducidad del lote" />
                             <button type="button" onClick={() => void guardarCaducidadLote(producto, lote.id, loteEditando.fecha)} aria-label="Guardar fecha de caducidad" className="rounded-md p-1.5 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"><Check size={14} /></button>
                             <button type="button" onClick={() => setLoteEditando(null)} aria-label="Cancelar edición de caducidad" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={14} /></button>
                           </div>

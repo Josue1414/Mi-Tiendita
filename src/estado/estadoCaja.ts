@@ -1,5 +1,6 @@
 // Coordenada: src/estado/estadoCaja.ts
 import { create } from "zustand";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
@@ -17,6 +18,7 @@ export interface TurnoCaja {
   ventasElectronico: number | null;  // NUEVO: Tarjeta/Transferencia del turno
   notaTrabajador: string;
   notaDueno: string;
+  cerradoPor: string | null;
   estatus: "ABIERTO" | "CERRADO";
 }
 
@@ -32,7 +34,7 @@ interface EstadoCaja {
   cargarCaja: () => Promise<void>;
   actualizarConfiguracion: (nuevoFondo: number, nuevaNota: string, forzarCaja?: boolean, reqPin?: boolean, propagado?: boolean) => Promise<void>;
   abrirTurno: (trabajadorId: string, nombreTrabajador: string, fondo: number, propagado?: boolean, turnoRemoto?: TurnoCaja) => Promise<void>;
-  cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string, ventasEfectivo: number, ventasElectronico: number, propagado?: boolean, turnoRemoto?: TurnoCaja) => Promise<void>; // ACTUALIZADO
+  cerrarTurno: (turnoId: string, fondoDejado: number, ventasCalculadas: number, notaTrabajador: string, ventasEfectivo: number, ventasElectronico: number, propagado?: boolean, turnoRemoto?: TurnoCaja, cerradoPor?: string) => Promise<void>;
   obtenerTurnoActivo: (trabajadorId: string) => TurnoCaja | undefined;
   setControlTurnosHabilitado: (valor: boolean, propagado?: boolean) => Promise<void>;
   setForzarRecepcionCaja: (valor: boolean, propagado?: boolean) => Promise<void>; 
@@ -164,6 +166,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
               ventasElectronico: t.ventas_electronico !== null ? Number(t.ventas_electronico) : null,
               notaTrabajador: t.nota_trabajador || "",
               notaDueno: t.nota_dueno || "",
+              cerradoPor: t.cerrado_por ?? null,
               estatus: t.estatus
             }));
 
@@ -261,7 +264,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
 
   abrirTurno: async (trabajadorId, nombreTrabajador, fondo, propagado = false, turnoRemoto) => {
     const nuevoTurno: TurnoCaja = turnoRemoto ?? {
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       trabajadorId,
       nombreTrabajador,
       fechaInicio: new Date().toISOString(),
@@ -273,6 +276,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
       ventasElectronico: null,
       notaTrabajador: "",
       notaDueno: "",
+      cerradoPor: null,
       estatus: "ABIERTO",
     };
 
@@ -308,11 +312,12 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
   },
 
   // ACTUALIZADO: Acepta los nuevos parámetros y los envía a Supabase
-  cerrarTurno: async (turnoId, fondoDejado, ventasCalculadas, notaTrabajador, ventasEfectivo, ventasElectronico, propagado = false, turnoRemoto) => {
+  cerrarTurno: async (turnoId, fondoDejado, ventasCalculadas, notaTrabajador, ventasEfectivo, ventasElectronico, propagado = false, turnoRemoto, cerradoPor) => {
     const turnoOriginal = get().turnos.find(turno => turno.id === turnoId);
     const fechaFin = turnoRemoto?.fechaFin ?? new Date().toISOString();
     const turnoActualizado = turnoRemoto ?? (turnoOriginal ? {
-      ...turnoOriginal, fechaFin, fondoDejado, ventasCalculadas, ventasEfectivo, ventasElectronico, notaTrabajador, estatus: "CERRADO" as const
+      ...turnoOriginal, fechaFin, fondoDejado, ventasCalculadas, ventasEfectivo, ventasElectronico, notaTrabajador,
+      cerradoPor: cerradoPor ?? turnoOriginal.cerradoPor ?? null, estatus: "CERRADO" as const
     } : undefined);
     if (!turnoActualizado) return;
     set((state) => ({
@@ -339,6 +344,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
             ventas_efectivo: ventasEfectivo,         // NUEVO
             ventas_electronico: ventasElectronico,   // NUEVO
             nota_trabajador: notaTrabajador,
+            cerrado_por: turnoActualizado.cerradoPor,
             estatus: 'CERRADO'
           })
           .eq('id', turnoId)
@@ -346,7 +352,10 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
           .select('id')
           .single();
         
-        if (error) await registrarPendienteSync({ tabla: 'turnos_caja', operacion: 'ACTUALIZAR', payload: turnoActualizado });
+        if (error) {
+          console.warn("No se pudo cerrar el turno en la nube; se guardó para sincronizar después:", error);
+          await registrarPendienteSync({ tabla: 'turnos_caja', operacion: 'ACTUALIZAR', payload: turnoActualizado });
+        }
       }
     } else {
       await registrarPendienteSync({ tabla: 'turnos_caja', operacion: 'ACTUALIZAR', payload: turnoActualizado });
@@ -380,6 +389,7 @@ export const useEstadoCaja = create<EstadoCaja>((set, get) => ({
         ventasElectronico: nuevo.ventas_electronico !== null ? Number(nuevo.ventas_electronico) : null,  // NUEVO
         notaTrabajador: nuevo.nota_trabajador || "",
         notaDueno: nuevo.nota_dueno || "",
+        cerradoPor: nuevo.cerrado_por ?? null,
         estatus: nuevo.estatus
       };
 

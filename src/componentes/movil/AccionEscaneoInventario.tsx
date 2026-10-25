@@ -9,6 +9,7 @@ import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import ModalEscanerCodigo from "../ui/ModalEscanerCodigo";
 import { ajustarLotes } from "../../utilidades/lotes";
+import CampoFecha from "../ui/CampoFecha";
 
 const CLAVE_CODIGO_NUEVO = "codigo_producto_pendiente";
 
@@ -118,11 +119,11 @@ export default function AccionEscaneoInventario() {
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
                   <CalendarDays size={14} /> Caducidad del stock agregado (opcional)
                 </label>
-                <input
-                  type="date"
+                <CampoFecha
                   value={fechaCaducidad}
-                  onChange={(evento) => setFechaCaducidad(evento.target.value)}
+                  onChange={setFechaCaducidad}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                  aria-label="Fecha de caducidad del stock agregado"
                 />
               </div>
             )}

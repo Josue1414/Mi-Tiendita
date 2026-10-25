@@ -1,5 +1,5 @@
 // src/vistas/VistaPOS.tsx
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
 import { useEstadoVentas } from "../estado/estadoVentas";
@@ -9,7 +9,7 @@ import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
 import { useEstadoFiados } from "../estado/estadoFiados"; // <-- NUEVA IMPORTACIÓN
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Scale, Tag, Printer, History, ScanBarcode, LayoutGrid, Lock, Wallet, Camera, ChevronUp, ChevronDown, BookUser, UserCheck, ArrowLeft } from "lucide-react";
-import { precioVenta, type Producto } from "../tipos/producto";
+import { abreviaturaUnidad, precioVenta, type Producto } from "../tipos/producto";
 import ModalPeso from "../componentes/ui/ModalPeso";
 import ModalCobro from "../componentes/ui/ModalCobro";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
@@ -25,6 +25,7 @@ import PanelEscaner from "../componentes/pos/PanelEscaner";
 import PanelCamaraEscaner from "../componentes/pos/PanelCamaraEscaner";
 import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
 import { estadoCaducidad } from "../utilidades/lotes";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 export default function VistaPOS() {
   const { productos, categorias, descontarStock } = useEstadoInventario();
@@ -59,6 +60,9 @@ export default function VistaPOS() {
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
   const [productoParaPesar, setProductoParaPesar] = useState<Producto | null>(null);
   const [modalPesoAbierto, setModalPesoAbierto] = useState(false);
+  const [itemResaltado, setItemResaltado] = useState<{ id: string; version: number } | null>(null);
+  const temporizadorResaltadoRef = useRef<number | null>(null);
+  const versionResaltadoRef = useRef(0);
   const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
   const [inputDescuento, setInputDescuento] = useState("");
   const [pagoConfirmado, setPagoConfirmado] = useState(false);
@@ -80,9 +84,26 @@ export default function VistaPOS() {
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
+  const resaltarProductoEnCarrito = (productoId: string) => {
+    const item = useEstadoCarrito.getState().items.find((actual) => actual.producto_id === productoId);
+    if (!item) return;
+
+    const version = ++versionResaltadoRef.current;
+    setItemResaltado({ id: item.id, version });
+    if (temporizadorResaltadoRef.current !== null) window.clearTimeout(temporizadorResaltadoRef.current);
+    temporizadorResaltadoRef.current = window.setTimeout(() => {
+      setItemResaltado((actual) => actual?.version === version ? null : actual);
+      temporizadorResaltadoRef.current = null;
+    }, 1200);
+  };
+
   useEffect(() => {
     cargarDeudores();
   }, [cargarDeudores]);
+
+  useEffect(() => () => {
+    if (temporizadorResaltadoRef.current !== null) window.clearTimeout(temporizadorResaltadoRef.current);
+  }, []);
 
   useEffect(() => {
     enviarMensaje({ tipo: "ACTUALIZAR_CARRITO", items, total, descuento });
@@ -133,6 +154,8 @@ export default function VistaPOS() {
   }, [trabajadorActivo, turnoActivo]);
 
   const estaBloqueado = bloqueadoPorFondo || turnoExpirado;
+  const mantenerCamaraActiva = camaraVisible && !estaBloqueado && !modalPesoAbierto && !modalCobroAbierto &&
+    !modalFiadoAbierto && !modalPinCancelacion && !aviso && !productoAutorizacion && !productoDescripcion;
 
   useEffect(() => {
     const alPresionarTecla = (evento: KeyboardEvent) => {
@@ -189,6 +212,7 @@ export default function VistaPOS() {
         return;
       }
       agregarAlCarrito(producto, 1, { evidencia });
+      resaltarProductoEnCarrito(producto.id);
     }
   };
 
@@ -213,7 +237,7 @@ export default function VistaPOS() {
       await descontarStock(items);
       
       const nuevaVenta = {
-        id: crypto.randomUUID(),
+        id: crearIdentificadorUnico(),
         fecha: new Date().toISOString(),
         vendedor_id: trabajadorActivo.id,
         trabajador: trabajadorActivo.nombre,
@@ -231,7 +255,7 @@ export default function VistaPOS() {
         const { agregarDeudor, actualizarDeudor, deudores } = useEstadoFiados.getState();
         if (nuevoDeudorDatos && nuevoDeudorDatos.nombre.trim()) {
            await agregarDeudor({
-             id: crypto.randomUUID(),
+             id: crearIdentificadorUnico(),
              nombre: nuevoDeudorDatos.nombre.trim(),
              celular: nuevoDeudorDatos.celular.trim(),
              notas: nuevoDeudorDatos.notas.trim(),
@@ -343,19 +367,20 @@ export default function VistaPOS() {
               ) ?? false;
               return (
               <div
-                key={item.id}
+                key={`${item.id}-${itemResaltado?.id === item.id ? itemResaltado.version : 0}`}
                 onDoubleClick={() => {
                   const producto = productos.find((p) => p.id === item.producto_id);
                   if (producto) setProductoDescripcion(producto);
                 }}
                 className={cn(
                   "flex gap-2 p-2 bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/50 dark:border-white/5 cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-colors",
+                  itemResaltado?.id === item.id && "carrito-item-agregado",
                   modo === "camara" && "h-fit"
                 )}
                 title="Doble clic para ver descripción"
               >
                 <ImagenLocal
-                  nombreArchivo={item.imagen_url}
+                  nombreArchivo={item.imagen_url || item.imagen_archivo}
                   nombreProducto={item.nombre}
                   className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-white/10 shrink-0 bg-white"
                 />
@@ -376,7 +401,7 @@ export default function VistaPOS() {
 
                   <div className="flex justify-between items-center mt-auto pt-1">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      ${item.precio.toFixed(2)}/{item.unidad.toLowerCase().charAt(0)}
+                      ${item.precio.toFixed(2)}/{abreviaturaUnidad(item.unidad)}
                     </span>
 
                     <div className="flex items-center bg-white dark:bg-slate-800 rounded-md border border-slate-200/50 dark:border-white/10 shadow-sm overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -635,12 +660,13 @@ export default function VistaPOS() {
             return;
           }
           agregarAlCarrito(productoParaPesar, peso, { evidencia: evidenciaAutorizacion });
+          resaltarProductoEnCarrito(productoParaPesar.id);
           setEvidenciaAutorizacion(undefined);
         }} 
       />
       
       <ModalAviso abierto={Boolean(aviso)} titulo={aviso?.titulo ?? "Aviso"} mensaje={aviso?.mensaje ?? ""} tipo="advertencia" alCerrar={() => setAviso(null)} />
-      <ModalDescripcionProducto abierto={Boolean(productoDescripcion)} producto={productoDescripcion} alCerrar={() => setProductoDescripcion(null)} />
+      <ModalDescripcionProducto abierto={Boolean(productoDescripcion)} producto={productoDescripcion} alCerrar={() => setProductoDescripcion(null)} enviarMensaje={enviarMensaje} />
       
       <ModalAutorizacion
         abierto={Boolean(productoAutorizacion)}
@@ -775,7 +801,7 @@ export default function VistaPOS() {
                   )}
                 >
                   <ImagenLocal 
-                    nombreArchivo={producto.imagen_url} 
+                    nombreArchivo={producto.imagen_url || producto.imagen_archivo}
                     nombreProducto={producto.nombre} 
                     className="w-16 h-16 rounded-lg shrink-0 object-cover" 
                   />
@@ -824,7 +850,7 @@ export default function VistaPOS() {
               {camaraVisible && (
                 <div className="p-3 flex justify-center bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-white/5 animate-in fade-in slide-in-from-top-2">
                   <div className="w-[180px] max-w-[180px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm">
-                    <PanelCamaraEscaner alDetectar={alEscanear} className="w-full" />
+                    <PanelCamaraEscaner alDetectar={alEscanear} activo={mantenerCamaraActiva} className="w-full" />
                   </div>
                 </div>
               )}

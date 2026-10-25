@@ -21,8 +21,16 @@ contextBridge.exposeInMainWorld('apiLocal', {
   repararFirewall: () => ipcRenderer.invoke('reparar-firewall'),
 
   obtenerIpLocal: () => ipcRenderer.invoke('obtener-ip-local'),
-  iniciarServidorLAN: () => ipcRenderer.invoke('iniciar-servidor-lan'),
+  iniciarServidorLAN: (tiendaId, deviceId) => ipcRenderer.invoke('iniciar-servidor-lan', tiendaId, deviceId),
+  detenerServidorLAN: () => ipcRenderer.invoke('detener-servidor-lan'),
   obtenerEstadoLAN: () => ipcRenderer.invoke('obtener-estado-lan'),
+  iniciarDescubrimientoLAN: () => ipcRenderer.invoke('iniciar-descubrimiento-lan'),
+  detenerDescubrimientoLAN: () => ipcRenderer.invoke('detener-descubrimiento-lan'),
+  onCerebroDetectado: (callback) => {
+    const listener = (event, cerebro) => callback(cerebro);
+    ipcRenderer.on('cerebro-detectado', listener);
+    return () => ipcRenderer.removeListener('cerebro-detectado', listener);
+  },
   onEstadoLAN: (callback) => {
     ipcRenderer.removeAllListeners('estado-servidor-lan');
     ipcRenderer.on('estado-servidor-lan', (event, estado) => callback(estado));

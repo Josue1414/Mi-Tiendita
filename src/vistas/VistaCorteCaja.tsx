@@ -2,11 +2,12 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { useEstadoCaja } from "../estado/estadoCaja";
-import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power } from "lucide-react";
+import { useEstadoCaja, type TurnoCaja } from "../estado/estadoCaja";
+import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power, X } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
+import CampoFecha from "../componentes/ui/CampoFecha";
 
 // Helper para obtener la fecha local correctamente
 const obtenerFechaLocal = () => {
@@ -35,6 +36,11 @@ export default function VistaCorteCaja() {
   const [modoCierre, setModoCierre] = useState(false);
   const [doblarTurno, setDoblarTurno] = useState(false);
   const [modalPinAbierto, setModalPinAbierto] = useState(false);
+  const [turnoParaCerrar, setTurnoParaCerrar] = useState<TurnoCaja | null>(null);
+  const [fondoCierreAdmin, setFondoCierreAdmin] = useState<number | "">("");
+  const [notaCierreAdmin, setNotaCierreAdmin] = useState("");
+  const [errorCierreAdmin, setErrorCierreAdmin] = useState("");
+  const [cerrandoTurnoAdmin, setCerrandoTurnoAdmin] = useState(false);
   
   // NUEVO: Estado para el filtro del calendario (inicia en hoy)
   const [fechaFiltro, setFechaFiltro] = useState(obtenerFechaLocal());
@@ -139,7 +145,7 @@ export default function VistaCorteCaja() {
 
   const manejarCerrarTurno = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!turnoActivo || fondoDejado === "") return;
+    if (!trabajadorActivo || !turnoActivo || fondoDejado === "") return;
     
     await cerrarTurno(
       turnoActivo.id, 
@@ -147,12 +153,57 @@ export default function VistaCorteCaja() {
       metricasTurnoActivo.totalVendido, 
       notaCierre,
       metricasTurnoActivo.totalEfectivo, 
-      metricasTurnoActivo.totalElectronico 
+      metricasTurnoActivo.totalElectronico,
+      false,
+      undefined,
+      trabajadorActivo.nombre
     );
     
     setModoCierre(false);
     setFondoDejado("");
     setNotaCierre("");
+  };
+
+  const abrirCierreAdministrativo = (turno: TurnoCaja) => {
+    setTurnoParaCerrar(turno);
+    setFondoCierreAdmin("");
+    setNotaCierreAdmin("");
+    setErrorCierreAdmin("");
+  };
+
+  const manejarCerrarTurnoAdministrativamente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!esDueñoOSupervisor || !trabajadorActivo || !turnoParaCerrar || fondoCierreAdmin === "") return;
+    if (!turnos.some((turno) => turno.id === turnoParaCerrar.id && turno.estatus === "ABIERTO")) {
+      setErrorCierreAdmin("Este turno ya fue cerrado. Actualiza el historial antes de continuar.");
+      return;
+    }
+
+    const nombreCerrador = trabajadorActivo.nombre;
+    setCerrandoTurnoAdmin(true);
+    setErrorCierreAdmin("");
+    const metricas = calcularMetricasDeVentas(turnoParaCerrar.nombreTrabajador, turnoParaCerrar.fechaInicio, turnoParaCerrar.fechaFin);
+    try {
+      await cerrarTurno(
+        turnoParaCerrar.id,
+        Number(fondoCierreAdmin),
+        metricas.totalVendido,
+        notaCierreAdmin,
+        metricas.totalEfectivo,
+        metricas.totalElectronico,
+        false,
+        undefined,
+        nombreCerrador
+      );
+      setTurnoParaCerrar(null);
+      setFondoCierreAdmin("");
+      setNotaCierreAdmin("");
+    } catch (error: unknown) {
+      console.error("No se pudo cerrar el turno desde administración:", error);
+      setErrorCierreAdmin(error instanceof Error ? error.message : "No se pudo registrar el cierre. Inténtalo de nuevo.");
+    } finally {
+      setCerrandoTurnoAdmin(false);
+    }
   };
 
   if (!trabajadorActivo) return null;
@@ -179,6 +230,105 @@ export default function VistaCorteCaja() {
         }}
         alCerrar={() => setModalPinAbierto(false)}
       />
+
+      {turnoParaCerrar && esDueñoOSupervisor && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-cierre-administrativo"
+            className="my-auto w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900 sm:p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10">
+              <div>
+                <h2 id="titulo-cierre-administrativo" className="text-xl font-bold text-slate-900 dark:text-white">
+                  Cerrar turno de {turnoParaCerrar.nombreTrabajador}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  El cierre quedará registrado a nombre de {trabajadorActivo.nombre}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTurnoParaCerrar(null)}
+                aria-label="Cancelar cierre"
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={manejarCerrarTurnoAdministrativamente} className="flex flex-col gap-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+                Cuenta el efectivo físico de la caja. El esperado incluye el fondo inicial y las ventas en efectivo del turno.
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950">
+                  <span className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Efectivo esperado</span>
+                  <strong className="mt-1 block text-xl text-slate-900 dark:text-white">
+                    ${(turnoParaCerrar.fondoInicial + calcularMetricasDeVentas(turnoParaCerrar.nombreTrabajador, turnoParaCerrar.fechaInicio, turnoParaCerrar.fechaFin).totalEfectivo).toFixed(2)}
+                  </strong>
+                </div>
+                <div>
+                  <label htmlFor="fondo-cierre-admin" className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
+                    Efectivo contado / dejado *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
+                    <input
+                      id="fondo-cierre-admin"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      autoFocus
+                      value={fondoCierreAdmin}
+                      onChange={(e) => setFondoCierreAdmin(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-8 pr-3 font-bold text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="nota-cierre-admin" className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
+                  Notas para el dueño
+                </label>
+                <textarea
+                  id="nota-cierre-admin"
+                  value={notaCierreAdmin}
+                  onChange={(e) => setNotaCierreAdmin(e.target.value)}
+                  placeholder="Diferencias de efectivo, retiros u observaciones del cierre..."
+                  className="min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                />
+              </div>
+              {errorCierreAdmin && (
+                <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                  {errorCierreAdmin}
+                </p>
+              )}
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTurnoParaCerrar(null)}
+                  disabled={cerrandoTurnoAdmin}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={fondoCierreAdmin === "" || cerrandoTurnoAdmin}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-50"
+                >
+                  <CheckCircle size={16} />
+                  {cerrandoTurnoAdmin ? "Registrando..." : "Confirmar cierre"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       <div className="mb-2 border-b border-slate-200/50 dark:border-white/10 pb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -307,7 +457,7 @@ export default function VistaCorteCaja() {
               </form>
             </div>
 
-            <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col h-full max-h-[600px]">
+            <div className="efecto-cristal p-4 sm:p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col h-full max-h-[600px]">
               <div className="border-b border-slate-200 dark:border-white/10 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <FileText size={18} className="text-blue-600" /> Historial de Turnos
@@ -316,7 +466,7 @@ export default function VistaCorteCaja() {
                 {/* CALENDARIO AGREGADO AQUÍ */}
                 <label className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-300 shadow-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-black/50 transition-colors">
                   <Calendar size={15} className="text-emerald-600" />
-                  <input type="date" value={fechaFiltro} onChange={(e) => setFechaFiltro(e.target.value)} className="bg-transparent outline-none dark:text-slate-100 cursor-pointer" />
+                  <CampoFecha value={fechaFiltro} onChange={setFechaFiltro} className="h-8 border-0 bg-transparent px-1 dark:bg-transparent" aria-label="Fecha del corte de caja" />
                 </label>
               </div>
               
@@ -328,51 +478,67 @@ export default function VistaCorteCaja() {
                     const mets = calcularMetricasDeVentas(turno.nombreTrabajador, turno.fechaInicio, turno.fechaFin);
                     
                     return (
-                    <div key={turno.id} className="flex flex-col p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl gap-2">
-                      <div className="flex justify-between items-start">
-                        <div>
+                    <div key={turno.id} className="flex flex-col p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl gap-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0">
                           <span className="font-bold text-slate-900 dark:text-slate-100 text-base">{turno.nombreTrabajador}</span>
-                          <div className="text-xs text-slate-500 mt-0.5 font-medium flex gap-2">
+                          <div className="text-xs text-slate-500 mt-0.5 font-medium flex flex-col sm:flex-row sm:flex-wrap gap-x-2">
                             <span>Inició: {new Date(turno.fechaInicio).toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                             {turno.estatus === "CERRADO" && turno.fechaFin && (
-                              <span>• Cerró: {new Date(turno.fechaFin).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span><span className="hidden sm:inline">• </span>Cerró: {new Date(turno.fechaFin).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                             )}
                           </div>
                         </div>
-                        <span className={cn("text-[10px] px-2 py-1 rounded-md font-bold uppercase", turno.estatus === "ABIERTO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400")}>
-                          {turno.estatus}
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <span className={cn("text-[10px] px-2 py-1 rounded-md font-bold uppercase", turno.estatus === "ABIERTO" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400")}>
+                            {turno.estatus}
+                          </span>
+                          {turno.estatus === "ABIERTO" && (
+                            <button
+                              type="button"
+                              onClick={() => abrirCierreAdministrativo(turno)}
+                              className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
+                            >
+                              Cerrar turno
+                            </button>
+                          )}
+                        </div>
                       </div>
                       
-                      <div className="grid grid-cols-6 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5">Fondo Inicial:</span> 
                           <strong className="text-slate-700 dark:text-slate-300 text-sm">${turno.fondoInicial.toFixed(2)}</strong>
                         </div>
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5 text-[10px]">Ventas Efectivo:</span> 
                           <strong className="text-green-600 dark:text-green-400 text-sm">${mets.totalEfectivo.toFixed(2)}</strong>
                         </div>
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5 text-[10px]">Tarj/Trans:</span> 
                           <strong className="text-blue-600 dark:text-blue-400 text-sm">${mets.totalElectronico.toFixed(2)}</strong>
                         </div>
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-amber-100 dark:border-amber-900/30">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-amber-100 dark:border-amber-900/30">
                           <span className="text-amber-600 dark:text-amber-400 block mb-0.5 text-[10px]">Fiados:</span>
                           <strong className="text-amber-700 dark:text-amber-300 text-sm">${mets.totalFiado.toFixed(2)}</strong>
                         </div>
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-white/5">
                           <span className="text-slate-400 block mb-0.5 text-[10px]">Canceladas:</span> 
                           <strong className="text-red-500 dark:text-red-400 text-sm">{mets.cantCancelaciones}</strong>
                         </div>
-                        <div className="bg-white dark:bg-slate-950 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
+                        <div className="min-w-0 bg-white dark:bg-slate-950 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
                           <span className="text-emerald-700 dark:text-emerald-400 block mb-0.5 font-bold">Total Sistema:</span> 
                           <strong className="text-emerald-600 dark:text-emerald-400 text-sm">${turno.ventasCalculadas?.toFixed(2) || mets.totalVendido.toFixed(2)}</strong>
                         </div>
                       </div>
                       
-                      <div className="flex justify-between items-center mt-1 px-1">
-                          <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mt-1 px-1">
+                          {turno.cerradoPor && (
+                            <span className="text-xs text-slate-500 font-medium">
+                              Cerrado por: <strong className="text-slate-700 dark:text-slate-300">{turno.cerradoPor}</strong>
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-1">
                             <HelpCircle size={12} /> Efectivo Esperado en Caja: 
                             <span className="font-bold text-slate-700 dark:text-slate-300">${(turno.fondoInicial + mets.totalEfectivo).toFixed(2)}</span>
                           </span>
@@ -383,7 +549,7 @@ export default function VistaCorteCaja() {
                         <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex gap-2 items-start border border-amber-100 dark:border-amber-800/30">
                           <MessageSquare size={14} className="shrink-0 mt-0.5" />
                           <div>
-                            <span className="font-bold block mb-0.5">Nota del trabajador:</span>
+                            <span className="font-bold block mb-0.5">Notas para el dueño:</span>
                             <p className="leading-relaxed">{turno.notaTrabajador}</p>
                           </div>
                         </div>

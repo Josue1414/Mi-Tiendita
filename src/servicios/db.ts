@@ -1,5 +1,6 @@
 // src/servicios/db.ts
 import { openDB } from "idb";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 const DB_NOMBRE = "mitiendita_db";
 const DB_VERSION = 4; // Subimos la versión a 4 para agregar la tabla turnos_caja
@@ -32,13 +33,17 @@ declare global {
       validarSuscripcionOffline: () => Promise<{ activo: boolean; error?: string }>;
       sincronizarReloj: (fechaVencimiento: string) => Promise<{ exito: boolean; error?: string }>;
       imprimirSilencioso?: (html: string) => Promise<boolean>;
-      iniciarServidorLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
+      iniciarServidorLAN: (tiendaId: string, deviceId: string) => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
+      detenerServidorLAN: () => Promise<void>;
       obtenerEstadoLAN: () => Promise<{ activo: boolean; dispositivosConectados: number; ip: string }>;
       onEstadoLAN: (callback: (estado: { activo: boolean; dispositivosConectados: number; ip: string }) => void) => void;
       onSolicitudSnapshotLAN: (callback: (socketId: string) => void) => void;
       emitirSnapshotLAN: (socketId: string, snapshot: unknown) => Promise<void>;
       emitirAEsclavos: (data: unknown) => Promise<void>;
       onAccionDeEsclavo: (callback: (data: unknown) => void) => void;
+      iniciarDescubrimientoLAN: () => Promise<void>;
+      detenerDescubrimientoLAN: () => Promise<void>;
+      onCerebroDetectado: (callback: (cerebro: { ip: string; puertoWeb: number; tiendaId: string; deviceId: string; plataforma: string }) => void) => () => void;
     };
   }
 }
@@ -136,7 +141,7 @@ export const eliminarRegistro = async (tabla: string, id: string) => {
 export const registrarPendienteSync = async (pendiente: Omit<PendienteSync, 'id' | 'timestamp'>) => {
   const registroCompleto: PendienteSync = {
     ...pendiente,
-    id: crypto.randomUUID(),
+    id: crearIdentificadorUnico(),
     timestamp: Date.now()
   };
   await guardarRegistro("pendientes_sync", registroCompleto);

@@ -2,6 +2,7 @@
 import * as XLSX from "xlsx";
 import type { Producto } from "../tipos/producto";
 import { generarCodigoEAN13 } from "../utilidades/codigoBarras";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 const texto = (valor: unknown) => String(valor ?? "").trim();
 const clave = (valor: unknown) => texto(valor)
@@ -23,6 +24,18 @@ const equivalencias: Record<string, string[]> = {
   stock: ["stock", "stockactual", "existencias", "existencia", "cantidad"],
   minimo: ["stockminimo", "minimo", "minimostock", "alerta"],
   unidad: ["unidad", "tipo", "presentacion"],
+};
+
+const equivalenciasUnidad: Record<string, Producto["unidad"]> = {
+  PIEZA: "PIEZA", PIEZAS: "PIEZA", PZA: "PIEZA", PZAS: "PIEZA",
+  KG: "KG", KILO: "KG", KILOS: "KG", KILOGRAMO: "KG", KILOGRAMOS: "KG",
+  G: "GRAMO", GRAMO: "GRAMO", GRAMOS: "GRAMO",
+  L: "LITRO", LITRO: "LITRO", LITROS: "LITRO",
+  ML: "MILILITRO", MILILITRO: "MILILITRO", MILILITROS: "MILILITRO",
+  MG: "MILIGRAMO", MILIGRAMO: "MILIGRAMO", MILIGRAMOS: "MILIGRAMO",
+  PAQ: "PAQUETE", PAQUETE: "PAQUETE", PAQUETES: "PAQUETE",
+  SOBRE: "SOBRE", SOBRES: "SOBRE",
+  DOCENA: "DOCENA", DOCENAS: "DOCENA",
 };
 
 function buscarIndice(encabezados: string[], campo: keyof typeof equivalencias): number {
@@ -83,13 +96,11 @@ export async function leerProductosExcel(archivo: File, existentes: Producto[]):
     }
     if (codigosExistentes.has(codigo)) continue;
 
-    const unidadTexto = texto(fila.unidad).toUpperCase();
-    const unidad: Producto["unidad"] = ["PIEZA", "KG", "LITRO", "PAQUETE"].includes(unidadTexto)
-      ? unidadTexto as Producto["unidad"]
-      : "PIEZA";
+    const unidadTexto = clave(fila.unidad).toUpperCase();
+    const unidad: Producto["unidad"] = equivalenciasUnidad[unidadTexto] ?? "PIEZA";
     const controlaStock = texto(fila.controla_stock ?? fila.controlaStock).toLowerCase() !== "false";
     const producto: Producto = {
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       nombre,
       codigo_barras: codigo,
       descripcion: "",

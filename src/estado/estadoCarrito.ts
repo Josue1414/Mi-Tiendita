@@ -1,5 +1,6 @@
 // src/estado/estadoCarrito.ts
 import { create } from "zustand";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 import { precioVenta, type Producto } from "../tipos/producto";
 
 export interface ItemCarrito {
@@ -12,6 +13,7 @@ export interface ItemCarrito {
   unidad: Producto["unidad"];
   subtotal: number;
   imagen_url?: string;
+  imagen_archivo?: string;
   stock_disponible?: number;
   autorizacion_confirmada?: boolean;
   evidencia_autorizacion?: string;
@@ -78,7 +80,7 @@ export const useEstadoCarrito = create<EstadoCarrito>((set) => ({
         nuevosItems = [
           ...estado.items,
           {
-            id: crypto.randomUUID(),
+            id: crearIdentificadorUnico(),
             producto_id: producto.id,
             nombre: producto.nombre,
             precio,
@@ -87,6 +89,7 @@ export const useEstadoCarrito = create<EstadoCarrito>((set) => ({
             unidad: producto.unidad,
             subtotal: cantidadSolicitada * precio,
             imagen_url: producto.imagen_url,
+            imagen_archivo: producto.imagen_archivo,
             stock_disponible: producto.controla_stock ? producto.stock_actual : undefined,
             autorizacion_confirmada: Boolean(producto.requiere_autorizacion),
             evidencia_autorizacion: autorizacion?.evidencia,

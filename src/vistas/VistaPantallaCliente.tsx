@@ -28,7 +28,7 @@ export default function VistaPantallaCliente() {
 
   // SOLUCIÓN: Obtenemos el nombre de la tienda extraído de los parámetros del link
   const params = new URLSearchParams(window.location.search);
-  const esConexionRemota = params.has("peer");
+  const esConexionRemota = params.has("cliente");
   const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function VistaPantallaCliente() {
         <div className={`w-full max-w-3xl rounded-3xl border p-6 shadow-2xl ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/40"}`}>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-[180px,1fr]">
             <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950/50 p-2">
-              <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-40 w-full rounded-xl object-cover" />
+              <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-40 w-full rounded-xl object-cover" />
             </div>
             <div className="flex flex-col justify-between">
               <div className="flex items-start justify-between gap-3">
@@ -261,7 +261,7 @@ export default function VistaPantallaCliente() {
               {datosCarrito.items.map((item) => (
                 <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-xl px-4 py-2 border shadow-sm ${temaClaro ? "bg-white border-slate-200" : "bg-white/5 border-white/10"}`}>
                   <div className="flex min-w-0 items-center gap-3">
-                    <ImagenLocal nombreArchivo={item.imagen_url} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
+                    <ImagenLocal nombreArchivo={item.imagen_url || item.imagen_archivo} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
                     <div className="min-w-0 flex flex-col justify-center">
                       <h3 className={`${textoNombre} truncate font-bold leading-tight`}>{item.nombre}</h3>
                       <p className={`text-xs font-semibold mt-0.5 ${temaClaro ? "text-slate-500" : "text-white/70"}`}>

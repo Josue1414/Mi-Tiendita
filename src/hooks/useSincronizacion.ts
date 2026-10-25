@@ -12,6 +12,8 @@ import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { obtenerRolCerebro } from "../servicios/cerebroTienda";
 import { useEstadoRed } from "../estado/estadoRed";
 import { useEstadoPlan } from "../estado/estadoPlan";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
+import { esRespaldoLocal } from "../servicios/cerebroTienda";
 
 export function useSincronizacion() {
   const [estaEnLinea, setEstaEnLinea] = useState(navigator.onLine);
@@ -21,6 +23,11 @@ export function useSincronizacion() {
 
   useEffect(() => {
     const cargarRolCerebro = async () => {
+      if (esRespaldoLocal()) {
+        useEstadoRed.getState().setEsMaestro(false);
+        useEstadoRed.getState().setEsRespaldo(true);
+        return;
+      }
       if (!estaEnLinea || !permiteNube) return;
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId || !(window as any).apiLocal) return;
@@ -50,107 +57,113 @@ export function useSincronizacion() {
   }, []);
 
   useEffect(() => {
+    let procesamientoEnCurso = false;
     const procesarColaPendientes = async () => {
-      if (!estaEnLinea || !permiteNube || (!esMaestro && conectadoLAN)) return;
-      
-      const tiendaId = await obtenerTiendaIdActual();
-      if (!tiendaId) return;
+      if (!estaEnLinea || !navigator.onLine || !permiteNube || (!esMaestro && conectadoLAN) || procesamientoEnCurso) return;
+      procesamientoEnCurso = true;
 
-      const pendientes = await obtenerPendientesSync();
-      if (pendientes.length === 0) return;
+      try {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (!tiendaId) return;
 
-      console.log(`Procesando ${pendientes.length} acciones pendientes (Sincronización Automática)...`);
+        const pendientes = await obtenerPendientesSync();
+        if (pendientes.length === 0) return;
 
-      const { categorias } = useEstadoInventario.getState();
+        console.log(`Procesando ${pendientes.length} acciones pendientes (Sincronización Automática)...`);
 
-      for (const tarea of pendientes) {
-        try {
-          const { id, tabla, operacion, payload } = tarea;
+        const { categorias } = useEstadoInventario.getState();
 
-          if (tabla === 'ventas' && payload?.metodoPago === 'FIADO') {
-            await eliminarPendienteSync(id);
-            continue;
-          }
+        for (const tarea of pendientes) {
+          try {
+            const { id, tabla, operacion, payload } = tarea;
 
-          if (operacion === 'ELIMINAR') {
-            if (tabla === 'miembros_tienda') {
-              await supabase.from(tabla).delete().eq('tienda_id', tiendaId).eq('usuario_id', payload);
-            } else {
-              await supabase.from(tabla).delete().eq('tienda_id', tiendaId).eq('id', payload);
+            if (tabla === 'ventas' && payload?.metodoPago === 'FIADO') {
+              await eliminarPendienteSync(id);
+              continue;
             }
-          } else {
-            let dataUpsert = null;
 
-            if (tabla === 'productos') {
-              const cat = categorias.find((c: any) => c.nombre === payload.categoria);
-              dataUpsert = {
-                id: payload.id,
-                tienda_id: tiendaId,
-                categoria_id: cat?.id,
-                barcode: payload.codigo_barras,
-                nombre: payload.nombre,
-                descripcion: payload.descripcion || null,
-                ubicacion: payload.ubicacion || null,
-                paquete: payload.paquete || null,
-                unidad: payload.unidad,
-                stock_actual: payload.stock_actual,
-                stock_minimo: payload.stock_minimo,
-                controla_stock: payload.controla_stock,
-                precio: payload.precio,
-                costo: payload.costo,
-                descuento_porcentaje: payload.descuento_porcentaje,
-                activo: payload.activo,
-                requiere_autorizacion: payload.requiere_autorizacion,
-                mensaje_autorizacion: payload.mensaje_autorizacion || null,
-                permite_foto_autorizacion: payload.permite_foto_autorizacion,
-                lotes: payload.lotes ?? [],
-                nombre_archivo_local: payload.imagen_url || null
-              };
-            } else if (tabla === 'categorias') {
-              dataUpsert = { id: payload.id, tienda_id: tiendaId, nombre: payload.nombre, color: payload.color };
-            } else if (tabla === 'miembros_tienda') {
-              const permisosNube = payload.permisos ? { ...payload.permisos } : payload.permisos;
-              if (permisosNube) delete permisosNube.permisoFiados;
-              dataUpsert = {
-                tienda_id: tiendaId,
-                usuario_id: payload.id,
-                rol: payload.rol,
-                nombre: payload.nombre,
-                pin_hash: cifrarPin(payload.pin),
-                activo: payload.activo,
-                horario: payload.horarioSemanal,
-                permisos: permisosNube
-              };
-            } else if (tabla === 'asistencias') {
-              dataUpsert = {
-                id: payload.id,
-                tienda_id: tiendaId,
-                trabajador_id: payload.trabajadorId,
-                fecha: payload.fecha,
-                hora_entrada: payload.horaEntrada,
-                hora_salida: payload.horaSalida,
-                desconexiones: payload.desconexiones
-              };
-            } else if (tabla === 'turnos_caja') {
-              dataUpsert = {
-                id: payload.id,
-                tienda_id: tiendaId,
-                trabajador_id: payload.trabajadorId,
-                nombre_trabajador: payload.nombreTrabajador,
-                fecha_inicio: payload.fechaInicio,
-                fecha_fin: payload.fechaFin,
-                fondo_inicial: payload.fondoInicial,
-                fondo_dejado: payload.fondoDejado,
-                ventas_calculadas: payload.ventasCalculadas,
-                nota_trabajador: payload.notaTrabajador,
-                nota_dueno: payload.notaDueno,
-                estatus: payload.estatus
-              };
-            } else if (tabla === 'ventas') {
-              if (operacion === 'AGREGAR') {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                  await supabase.from('ventas').insert({
+            if (operacion === 'ELIMINAR') {
+              if (tabla === 'miembros_tienda') {
+                const { error } = await supabase.from(tabla).delete().eq('tienda_id', tiendaId).eq('usuario_id', payload);
+                if (error) throw error;
+              } else {
+                const { error } = await supabase.from(tabla).delete().eq('tienda_id', tiendaId).eq('id', payload);
+                if (error) throw error;
+              }
+            } else {
+              let dataUpsert = null;
+
+              if (tabla === 'productos') {
+                const cat = categorias.find((c: any) => c.nombre === payload.categoria);
+                dataUpsert = {
+                  id: payload.id,
+                  tienda_id: tiendaId,
+                  categoria_id: cat?.id,
+                  barcode: payload.codigo_barras,
+                  nombre: payload.nombre,
+                  descripcion: payload.descripcion || null,
+                  ubicacion: payload.ubicacion || null,
+                  paquete: payload.paquete || null,
+                  unidad: payload.unidad,
+                  stock_actual: payload.stock_actual,
+                  stock_minimo: payload.stock_minimo,
+                  controla_stock: payload.controla_stock,
+                  precio: payload.precio,
+                  costo: payload.costo,
+                  descuento_porcentaje: payload.descuento_porcentaje,
+                  activo: payload.activo,
+                  requiere_autorizacion: payload.requiere_autorizacion,
+                  mensaje_autorizacion: payload.mensaje_autorizacion || null,
+                  permite_foto_autorizacion: payload.permite_foto_autorizacion,
+                  lotes: payload.lotes ?? [],
+                  nombre_archivo_local: payload.imagen_archivo || null
+                };
+              } else if (tabla === 'categorias') {
+                dataUpsert = { id: payload.id, tienda_id: tiendaId, nombre: payload.nombre, color: payload.color };
+              } else if (tabla === 'miembros_tienda') {
+                const permisosNube = payload.permisos ? { ...payload.permisos } : payload.permisos;
+                if (permisosNube) delete permisosNube.permisoFiados;
+                dataUpsert = {
+                  tienda_id: tiendaId,
+                  usuario_id: payload.id,
+                  rol: payload.rol,
+                  nombre: payload.nombre,
+                  pin_hash: cifrarPin(payload.pin),
+                  activo: payload.activo,
+                  horario: payload.horarioSemanal,
+                  permisos: permisosNube
+                };
+              } else if (tabla === 'asistencias') {
+                dataUpsert = {
+                  id: payload.id,
+                  tienda_id: tiendaId,
+                  trabajador_id: payload.trabajadorId,
+                  fecha: payload.fecha,
+                  hora_entrada: payload.horaEntrada,
+                  hora_salida: payload.horaSalida,
+                  desconexiones: payload.desconexiones
+                };
+              } else if (tabla === 'turnos_caja') {
+                dataUpsert = {
+                  id: payload.id,
+                  tienda_id: tiendaId,
+                  trabajador_id: payload.trabajadorId,
+                  nombre_trabajador: payload.nombreTrabajador,
+                  fecha_inicio: payload.fechaInicio,
+                  fecha_fin: payload.fechaFin,
+                  fondo_inicial: payload.fondoInicial,
+                  fondo_dejado: payload.fondoDejado,
+                  ventas_calculadas: payload.ventasCalculadas,
+                  nota_trabajador: payload.notaTrabajador,
+                  nota_dueno: payload.notaDueno,
+                  cerrado_por: payload.cerradoPor,
+                  estatus: payload.estatus
+                };
+              } else if (tabla === 'ventas') {
+                if (operacion === 'AGREGAR') {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) throw new Error("No hay una sesión autenticada para subir la venta pendiente.");
+                  const { error } = await supabase.from('ventas').upsert({
                     id: payload.id,
                     tienda_id: tiendaId,
                     vendedor_id: payload.vendedor_id || session.user.id,
@@ -161,7 +174,8 @@ export function useSincronizacion() {
                     metodo_pago: payload.metodoPago,
                     cancelada: payload.cancelada || false,
                     created_at: payload.fecha
-                  });
+                  }, { onConflict: 'id' });
+                  if (error) throw error;
 
                   const detalles = payload.articulos.map((art: any) => ({
                     venta_id: payload.id,
@@ -169,39 +183,59 @@ export function useSincronizacion() {
                     nombre_producto: art.nombre,
                     cantidad: art.cantidad,
                     precio_unitario: art.precio,
+                    costo_unitario: art.costo || 0,
                     subtotal: art.subtotal,
-                    autorizacion_confirmada: art.autorizacion_confirmada || false
+                    autorizacion_confirmada: art.autorizacion_confirmada || false,
+                    evidencia_nombre_archivo_local: null
                   }));
-                  await supabase.from('venta_detalles').insert(detalles);
+                  const { error: errorEliminarDetalles } = await supabase.from('venta_detalles').delete().eq('venta_id', payload.id);
+                  if (errorEliminarDetalles) throw errorEliminarDetalles;
+                  if (detalles.length > 0) {
+                    const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
+                    if (errorDetalles) throw errorDetalles;
+                  }
+                } else if (operacion === 'ACTUALIZAR') {
+                  const { error } = await supabase.from('ventas').update({ cancelada: payload.cancelada }).eq('id', payload.id).eq('tienda_id', tiendaId);
+                  if (error) throw error;
                 }
-              } else if (operacion === 'ACTUALIZAR') {
-                await supabase.from('ventas').update({ cancelada: payload.cancelada }).eq('id', payload.id).eq('tienda_id', tiendaId);
+                dataUpsert = null;
+              } else if (tabla === 'tiendas') {
+                const { data, error } = await supabase
+                  .from('tiendas')
+                  .update(payload)
+                  .eq('id', tiendaId)
+                  .select('id')
+                  .maybeSingle();
+                if (error) throw error;
+                if (!data) throw new Error("No se encontró la tienda para aplicar la sincronización pendiente.");
+                dataUpsert = null;
               }
-              dataUpsert = null; 
-            } else if (tabla === 'tiendas') {
-              const { error } = await supabase.from('tiendas').update(payload).eq('id', tiendaId);
-              if (error) console.error("Error al volcar config. tiendas:", error);
-              dataUpsert = null;
+
+              if (dataUpsert) {
+                const { error } = await supabase.from(tabla).upsert(dataUpsert, {
+                  onConflict: tabla === 'miembros_tienda' ? 'tienda_id, usuario_id' : 'id'
+                });
+                if (error) throw error;
+              }
             }
 
-            if (dataUpsert) {
-              await supabase.from(tabla).upsert(dataUpsert, { 
-                onConflict: tabla === 'miembros_tienda' ? 'tienda_id, usuario_id' : 'id' 
-              });
-            }
+            await eliminarPendienteSync(id);
+          } catch (error) {
+            console.error(`Error al procesar tarea pendiente ${tarea.id}:`, error);
+            break;
           }
-
-          await eliminarPendienteSync(id);
-        } catch (error) {
-          console.error(`Error al procesar tarea pendiente ${tarea.id}:`, error);
-          break; 
         }
+      } catch (error) {
+        console.error("No se pudo consultar la cola de sincronización pendiente:", error);
+      } finally {
+        procesamientoEnCurso = false;
       }
     };
 
-    if (estaEnLinea) {
-      procesarColaPendientes();
-    }
+    if (!estaEnLinea || !permiteNube || (!esMaestro && conectadoLAN)) return;
+    void procesarColaPendientes();
+    const intervalo = window.setInterval(() => void procesarColaPendientes(), 30_000);
+    return () => window.clearInterval(intervalo);
   }, [estaEnLinea, permiteNube, esMaestro, conectadoLAN]);
 
   useEffect(() => {
@@ -214,7 +248,7 @@ export function useSincronizacion() {
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId || cancelado) return;
 
-      canalTiempoReal = supabase.channel(`sincronizacion-tienda-${tiendaId}-${crypto.randomUUID()}`)
+      canalTiempoReal = supabase.channel(`sincronizacion-tienda-${tiendaId}-${crearIdentificadorUnico()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'miembros_tienda', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoTrabajadores.getState().sincronizarTrabajador(payload);
         })
@@ -238,7 +272,9 @@ export function useSincronizacion() {
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tiendas', filter: `id=eq.${tiendaId}` }, (payload) => {
           useEstadoCaja.getState().sincronizarTienda(payload);
-          useEstadoConfiguracion.getState().sincronizarConfiguracion(payload);
+          void useEstadoConfiguracion.getState().sincronizarConfiguracion(payload).catch((error: unknown) => {
+            console.error("No se pudo sincronizar la configuración recibida desde Supabase:", error);
+          });
         })
       if (!cancelado) canalTiempoReal.subscribe();
     };

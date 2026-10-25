@@ -84,7 +84,8 @@ export async function guardarImagenLocal(id: string, archivo: Blob) {
 
 export async function obtenerUrlImagenLocal(id: string): Promise<string | null> {
   const db = await inicializarDB();
-  const blob = await db.get("imagenes", id);
+  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
+  const blob = await db.get("imagenes", id) ?? await db.get("imagenes", nombreArchivo);
   if (!blob) return null;
   return URL.createObjectURL(blob);
 }

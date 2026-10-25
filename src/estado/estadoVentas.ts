@@ -186,12 +186,17 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
           const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
           if (errorDetalles) throw errorDetalles;
+        } else {
+          await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
         }
       } else {
         await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
       }
     } catch (error) {
       console.error("Error al guardar la venta:", error);
+      if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
+      }
     }
   },
 
@@ -227,16 +232,20 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
       if (navigator.onLine) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('ventas')
+          const { error } = await supabase.from('ventas')
             .update({ cancelada: true })
             .eq('id', id)
             .eq('tienda_id', tiendaId);
-        }
+          if (error) throw error;
+        } else await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
       } else {
         await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
       }
     } catch (error) {
       console.error("Error al cancelar la venta:", error);
+      if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
+      }
     }
   },
 

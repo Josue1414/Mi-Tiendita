@@ -16,6 +16,7 @@ import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalDescripcionProducto from "../componentes/ui/ModalDescripcionProducto";
 import ModalAjusteStock from "../componentes/ui/ModalAjusteStock";
+import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
 import { ajustarLotes } from "../utilidades/lotes";
 
 const PRODUCTOS_POR_PAGINA = 50;
@@ -25,6 +26,7 @@ export default function VistaInventario() {
   const { setSeccionActual } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
   const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
+  const { enviarMensaje } = useEmisorPantallaCliente();
 
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
@@ -188,6 +190,7 @@ export default function VistaInventario() {
         abierto={Boolean(productoSeleccionado)}
         producto={productoSeleccionado}
         alCerrar={() => setProductoSeleccionado(null)}
+        enviarMensaje={enviarMensaje}
         puedeEditar={puedeEditar}
         puedeEliminar={puedeEliminar}
         puedeAjustarStock={puedeAjustarStock}
@@ -381,7 +384,7 @@ export default function VistaInventario() {
                     <tr key={producto.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 text-slate-900 dark:text-slate-100 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium">
                         <div className="flex items-center gap-3">
-                          <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-9 w-9 shrink-0 rounded-lg object-cover border border-slate-200 dark:border-white/10 bg-white" />
+                          <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-9 w-9 shrink-0 rounded-lg object-cover border border-slate-200 dark:border-white/10 bg-white" />
                           <span className="line-clamp-2">{producto.nombre}</span>
                         </div>
                       </td>
@@ -472,7 +475,7 @@ export default function VistaInventario() {
             return (
               <article key={producto.id} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-4 dark:border-white/10 dark:bg-slate-900">
                 <div className="flex items-start gap-3">
-                  <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-14 w-14 shrink-0 rounded-xl object-cover text-sm border border-slate-100 dark:border-white/5" />
+                  <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-14 w-14 shrink-0 rounded-xl object-cover text-sm border border-slate-100 dark:border-white/5" />
                   <div className="min-w-0 flex-1">
                     <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{producto.nombre}</h2>
                     <p className="font-mono text-[10px] text-slate-500 mt-0.5">{producto.codigo_barras}</p>

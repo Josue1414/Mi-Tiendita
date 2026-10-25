@@ -1,31 +1,48 @@
-// src/componentes/pos/PanelCamaraEscaner.tsx
 import { useEffect, useRef, useState } from "react";
-import { Camera, ScanBarcode, X } from "lucide-react";
+import { Camera } from "lucide-react";
+import {
+  BarcodeDetector as BarcodeDetectorPonyfill,
+  prepareZXingModule,
+} from "barcode-detector/ponyfill";
+import wasmUrl from "zxing-wasm/reader/zxing_reader.wasm?url";
 
 interface Props {
   alDetectar?: (codigo: string) => void;
   className?: string;
+  activo?: boolean;
 }
 
-type DetectorCodigo = { detect: (imagen: HTMLVideoElement | HTMLCanvasElement) => Promise<Array<{ rawValue: string }>> };
-type ConstructorDetector = new (opciones?: { formats?: string[] }) => DetectorCodigo;
+const FORMATOS_CODIGO = ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "itf", "codabar"] as const;
 
-export default function PanelCamaraEscaner({ alDetectar, className = "" }: Props) {
+prepareZXingModule({
+  overrides: {
+    locateFile: (path: string, prefix: string) => path.endsWith(".wasm") ? wasmUrl : prefix + path,
+  },
+});
+
+export default function PanelCamaraEscaner({ alDetectar, className = "", activo = true }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<DetectorCodigo | null>(null);
-  const ultimoCodigoRef = useRef<string>("");
+  const detectorRef = useRef<BarcodeDetectorPonyfill | null>(null);
+  const alDetectarRef = useRef(alDetectar);
   const timeoutRef = useRef<number | undefined>(undefined);
+  const codigosRecientesRef = useRef(new Map<string, number>());
   const [error, setError] = useState("");
   const [escaneando, setEscaneando] = useState(false);
+  const [reintentoCamara, setReintentoCamara] = useState(0);
+  const [ultimoCodigo, setUltimoCodigo] = useState("");
 
   useEffect(() => {
-    let cancelado = false;
+    alDetectarRef.current = alDetectar;
+  }, [alDetectar]);
 
+  useEffect(() => {
+    if (!activo) return;
+    let cancelado = false;
     const iniciar = async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
-          setError("Cámara no soportada");
+          setError("Cámara no soportada en este navegador.");
           return;
         }
 
@@ -33,37 +50,31 @@ export default function PanelCamaraEscaner({ alDetectar, className = "" }: Props
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
-
-        if (cancelado || !stream || !videoRef.current) return;
+        if (cancelado || !videoRef.current) {
+          stream.getTracks().forEach((pista) => pista.stop());
+          return;
+        }
 
         streamRef.current = stream;
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
 
-        const Constructor = (window as Window & { BarcodeDetector?: ConstructorDetector }).BarcodeDetector;
-        if (!Constructor) {
-          setError("Sin soporte de BarcodeDetector");
-          return;
-        }
-
-        detectorRef.current = new Constructor({ formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "itf", "codabar"] });
+        detectorRef.current = new BarcodeDetectorPonyfill({ formats: [...FORMATOS_CODIGO] });
         setEscaneando(true);
         setError("");
 
         const revisar = async () => {
           if (cancelado || !videoRef.current || !detectorRef.current) return;
-
           try {
             const video = videoRef.current;
             if (!video.videoWidth || !video.videoHeight) {
               timeoutRef.current = window.setTimeout(revisar, 250);
               return;
             }
-
+            const factor = Math.min(1, 1280 / video.videoWidth, 720 / video.videoHeight);
             const canvas = document.createElement("canvas");
-            canvas.width = Math.min(video.videoWidth, 1280);
-            canvas.height = Math.min(video.videoHeight, 720);
-
+            canvas.width = Math.round(video.videoWidth * factor);
+            canvas.height = Math.round(video.videoHeight * factor);
             const ctx = canvas.getContext("2d");
             if (!ctx) {
               timeoutRef.current = window.setTimeout(revisar, 250);
@@ -71,71 +82,71 @@ export default function PanelCamaraEscaner({ alDetectar, className = "" }: Props
             }
 
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const ahora = Date.now();
             const resultados = await detectorRef.current.detect(canvas);
-            const codigo = resultados[0]?.rawValue?.trim();
+            for (const resultado of resultados) {
+              const codigo = resultado.rawValue.trim();
+              if (!codigo || ahora - (codigosRecientesRef.current.get(codigo) ?? 0) < 1200) continue;
 
-            if (!codigo) {
-              timeoutRef.current = window.setTimeout(revisar, 250);
-              return;
+              codigosRecientesRef.current.set(codigo, ahora);
+              if (codigosRecientesRef.current.size > 40) {
+                for (const [codigoReciente, tiempo] of codigosRecientesRef.current) {
+                  if (ahora - tiempo > 10_000) codigosRecientesRef.current.delete(codigoReciente);
+                }
+              }
+              setUltimoCodigo(codigo);
+              alDetectarRef.current?.(codigo);
             }
-
-            if (codigo === ultimoCodigoRef.current) {
-              timeoutRef.current = window.setTimeout(revisar, 400);
-              return;
-            }
-
-            ultimoCodigoRef.current = codigo;
-            if (alDetectar) {
-              alDetectar(codigo);
-            }
+            timeoutRef.current = window.setTimeout(revisar, 180);
           } catch {
-            setError("No se pudo enfocar la etiqueta");
+            setError("No se pudo leer el código. Acerca y enfoca la etiqueta.");
             timeoutRef.current = window.setTimeout(revisar, 500);
           }
         };
-
-        revisar();
-      } catch {
-        setError("Cámara no disponible");
+        void revisar();
+      } catch (errorCamara: unknown) {
+        setError(errorCamara instanceof Error ? errorCamara.message : "No se pudo abrir la cámara.");
       }
     };
 
-    iniciar();
-
+    void iniciar();
     return () => {
       cancelado = true;
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
       streamRef.current?.getTracks().forEach((pista) => pista.stop());
       streamRef.current = null;
       detectorRef.current = null;
-      ultimoCodigoRef.current = "";
-      setEscaneando(false);
     };
-  }, [alDetectar]);
+  }, [activo, reintentoCamara]);
 
   return (
-    <div className={`relative w-full rounded-2xl border border-emerald-200/60 bg-slate-950 shadow-md overflow-hidden ${className}`}> 
-      <div className="relative aspect-video w-full bg-slate-950">
-        <video ref={videoRef} muted playsInline className="h-full w-full object-cover" />
-        <div className="pointer-events-none absolute inset-4 rounded-xl border-2 border-emerald-400/90" />
-        <div className="absolute left-3 top-3 rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white flex items-center gap-1">
-          <Camera size={12} />Scanner
+    <div className={`relative aspect-video w-full overflow-hidden rounded-2xl border border-emerald-200/60 bg-slate-950 shadow-md ${className}`}>
+      <video ref={videoRef} muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+      <div className="pointer-events-none absolute inset-[12%] rounded-xl border-2 border-emerald-400/90" />
+      {(!activo || !escaneando || ultimoCodigo) && (
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-950/70 px-3 py-2 text-white">
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold">
+            <Camera size={14} className="text-emerald-400" />
+            {!activo ? "Cámara en pausa" : escaneando ? "Cámara activa · escaneando" : error || "Preparando cámara..."}
+          </span>
+          {escaneando && ultimoCodigo && (
+            <span className="max-w-[50%] truncate font-mono text-[10px] text-emerald-300">{ultimoCodigo}</span>
+          )}
+          {error && activo && (
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setEscaneando(false);
+                setReintentoCamara((intento) => intento + 1);
+              }}
+              className="rounded-lg bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white"
+            >
+              Reintentar
+            </button>
+          )}
         </div>
-        <div className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white flex items-center gap-1">
-          <ScanBarcode size={12} />
-          {escaneando ? "ON" : "OFF"}
-        </div>
-        {!escaneando && (
-          <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-[11px] font-bold text-white/80">
-            <Camera size={16} className="mr-2" />Preparando cámara...
-          </div>
-        )}
-        {error && (
-          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1 rounded-lg bg-amber-500/90 px-2 py-1 text-[10px] font-bold text-white">
-            <X size={12} /> {error}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

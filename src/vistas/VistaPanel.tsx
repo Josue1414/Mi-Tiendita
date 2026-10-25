@@ -13,6 +13,17 @@ import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
+import { Cloud, CloudOff, Server, Wifi } from "lucide-react";
+import CampoFecha from "../componentes/ui/CampoFecha";
+
+interface VistaPanelProps {
+  estaEnLinea: boolean;
+  permiteNube: boolean;
+  esMaestro: boolean;
+  servidorLANActivo: boolean;
+  conectadoLAN: boolean;
+  dispositivosLANConectados: number;
+}
 
 const obtenerFechaLocal = () => {
   const fecha = new Date();
@@ -20,7 +31,14 @@ const obtenerFechaLocal = () => {
   return new Date(fecha.getTime() - offset).toISOString().slice(0, 10);
 };
 
-export default function VistaPanel() {
+export default function VistaPanel({
+  estaEnLinea,
+  permiteNube,
+  esMaestro,
+  servidorLANActivo,
+  conectadoLAN,
+  dispositivosLANConectados,
+}: VistaPanelProps) {
   const { ventas } = useEstadoVentas();
   const { productos } = useEstadoInventario();
   const { setSeccionActual } = useEstadoNavegacion();
@@ -96,7 +114,7 @@ export default function VistaPanel() {
           animation: vibrarCampana 0.6s ease-in-out infinite; 
           color: #ef4444; 
         }
-      `}</style>
+      `}      </style>
 
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -106,8 +124,38 @@ export default function VistaPanel() {
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Resumen de ventas y ganancias del día seleccionado.</p>
         <label className="mt-3 inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-300">
           <Calendar size={15} className="text-emerald-600" />
-          <input type="date" value={fechaSeleccionada} onChange={(e) => setFechaSeleccionada(e.target.value)} className="bg-transparent outline-none dark:text-slate-100" />
+          <CampoFecha value={fechaSeleccionada} onChange={setFechaSeleccionada} className="h-8 border-0 bg-transparent px-1 dark:bg-transparent" aria-label="Fecha del panel" />
         </label>
+        <div className="mt-3 flex flex-wrap gap-2 lg:hidden">
+          {permiteNube && (
+            <div className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold",
+              estaEnLinea
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            )}>
+              {estaEnLinea ? <Cloud size={14} /> : <CloudOff size={14} />}
+              <span>{estaEnLinea ? "Internet disponible · nube habilitada" : "Nube sin conexión"}</span>
+            </div>
+          )}
+          <div className={cn(
+            "flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold",
+            (esMaestro && servidorLANActivo) || conectadoLAN
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+          )}>
+            {esMaestro ? <Server size={14} /> : <Wifi size={14} />}
+            <span>
+              {esMaestro
+                ? servidorLANActivo
+                  ? `LAN activa · ${dispositivosLANConectados} conectado(s)`
+                  : "Servidor LAN no activo"
+                : conectadoLAN
+                  ? "Conectado al Cerebro por LAN"
+                  : "Sin conexión LAN con el Cerebro · usa su QR"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

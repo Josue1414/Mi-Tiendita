@@ -1,16 +1,14 @@
 // src/vistas/secciones_configuracion/SeccionAdministracion.tsx
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Store, ImageIcon, Trash2, AlertTriangle, Save, CheckCircle2, HardDrive, Info, FolderOpen, FileSpreadsheet } from "lucide-react";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import { useEstadoInventario } from "../../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { leerProductosExcel } from "../../servicios/importadorProductos";
-import { cn, esAndroidNativo } from "../../utilidades/utils";
+import { cn } from "../../utilidades/utils";
+import { guardarImagenLocal } from "../../servicios/baseDatosLocal";
 import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
-
-interface DirectorioHandle { name: string; kind: string; }
-interface NavegadorExtendido { showDirectoryPicker?: (options?: { mode: string }) => Promise<DirectorioHandle>; apiLocal?: { seleccionarCarpeta?: () => Promise<string>; }; }
 
 const optimizarImagenLogo = async (dataUrl: string): Promise<string> => {
   if (!dataUrl.startsWith("data:image/")) return dataUrl;
@@ -64,8 +62,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
   const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
   const [importando, setImportando] = useState(false);
 
-  const win = window as unknown as NavegadorExtendido;
-  const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
+  const inputCarpetaRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!cambiosPago) {
@@ -134,22 +131,34 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
     lector.readAsDataURL(archivo);
   };
 
-  const seleccionarCarpeta = async () => {
+  const seleccionarCarpeta = () => {
     if (!esDueño) return;
-    if (esAppEscritorio && win.apiLocal?.seleccionarCarpeta) {
-      try {
-        const rutaFisica = await win.apiLocal.seleccionarCarpeta();
-        if (rutaFisica) setDirectorioImagenes(rutaFisica, undefined);
-      } catch (error) { console.error("Error al seleccionar carpeta:", error); }
+    inputCarpetaRef.current?.click();
+  };
+
+  const indexarCarpetaImagenes = async (evento: React.ChangeEvent<HTMLInputElement>) => {
+    if (!esDueño) return;
+    const archivos = Array.from(evento.target.files ?? []).filter((archivo) => archivo.type.startsWith("image/"));
+    evento.target.value = "";
+    if (archivos.length === 0) {
+      setAviso({ titulo: "Carpeta vacía", mensaje: "La carpeta seleccionada no contiene archivos de imagen compatibles." });
       return;
     }
-    if (typeof win.showDirectoryPicker === 'function') {
-      try {
-        const handle = await win.showDirectoryPicker({ mode: "readwrite" });
-        setDirectorioImagenes(`Carpeta Web: /${handle.name}`, handle);
-      } catch (error) { console.log("Cancelado:", error); }
-    } else {
-      setAviso({ titulo: "Función bloqueada", mensaje: "Requiere usar Chrome/Edge y conexión segura." });
+
+    try {
+      for (const archivo of archivos) await guardarImagenLocal(archivo.name, archivo);
+      const nombreCarpeta = archivos[0].webkitRelativePath.split("/")[0] || archivos[0].name;
+      await setDirectorioImagenes(nombreCarpeta, null);
+      setAviso({
+        titulo: "Carpeta de imágenes lista",
+        mensaje: `Se indexaron ${archivos.length} imágenes en este dispositivo. Repite este paso en cada equipo después de copiar la misma carpeta.`
+      });
+    } catch (error) {
+      console.error("No se pudo indexar la carpeta de imágenes:", error);
+      setAviso({
+        titulo: "Error al preparar imágenes",
+        mensaje: `No se pudieron guardar las imágenes localmente. ${error instanceof Error ? error.message : String(error)}`
+      });
     }
   };
 
@@ -315,16 +324,24 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
         </form>
       </div>
 
-      {!esAndroidNativo && (
-        <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-          <h2 className="text-lg font-bold flex items-center gap-1 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio Físico <AyudaContextual etiqueta="Directorio físico" texto="Selecciona la carpeta local donde la aplicación de escritorio guardará o buscará las imágenes de productos. Esta ubicación pertenece al dispositivo actual." /></h2>
-          <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes locales se guardan en la PC/Navegador en lugar de la nube.</p></div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
-            {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
-            <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
-          </div>
+      <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
+        <h2 className="text-lg font-bold flex items-center gap-1 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><HardDrive size={20} className="text-blue-600 dark:text-blue-400" /> Directorio de imágenes <AyudaContextual etiqueta="Directorio de imágenes" texto="Copia la misma carpeta de imágenes a cada dispositivo y selecciónala aquí. Las imágenes se indexan solo en el almacenamiento local de este dispositivo." /></h2>
+        <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>Las imágenes no se suben a Supabase. Selecciona la carpeta copiada en cada dispositivo para indexarlas localmente. El producto solo conserva una referencia con su ID y el nombre original del archivo.</p></div>
+        <input
+          type="file"
+          multiple
+          onChange={indexarCarpetaImagenes}
+          className="hidden"
+          ref={(elemento) => {
+            inputCarpetaRef.current = elemento;
+            elemento?.setAttribute("webkitdirectory", "");
+          }}
+        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
+          {esDueño && <button onClick={seleccionarCarpeta} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm"><FolderOpen size={16} /> Elegir Carpeta</button>}
+          <div className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 w-full"><span className="text-sm font-mono text-slate-600 dark:text-slate-400 truncate block">{directorioImagenes || "Ninguna carpeta seleccionada"}</span></div>
         </div>
-      )}
+      </div>
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
         <h2 className="text-lg font-bold flex items-center gap-1 border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100"><FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" /> Importar Excel <AyudaContextual etiqueta="Importar Excel" texto="Carga productos desde una hoja de cálculo compatible. La importación omite los nombres que ya existen para evitar duplicados." /></h2>
@@ -337,7 +354,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
               <strong className="block text-xs uppercase tracking-wider mb-1 mt-2 text-emerald-700 dark:text-emerald-400">Columnas en la fila de encabezado de tu Excel:</strong>
               <ul className="list-disc list-inside text-xs space-y-1 opacity-90">
                 <li><strong>Obligatorias:</strong> Nombre, Precio</li>
-                <li><strong>Opcionales:</strong> Código de Barras (se autogenera si está vacío), Categoría, Unidad (PZA, KG, LITRO), Stock, Costo, Descripción</li>
+                <li><strong>Opcionales:</strong> Código de Barras (se autogenera si está vacío), Categoría, Unidad (pieza, kg, g, litro, ml, mg, paquete, sobre, docena), Stock, Costo, Descripción</li>
               </ul>
             </div>
           </div>

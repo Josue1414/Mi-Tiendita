@@ -6,6 +6,7 @@ import { CATEGORIAS_INICIALES, siguienteColor } from "../utilidades/coloresCateg
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 import { descontarDeLotes } from "../utilidades/lotes";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
@@ -46,8 +47,23 @@ const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
   mensaje_autorizacion: p.mensaje_autorizacion || null,
   permite_foto_autorizacion: p.permite_foto_autorizacion,
   lotes: p.lotes ?? [],
-  nombre_archivo_local: p.imagen_url || null
+  nombre_archivo_local: p.imagen_archivo || null
 });
+
+const sincronizarConCola = async (
+  tabla: string,
+  operacion: "AGREGAR" | "ACTUALIZAR" | "ELIMINAR",
+  payload: unknown,
+  enviar: () => PromiseLike<{ error: unknown | null }>
+) => {
+  try {
+    const { error } = await enviar();
+    if (error) throw error;
+  } catch (error) {
+    console.error(`No se pudo sincronizar ${tabla} con Supabase; se guardará para reintentar:`, error);
+    await registrarPendienteSync({ tabla, operacion, payload });
+  }
+};
 
 const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Producto => ({
   id: p.id,
@@ -69,7 +85,9 @@ const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Prod
   mensaje_autorizacion: p.mensaje_autorizacion || "",
   permite_foto_autorizacion: p.permite_foto_autorizacion,
   lotes: Array.isArray(p.lotes) ? p.lotes : [],
-  imagen_url: p.nombre_archivo_local || undefined
+  imagen_archivo: typeof p.nombre_archivo_local === "string" && !p.nombre_archivo_local.startsWith("data:image/")
+    ? p.nombre_archivo_local
+    : undefined
 });
 
 export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
@@ -119,10 +137,29 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
 
         if (catSupabase && prodSupabase) {
+          if (prodSupabase.some((producto) =>
+            typeof producto.nombre_archivo_local === "string" && producto.nombre_archivo_local.startsWith("data:image/")
+          )) {
+            const { error } = await supabase
+              .from("productos")
+              .update({ nombre_archivo_local: null })
+              .eq("tienda_id", tiendaId)
+              .like("nombre_archivo_local", "data:image/%");
+            if (error) console.error("No se pudieron limpiar las imágenes antiguas de Supabase:", error);
+          }
+
           const categoriasNube = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
+          const productosLocales = await obtenerRegistros("productos") as Producto[];
+          const productosLocalesPorId = new Map(productosLocales.map((producto) => [producto.id, producto]));
           const productosNube = prodSupabase.map(p => {
             const catAsociada = categoriasNube.find(c => c.id === p.categoria_id);
-            return mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
+            const productoNube = mapearProductoDesdeSupabase(p, catAsociada?.nombre || "");
+            const productoLocal = productosLocalesPorId.get(productoNube.id);
+            return {
+              ...productoNube,
+              imagen_url: productoLocal?.imagen_url,
+              imagen_archivo: productoNube.imagen_archivo || productoLocal?.imagen_archivo
+            };
           });
 
           if (esEscritorio) {
@@ -130,12 +167,11 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
             const idsProductosNube = new Set(productosNube.map(p => p.id));
 
             const categoriasLocal = await obtenerRegistros("categorias");
-            const productosLocal = await obtenerRegistros("productos");
 
             for (const catLocal of categoriasLocal) {
               if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
             }
-            for (const prodLocal of productosLocal) {
+            for (const prodLocal of productosLocales) {
               if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
             }
 
@@ -158,7 +194,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
 
         if (categoriasEstado.length === 0) {
-          categoriasEstado = CATEGORIAS_INICIALES.map((c) => ({ id: crypto.randomUUID(), nombre: c.nombre, color: c.color }));
+          categoriasEstado = CATEGORIAS_INICIALES.map((c) => ({ id: crearIdentificadorUnico(), nombre: c.nombre, color: c.color }));
           for (const cat of categoriasEstado) await guardarRegistro("categorias", cat);
         }
         set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
@@ -188,8 +224,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         const payload = mapearProductoASupabase(producto, tiendaId);
         const cat = get().categorias.find(c => c.nombre === producto.categoria);
         if (cat) (payload as any).categoria_id = cat.id;
-        await supabase.from('productos').upsert(payload);
-      }
+        await sincronizarConCola("productos", "AGREGAR", producto, () => supabase.from("productos").upsert(payload));
+      } else await registrarPendienteSync({ tabla: "productos", operacion: "AGREGAR", payload: producto });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: producto });
     }
@@ -211,8 +247,8 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         const payload = mapearProductoASupabase(productoActualizado, tiendaId);
         const cat = get().categorias.find(c => c.nombre === productoActualizado.categoria);
         if (cat) (payload as any).categoria_id = cat.id;
-        await supabase.from('productos').upsert(payload);
-      }
+        await sincronizarConCola("productos", "ACTUALIZAR", productoActualizado, () => supabase.from("productos").upsert(payload));
+      } else await registrarPendienteSync({ tabla: "productos", operacion: "ACTUALIZAR", payload: productoActualizado });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'ACTUALIZAR', payload: productoActualizado });
     }
@@ -230,7 +266,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
     if (navigator.onLine && debeSincronizarConNube()) {
       const tiendaId = await obtenerTiendaIdActual();
-      if (tiendaId) await supabase.from('productos').delete().eq('id', id).eq('tienda_id', tiendaId);
+      if (tiendaId) {
+        await sincronizarConCola("productos", "ELIMINAR", id, () => supabase.from("productos").delete().eq("id", id).eq("tienda_id", tiendaId));
+      } else await registrarPendienteSync({ tabla: "productos", operacion: "ELIMINAR", payload: id });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'productos', operacion: 'ELIMINAR', payload: id });
     }
@@ -253,13 +291,13 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       if (navigator.onLine && debeSincronizarConNube()) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('categorias').upsert({
+          await sincronizarConCola("categorias", "ACTUALIZAR", actualizada, () => supabase.from('categorias').upsert({
             id: actualizada.id,
             tienda_id: tiendaId,
             nombre: actualizada.nombre,
             color: actualizada.color
-          });
-        }
+          }));
+        } else await registrarPendienteSync({ tabla: "categorias", operacion: "ACTUALIZAR", payload: actualizada });
       } else if (!navigator.onLine && debeSincronizarConNube()) {
         await registrarPendienteSync({ tabla: 'categorias', operacion: 'ACTUALIZAR', payload: actualizada });
       }
@@ -270,7 +308,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     if (existente) return existente;
 
     const nueva: Categoria = { 
-      id: id || crypto.randomUUID(), 
+      id: id || crearIdentificadorUnico(),
       nombre: nombreLimpio, 
       color: color || siguienteColor(get().categorias.map((c) => c.color)) 
     };
@@ -286,7 +324,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
     if (navigator.onLine && debeSincronizarConNube()) {
       const tiendaId = await obtenerTiendaIdActual();
-      if (tiendaId) await supabase.from('categorias').upsert({ id: nueva.id, tienda_id: tiendaId, nombre: nueva.nombre, color: nueva.color });
+      if (tiendaId) {
+        await sincronizarConCola("categorias", "AGREGAR", nueva, () => supabase.from('categorias').upsert({ id: nueva.id, tienda_id: tiendaId, nombre: nueva.nombre, color: nueva.color }));
+      } else await registrarPendienteSync({ tabla: "categorias", operacion: "AGREGAR", payload: nueva });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'categorias', operacion: 'AGREGAR', payload: nueva });
     }
@@ -326,7 +366,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
 
     if (navigator.onLine && debeSincronizarConNube()) {
       const tiendaId = await obtenerTiendaIdActual();
-      if (tiendaId) await supabase.from('categorias').delete().eq('id', id).eq('tienda_id', tiendaId);
+      if (tiendaId) {
+        await sincronizarConCola("categorias", "ELIMINAR", id, () => supabase.from('categorias').delete().eq('id', id).eq('tienda_id', tiendaId));
+      } else await registrarPendienteSync({ tabla: "categorias", operacion: "ELIMINAR", payload: id });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
       await registrarPendienteSync({ tabla: 'categorias', operacion: 'ELIMINAR', payload: id });
     }

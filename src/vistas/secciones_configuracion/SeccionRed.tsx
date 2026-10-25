@@ -6,7 +6,17 @@ import QRCode from "react-qr-code";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
 import { useEstadoRed } from "../../estado/estadoRed";
 import { useEstadoPlan } from "../../estado/estadoPlan";
-import { supabase, obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
+import {
+  supabase,
+  obtenerIdentificadorDispositivo,
+  obtenerTiendaIdActual,
+  obtenerDispositivosVinculadosCache,
+  obtenerDispositivosVinculadosDeNube,
+  guardarDispositivosVinculadosCache,
+  guardarCambioDispositivoPendiente,
+  sincronizarCambiosDispositivosPendientes,
+  type DispositivoVinculado
+} from "../../servicios/supabase";
 import { establecerRolCerebro } from "../../servicios/cerebroTienda";
 import { androidLan } from "../../servicios/androidLan";
 import { cn } from "../../utilidades/utils";
@@ -14,18 +24,24 @@ import ModalConfirmacionDesvincularEquipo from "../../componentes/ui/ModalConfir
 import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
-interface Dispositivo {
-  id: string; hardware_id: string; nombre_dispositivo: string; ultimo_acceso: string; tienda_id: string; es_cerebro?: boolean;
-}
-
 const obtenerTipoDispositivo = (hardwareId: string) => {
   if (hardwareId.startsWith("android-")) return "Android";
   if (hardwareId.startsWith("web-")) return "WEB";
   return "PC";
 };
 
+const esFalloDeConexion = (error: unknown) => {
+  if (error instanceof TypeError) return true;
+  if (typeof error !== "object" || error === null || !("message" in error) || typeof error.message !== "string") return false;
+  return /network|fetch|offline|timed?\s*out|connection/i.test(error.message);
+};
+
 interface NavegadorExtendido {
-  apiLocal?: { obtenerIpLocal?: () => Promise<string>; obtenerHardwareId?: () => Promise<string>; };
+  apiLocal?: {
+    obtenerIpLocal?: () => Promise<string>;
+    obtenerHardwareId?: () => Promise<string>;
+    obtenerEstadoLAN?: () => Promise<{ activo: boolean; ip: string }>;
+  };
 }
 
 // URL DEL INSTALADOR DE GOOGLE DRIVE (Descarga directa)
@@ -35,6 +51,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const {
     esMaestro,
+    esRespaldo,
     ipMaestro,
     conectadoLAN,
     servidorLANActivo,
@@ -55,15 +72,24 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
 
   const [ipLocalPC, setIpLocalPC] = useState("");
   const [inputIpConexion, setInputIpConexion] = useState(ipMaestro);
-  const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
+  const [dispositivos, setDispositivos] = useState<DispositivoVinculado[]>([]);
   const [miHwid, setMiHwid] = useState<string>("");
-  const [cerebroActual, setCerebroActual] = useState<Dispositivo | null>(null);
+  const [cerebroActual, setCerebroActual] = useState<DispositivoVinculado | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [mostrarQRLAN, setMostrarQRLAN] = useState(false);
+  const [preparandoQRLAN, setPreparandoQRLAN] = useState(false);
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
-  const [confirmacionDesvincular, setConfirmacionDesvincular] = useState<{ abierto: boolean; equipo: Dispositivo | null }>({ abierto: false, equipo: null });
+  const [confirmacionDesvincular, setConfirmacionDesvincular] = useState<{ abierto: boolean; equipo: DispositivoVinculado | null }>({ abierto: false, equipo: null });
+  const enlaceWebLAN = useMemo(() => {
+    if (!ipLocalPC) return "";
+    const url = new URL(`http://${ipLocalPC}:${puertoWebLAN}/`);
+    url.searchParams.set("lanHost", ipLocalPC);
+    url.searchParams.set("lanPort", String(puertoWebLAN));
+    return url.toString();
+  }, [ipLocalPC, puertoWebLAN]);
+  const enlaceQRLAN = enlaceWebLAN;
 
   useEffect(() => {
     if (esMaestro && esAppEscritorio && win.apiLocal?.obtenerIpLocal) {
@@ -79,36 +105,53 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   }, [esMaestro, esAppEscritorio, esAppAndroid, win.apiLocal, setAviso]);
 
   useEffect(() => {
-    const cargarDispositivos = async () => {
-      if (!esDueño || !navigator.onLine) return;
-      const tiendaId = await obtenerTiendaIdActual();
-      if (!tiendaId) return;
-
-      const { data } = await supabase.from('dispositivos_vinculados').select('*').eq('tienda_id', tiendaId);
-      if (data) {
-        const listado = data as Dispositivo[];
-        setDispositivos(listado);
-        const cerebros = listado.filter((d) => d.es_cerebro);
-        if (cerebros.length > 1) {
-          setAviso({ titulo: "Conflicto de PC cerebro", mensaje: "Hay más de una PC marcada como cerebro. Elige una sola para evitar duplicados." });
-        } else if (cerebros.length === 1) {
-          setCerebroActual(cerebros[0]);
-        } else {
-          setCerebroActual(null);
-        }
-      }
-
-      setMiHwid(await obtenerIdentificadorDispositivo());
+    let cancelado = false;
+    let canalDispositivos: ReturnType<typeof supabase.channel> | null = null;
+    const suscribirDispositivos = (tiendaId: string) => {
+      if (canalDispositivos || cancelado || !navigator.onLine || !esDueño) return;
+      canalDispositivos = supabase.channel(`dispositivos-${tiendaId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'dispositivos_vinculados', filter: `tienda_id=eq.${tiendaId}` }, recargarAlConectar)
+        .subscribe();
     };
-    cargarDispositivos();
+    const aplicarListado = (listado: DispositivoVinculado[]) => {
+      if (cancelado) return;
+      setDispositivos(listado);
+      const cerebros = listado.filter((dispositivo) => dispositivo.es_cerebro);
+      if (cerebros.length > 1) {
+        setAviso({ titulo: "Conflicto de PC cerebro", mensaje: "Hay más de una PC marcada como cerebro. Elige una sola para evitar duplicados." });
+      } else {
+        setCerebroActual(cerebros[0] ?? null);
+      }
+    };
+    const cargarDispositivos = async () => {
+      if (!esDueño) return;
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId || cancelado) return;
 
-    const tiendaActual = localStorage.getItem('tienda_id');
-    if (!tiendaActual || !esDueño || !navigator.onLine) return;
-    const canalDispositivos = supabase.channel(`dispositivos-${tiendaActual}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dispositivos_vinculados', filter: `tienda_id=eq.${tiendaActual}` }, () => {
-        cargarDispositivos();
-      }).subscribe();
-    return () => { supabase.removeChannel(canalDispositivos); };
+      aplicarListado(obtenerDispositivosVinculadosCache(tiendaId));
+      setMiHwid(await obtenerIdentificadorDispositivo());
+      if (!navigator.onLine) return;
+
+      try {
+        await sincronizarCambiosDispositivosPendientes(tiendaId);
+        aplicarListado(await obtenerDispositivosVinculadosDeNube(tiendaId));
+        suscribirDispositivos(tiendaId);
+      } catch (error: unknown) {
+        console.warn("No se pudo actualizar el listado de equipos desde Supabase; se conserva la copia local:", error);
+      }
+    };
+    function recargarAlConectar() {
+      void cargarDispositivos();
+    }
+    window.addEventListener("online", recargarAlConectar);
+    void cargarDispositivos().catch((error: unknown) => {
+      console.error("No se pudo preparar el listado de equipos vinculados:", error);
+    });
+    return () => {
+      cancelado = true;
+      window.removeEventListener("online", recargarAlConectar);
+      if (canalDispositivos) void supabase.removeChannel(canalDispositivos);
+    };
   }, [esDueño, esAppEscritorio, win.apiLocal, setAviso]);
 
   const cambiarRolCerebro = async (nuevoRol: boolean) => {
@@ -132,7 +175,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     }
   };
 
-  const abrirDesvinculacion = (equipo: Dispositivo, esMiEquipo: boolean) => {
+  const abrirDesvinculacion = (equipo: DispositivoVinculado, esMiEquipo: boolean) => {
     if (esMiEquipo) {
       setAviso({ titulo: "Acción no permitida", mensaje: "No puedes eliminar el equipo actual." });
       return;
@@ -143,12 +186,39 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const desvincularEquipo = async (id: string, esMiEquipo: boolean, nuevoCerebroId?: string) => {
     if (esMiEquipo) return;
     try {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) throw new Error("No se encontró la tienda activa.");
+      const cambiosLocales = [...dispositivos];
+      let guardadoSinInternet = !navigator.onLine;
+      const guardarCambio = async (cambio: { tipo: "actualizar"; id: string; cambios: Partial<DispositivoVinculado> } | { tipo: "eliminar"; id: string }) => {
+        if (!guardadoSinInternet) {
+          try {
+            const resultado = cambio.tipo === "actualizar"
+              ? await supabase.from('dispositivos_vinculados').update(cambio.cambios).eq('id', cambio.id).eq('tienda_id', tiendaId)
+              : await supabase.from('dispositivos_vinculados').delete().eq('id', cambio.id).eq('tienda_id', tiendaId);
+            if (resultado.error) throw resultado.error;
+            return;
+          } catch (error: unknown) {
+            if (!esFalloDeConexion(error)) throw error;
+            guardadoSinInternet = true;
+          }
+        }
+        guardarCambioDispositivoPendiente(tiendaId, cambio);
+      };
       if (confirmacionDesvincular.equipo?.es_cerebro && nuevoCerebroId) {
-        await supabase.from('dispositivos_vinculados').update({ es_cerebro: true }).eq('id', nuevoCerebroId);
+        await guardarCambio({ tipo: "actualizar", id: nuevoCerebroId, cambios: { es_cerebro: true } });
       }
-      await supabase.from('dispositivos_vinculados').delete().eq('id', id);
-      setDispositivos(prev => prev.filter(d => d.id !== id));
-      setAviso({ titulo: "Equipo desvinculado", mensaje: "El equipo fue eliminado correctamente." });
+      await guardarCambio({ tipo: "eliminar", id });
+      const listado = cambiosLocales
+        .map((dispositivo) => dispositivo.id === nuevoCerebroId ? { ...dispositivo, es_cerebro: true } : dispositivo)
+        .filter((dispositivo) => dispositivo.id !== id);
+      guardarDispositivosVinculadosCache(tiendaId, listado);
+      setDispositivos(listado);
+      setCerebroActual(listado.find((dispositivo) => dispositivo.es_cerebro) ?? null);
+      setAviso({
+        titulo: guardadoSinInternet ? "Cambio guardado sin conexión" : "Equipo desvinculado",
+        mensaje: guardadoSinInternet ? "El equipo se quitó de la lista. El cambio se aplicará en Supabase cuando vuelva Internet." : "El equipo fue eliminado correctamente."
+      });
     } catch (error: unknown) {
       const mensaje = error instanceof Error ? error.message : "No se pudo desvincular el equipo.";
       setAviso({ titulo: "Error", mensaje });
@@ -158,15 +228,40 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   };
 
   const guardarNombreEquipo = async (id: string, hardwareId: string) => {
-    if (!nombreDispTemp.trim()) return;
-    const { error } = await supabase.from('dispositivos_vinculados').update({ nombre_dispositivo: nombreDispTemp }).eq('id', id);
-    if (!error) {
-      setDispositivos(prev => prev.map(d => d.id === id ? { ...d, nombre_dispositivo: nombreDispTemp } : d));
-      if (hardwareId === miHwid) localStorage.setItem('nombre_dispositivo_local', nombreDispTemp);
-    } else {
+    const nombre = nombreDispTemp.trim();
+    if (!nombre) return;
+    const tiendaId = await obtenerTiendaIdActual();
+    if (!tiendaId) throw new Error("No se encontró la tienda activa.");
+    try {
+      let guardadoSinInternet = !navigator.onLine;
+      if (!guardadoSinInternet) {
+        try {
+          const { error } = await supabase.from('dispositivos_vinculados')
+            .update({ nombre_dispositivo: nombre }).eq('id', id).eq('tienda_id', tiendaId);
+          if (error) throw error;
+        } catch (error: unknown) {
+          if (!esFalloDeConexion(error)) throw error;
+          guardadoSinInternet = true;
+        }
+      }
+      if (guardadoSinInternet) {
+        guardarCambioDispositivoPendiente(tiendaId, { tipo: "actualizar", id, cambios: { nombre_dispositivo: nombre } });
+      }
+      const listado = dispositivos.map((dispositivo) =>
+        dispositivo.id === id ? { ...dispositivo, nombre_dispositivo: nombre } : dispositivo
+      );
+      guardarDispositivosVinculadosCache(tiendaId, listado);
+      setDispositivos(listado);
+      if (hardwareId === miHwid) localStorage.setItem('nombre_dispositivo_local', nombre);
+      if (guardadoSinInternet) {
+        setAviso({ titulo: "Cambio guardado sin conexión", mensaje: "El nombre se actualizará en Supabase cuando vuelva Internet." });
+      }
+    } catch (error: unknown) {
+      console.error("No se pudo guardar el nombre del dispositivo:", error);
       setAviso({ titulo: "Error", mensaje: "No se pudo actualizar el nombre del equipo." });
+    } finally {
+      setEditandoDispId(null);
     }
-    setEditandoDispId(null);
   };
 
   const copiarEnlaceLocal = async () => {
@@ -179,6 +274,40 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
       setTimeout(() => setCopiado(false), 1800);
     } catch {
       setAviso({ titulo: "Error", mensaje: `Copia manualmente este enlace: ${enlace}` });
+    }
+  };
+
+  const abrirQRLAN = async () => {
+    setPreparandoQRLAN(true);
+    try {
+      let ip = ipLocalPC;
+      if (esAppAndroid) {
+        let estado = await androidLan.getServerStatus();
+        if (!estado.activo) estado = await androidLan.startServer();
+        if (!estado.activo || !estado.ip || estado.ip === "127.0.0.1") {
+          throw new Error("El servidor local no está disponible. Conecta el Cerebro a la misma red Wi-Fi que los demás equipos y vuelve a intentarlo.");
+        }
+        ip = estado.ip;
+      } else if (esAppEscritorio && win.apiLocal?.obtenerEstadoLAN) {
+        const estado = await win.apiLocal.obtenerEstadoLAN();
+        if (!estado.activo || !estado.ip || estado.ip === "127.0.0.1") {
+          throw new Error("El servidor LAN no está activo o no tiene una dirección de red local.");
+        }
+        ip = estado.ip;
+      }
+      if (!ip || ip === "127.0.0.1") {
+        throw new Error("No se detectó una dirección Wi-Fi local para crear el QR.");
+      }
+      setIpLocalPC(ip);
+      setMostrarQRLAN(true);
+    } catch (error: unknown) {
+      console.error("No se pudo preparar el QR para entrar por LAN:", error);
+      setAviso({
+        titulo: "No se pudo preparar el QR LAN",
+        mensaje: error instanceof Error ? error.message : "Comprueba que el servidor LAN esté activo y conectado a Wi-Fi."
+      });
+    } finally {
+      setPreparandoQRLAN(false);
     }
   };
 
@@ -213,7 +342,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           await desvincularEquipo(confirmacionDesvincular.equipo.id, confirmacionDesvincular.equipo.hardware_id === miHwid, nuevoCerebroId);
         }}
       />
-      {mostrarQRLAN && (
+      {mostrarQRLAN && enlaceWebLAN && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setMostrarQRLAN(false)}>
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900" onClick={(evento) => evento.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
@@ -222,10 +351,11 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </div>
             <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">Conecta el móvil a la misma Wi-Fi y escanea este código para abrir Mi Tiendita desde el Cerebro.</p>
             <div className="mx-auto mb-4 w-fit rounded-xl border border-slate-200 bg-white p-3">
-              <QRCode value={`http://${ipLocalPC}:${puertoWebLAN}/`} size={220} />
+              <QRCode value={enlaceQRLAN} size={220} />
             </div>
-              <p className="break-all rounded-lg bg-slate-100 p-2 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">http://{ipLocalPC}:{puertoWebLAN}/</p>
-            <p className="mt-3 text-xs text-slate-500">La conexión local funciona aunque Internet esté disponible o se interrumpa.</p>
+            <p className="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-400">Escanéalo con la cámara o escribe este enlace en el navegador:</p>
+            <a href={enlaceWebLAN} className="block break-all rounded-lg bg-slate-100 p-2 font-mono text-xs text-indigo-700 underline dark:bg-slate-800 dark:text-indigo-300">{enlaceWebLAN}</a>
+            <p className="mt-3 text-xs text-slate-500">No requiere Internet. Ambos equipos deben estar en la misma Wi-Fi y esa red debe permitir que los dispositivos se comuniquen entre sí.</p>
           </div>
         </div>
       )}
@@ -267,7 +397,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             <Network size={20} /> Sincronización en Red Local (Offline/LAN)
             <AyudaContextual etiqueta="Sincronización en red local" texto="Permite designar una PC con Windows o una APK Android como servidor local y conectar otros dispositivos a la misma red Wi-Fi. Así pueden compartir operaciones dentro de la tienda incluso si Internet se interrumpe." />
           </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Convierte este dispositivo en el "Cerebro" y conecta tus otros equipos.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">La red local se inicia automáticamente en el Cerebro. Los demás equipos se conectan al escanear su QR LAN o al indicar su IP.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
               <span className="block text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">Cerebro registrado</span>
@@ -280,7 +410,9 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                   ? servidorLANActivo
                     ? `Servidor activo · ${dispositivosLANConectados} conectado(s)`
                     : "Servidor LAN no activo"
-                  : conectadoLAN ? "Conectado al Cerebro" : "Sin conexión LAN"}
+                  : esRespaldo
+                    ? conectadoLAN ? "Respaldo sincronizado" : "Respaldo fuera de línea"
+                    : conectadoLAN ? "Conectado al Cerebro" : "Sin conexión · usa el QR LAN del Cerebro"}
               </span>
             </div>
           </div>
@@ -303,8 +435,8 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                     <div className="flex flex-col gap-2">
                       <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
                       <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 dark:border-indigo-700/50 px-3 py-1 text-[10px] font-black text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">{copiado ? "Copiado" : "Copiar Enlace"}</button>
-                      <button onClick={() => setMostrarQRLAN(true)} className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">
-                        <QrCode size={15} /> Mostrar QR para entrar por LAN
+                      <button onClick={() => void abrirQRLAN()} disabled={preparandoQRLAN} className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60">
+                        <QrCode size={15} /> {preparandoQRLAN ? "Verificando servidor..." : "Mostrar QR para entrar por LAN"}
                       </button>
                       <span className="text-[10px] text-slate-600 dark:text-slate-400">Escanéalo desde un móvil conectado a la misma Wi-Fi.</span>
                     </div>
@@ -314,7 +446,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </div>
             <div className={cn("p-5 rounded-2xl border transition-all flex flex-col items-center text-center", !esMaestro ? "border-emerald-500 bg-white dark:bg-slate-900 shadow-md ring-4 ring-emerald-500/20" : "border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/30")}>
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3"><Smartphone size={24} /></div>
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">Equipo Conectado (Cliente)</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">{esRespaldo ? "Cerebro de respaldo" : "Equipo Conectado (Cliente)"}</h3>
               {esMaestro ? (
                 <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 disabled:opacity-50">Liberar cerebro</button>
               ) : (

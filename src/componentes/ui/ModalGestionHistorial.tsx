@@ -3,6 +3,7 @@ import { useState } from "react";
 import { X, FileSpreadsheet, Trash2, Calendar, AlertTriangle, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { useEstadoVentas } from "../../estado/estadoVentas";
 import * as XLSX from "xlsx";
+import CampoFecha from "./CampoFecha";
 
 interface PropsModalGestion {
   abierto: boolean;
@@ -199,11 +200,11 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
             <div className="flex gap-4 mb-6">
               <label className="flex-1 text-xs font-medium text-slate-500">
                 Fecha de Inicio
-                <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 outline-none focus:border-emerald-500" />
+                <CampoFecha value={fechaInicio} onChange={setFechaInicio} className="mt-1 h-10 w-full text-sm" aria-label="Fecha inicial" />
               </label>
               <label className="flex-1 text-xs font-medium text-slate-500">
                 Fecha Fin
-                <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 outline-none focus:border-emerald-500" />
+                <CampoFecha value={fechaFin} onChange={setFechaFin} className="mt-1 h-10 w-full text-sm" aria-label="Fecha final" />
               </label>
             </div>
 

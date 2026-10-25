@@ -41,6 +41,50 @@ body {
   padding: 0;
 }
 
+body.barcode-scanner-active {
+  background: transparent !important;
+}
+
+body.barcode-scanner-active > #root {
+  visibility: hidden;
+}
+
 .efecto-cristal {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-lg dark:bg-black/50 dark:border-white/10;
+}
+
+.carrito-item-agregado {
+  animation: resaltar-item-carrito 1.2s ease-out;
+}
+
+@keyframes resaltar-item-carrito {
+  0%, 35% {
+    border-color: rgb(16 185 129);
+    box-shadow: 0 0 0 3px rgb(16 185 129 / 45%), 0 0 18px rgb(16 185 129 / 40%);
+    background-color: rgb(209 250 229 / 80%);
+  }
+
+  100% {
+    border-color: rgb(16 185 129 / 0%);
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0%);
+    background-color: transparent;
+  }
+}
+
+.dark .carrito-item-agregado {
+  animation-name: resaltar-item-carrito-oscuro;
+}
+
+@keyframes resaltar-item-carrito-oscuro {
+  0%, 35% {
+    border-color: rgb(52 211 153);
+    box-shadow: 0 0 0 3px rgb(52 211 153 / 45%), 0 0 18px rgb(52 211 153 / 35%);
+    background-color: rgb(6 78 59 / 55%);
+  }
+
+  100% {
+    border-color: rgb(52 211 153 / 0%);
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0%);
+    background-color: transparent;
+  }
 }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { CalendarDays, X } from "lucide-react";
 import type { Producto } from "../../tipos/producto";
+import CampoFecha from "./CampoFecha";
 
 interface PropsModalAjusteStock {
   producto: Producto | null;
@@ -63,11 +64,11 @@ export default function ModalAjusteStock({ producto, alCerrar, alConfirmar }: Pr
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
               <CalendarDays size={14} /> Caducidad del nuevo lote (opcional)
             </label>
-            <input
-              type="date"
+            <CampoFecha
               value={fechaCaducidad}
-              onChange={(evento) => setFechaCaducidad(evento.target.value)}
+              onChange={setFechaCaducidad}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              aria-label="Fecha de caducidad del nuevo lote"
             />
           </div>
         )}

@@ -4,12 +4,13 @@ import { X, Tag, Package, Layers, MonitorUp, MonitorOff, Edit, Barcode, ArrowUp,
 import ImagenLocal from "./ImagenLocal";
 import { precioVenta, type Producto } from "../../tipos/producto";
 import { useEstadoInventario } from "../../estado/estadoInventario";
-import { useEmisorPantallaCliente } from "../../hooks/usePantallaCliente";
+import type { MensajePantalla } from "../../hooks/usePantallaCliente";
 
 interface Props {
   abierto: boolean;
   producto: Producto | null;
   alCerrar: () => void;
+  enviarMensaje: (mensaje: MensajePantalla) => void;
   // Permisos y acciones opcionales para usarlo en Inventario
   puedeEditar?: boolean;
   puedeEliminar?: boolean;
@@ -21,18 +22,17 @@ interface Props {
 }
 
 export default function ModalDescripcionProducto({ 
-  abierto, producto, alCerrar, 
+  abierto, producto, alCerrar, enviarMensaje,
   puedeEditar, puedeEliminar, puedeAjustarStock, 
   alEditar, alEliminar, alAjustarStock, alVerCodigoBarras 
 }: Props) {
   const { categorias } = useEstadoInventario();
-  const { enviarMensaje } = useEmisorPantallaCliente();
-  const [mostrandoEnPantallaCliente, setMostrandoEnPantallaCliente] = useState(false);
+  const [productoEnPantallaClienteId, setProductoEnPantallaClienteId] = useState<string | null>(null);
+  const mostrandoEnPantallaCliente = productoEnPantallaClienteId === producto?.id;
 
   useEffect(() => {
-    setMostrandoEnPantallaCliente(false);
     enviarMensaje({ tipo: "QUITAR_PRODUCTO_CLIENTE" });
-  }, [producto?.id]);
+  }, [enviarMensaje, producto?.id]);
 
   if (!abierto || !producto) return null;
 
@@ -41,19 +41,19 @@ export default function ModalDescripcionProducto({
 
   const cerrar = () => {
     enviarMensaje({ tipo: "QUITAR_PRODUCTO_CLIENTE" });
-    setMostrandoEnPantallaCliente(false);
+    setProductoEnPantallaClienteId(null);
     alCerrar();
   };
 
   const alternarPantallaCliente = () => {
     if (mostrandoEnPantallaCliente) {
       enviarMensaje({ tipo: "QUITAR_PRODUCTO_CLIENTE" });
-      setMostrandoEnPantallaCliente(false);
+      setProductoEnPantallaClienteId(null);
       return;
     }
 
     enviarMensaje({ tipo: "MOSTRAR_PRODUCTO_CLIENTE", producto });
-    setMostrandoEnPantallaCliente(true);
+    setProductoEnPantallaClienteId(producto.id);
   };
 
   return (
@@ -71,7 +71,7 @@ export default function ModalDescripcionProducto({
 
         <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-[170px,1fr]">
           <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950/50 p-2">
-            <ImagenLocal nombreArchivo={producto.imagen_url} nombreProducto={producto.nombre} className="h-36 w-full rounded-xl object-cover" />
+            <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-36 w-full rounded-xl object-cover" />
           </div>
           <div className="flex flex-col">
             <div className="flex items-start justify-between gap-3">

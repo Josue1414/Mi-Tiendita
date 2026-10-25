@@ -8,6 +8,7 @@ import { Shield, Briefcase, ChevronDown, CalendarDays, Power, Trash2, ShieldChec
 import { cn } from "../../utilidades/utils";
 import ModalConfirmacionPin from "../ui/ModalConfirmacionPin";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
+import CampoFecha from "../ui/CampoFecha";
 
 export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajador }) {
   const { actualizarTrabajador, trabajadorActivo, eliminarTrabajador } = useEstadoTrabajadores();
@@ -197,7 +198,7 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5">Fecha de Ingreso</label>
-                    <input type="date" readOnly={!puedeEditarInfoGeneral} value={formLocal.fechaIngreso || ""} onChange={(e) => manejarCambio("fechaIngreso", e.target.value)} className={cssInput} disabled={!puedeEditarInfoGeneral} />
+                    <CampoFecha readOnly={!puedeEditarInfoGeneral} value={formLocal.fechaIngreso || ""} onChange={(fecha) => manejarCambio("fechaIngreso", fecha)} className={cssInput} disabled={!puedeEditarInfoGeneral} aria-label="Fecha de ingreso del trabajador" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between">

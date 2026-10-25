@@ -30,7 +30,7 @@ export default function PanelEscaner({ producto }: Props) {
     <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm min-h-[400px]">
       <div className="h-48 md:h-64 bg-slate-100 dark:bg-slate-800 relative flex justify-center items-center p-4">
         <ImagenLocal
-          nombreArchivo={producto.imagen_url}
+          nombreArchivo={producto.imagen_url || producto.imagen_archivo}
           nombreProducto={producto.nombre}
           className="w-full h-full object-contain drop-shadow-xl"
         />

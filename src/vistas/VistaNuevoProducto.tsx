@@ -1,5 +1,6 @@
 // src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock, CalendarDays, Check, CircleHelp } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
@@ -11,10 +12,13 @@ import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, imprimir
 import { colorConAlpha } from "../utilidades/coloresCategoria";
 import ModalCategoria from "../componentes/ui/ModalCategoria";
 import ModalAviso from "../componentes/ui/ModalAviso";
+import CampoFecha from "../componentes/ui/CampoFecha";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
 import { ajustarLotes, estadoCaducidad } from "../utilidades/lotes";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
+import { guardarImagenLocal, obtenerUrlImagenLocal } from "../servicios/baseDatosLocal";
 
 export default function VistaNuevoProducto() {
   const { productos, categorias, agregarProducto, actualizarProducto, agregarCategoria } = useEstadoInventario();
@@ -63,6 +67,7 @@ export default function VistaNuevoProducto() {
   const [modalCategoria, setModalCategoria] = useState(false);
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previewImagen, setPreviewImagen] = useState<string | null>(null);
+  const [imagenEliminada, setImagenEliminada] = useState(false);
   
   // NUEVO: Estado consolidado para alertas personalizadas
   const [avisoGenerico, setAvisoGenerico] = useState<{ titulo: string; mensaje: string } | null>(null);
@@ -71,6 +76,14 @@ export default function VistaNuevoProducto() {
   
   const cerrarEscanerCamara = useCallback(() => setEscanerCamaraAbierto(false), []);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
+  const inputCamaraRef = useRef<HTMLInputElement>(null);
+  const inputGaleriaRef = useRef<HTMLInputElement>(null);
+  const urlImagenTemporalRef = useRef<string | null>(null);
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+
+  useEffect(() => () => {
+    if (urlImagenTemporalRef.current) URL.revokeObjectURL(urlImagenTemporalRef.current);
+  }, []);
 
   useEffect(() => {
     if (!productoExistente) return;
@@ -91,7 +104,33 @@ export default function VistaNuevoProducto() {
     setRequiereAutorizacion(productoExistente.requiere_autorizacion ?? false);
     setMensajeAutorizacion(productoExistente.mensaje_autorizacion || "Se requiere receta o autorización para vender este producto.");
     setPermiteFotoAutorizacion(productoExistente.permite_foto_autorizacion ?? false);
-    setPreviewImagen(productoExistente.imagen_url || null);
+    setArchivoImagen(null);
+    setImagenEliminada(false);
+    if (productoExistente.imagen_url?.startsWith("data:image/")) {
+      setPreviewImagen(productoExistente.imagen_url);
+      return;
+    }
+
+    let cancelado = false;
+    let urlLocal: string | null = null;
+    setPreviewImagen(null);
+    if (productoExistente.imagen_archivo) {
+      void obtenerUrlImagenLocal(productoExistente.imagen_archivo).then((url) => {
+        if (cancelado) {
+          if (url) URL.revokeObjectURL(url);
+          return;
+        }
+        urlLocal = url;
+        setPreviewImagen(url);
+      }).catch((error: unknown) => {
+        console.error("No se pudo cargar la imagen local del producto:", error);
+      });
+    }
+
+    return () => {
+      cancelado = true;
+      if (urlLocal) URL.revokeObjectURL(urlLocal);
+    };
   }, [productoExistente]);
 
   const generarCodigo = (formato: "EAN13" | "CORTO" | "NUMERICO") => {
@@ -119,16 +158,26 @@ export default function VistaNuevoProducto() {
     if (!puedeEditar) return;
     const file = e.target.files?.[0];
     if (file) {
+      if (urlImagenTemporalRef.current) URL.revokeObjectURL(urlImagenTemporalRef.current);
+      const preview = URL.createObjectURL(file);
+      urlImagenTemporalRef.current = preview;
       setArchivoImagen(file);
-      setPreviewImagen(URL.createObjectURL(file));
+      setPreviewImagen(preview);
+      setImagenEliminada(false);
     }
+    e.target.value = "";
   };
 
   const removerImagen = () => {
     if (!puedeEditar) return;
+    if (urlImagenTemporalRef.current) URL.revokeObjectURL(urlImagenTemporalRef.current);
+    urlImagenTemporalRef.current = null;
     setArchivoImagen(null);
     setPreviewImagen(null);
+    setImagenEliminada(true);
     if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+    if (inputCamaraRef.current) inputCamaraRef.current.value = "";
+    if (inputGaleriaRef.current) inputGaleriaRef.current.value = "";
   };
 
   const guardarCaducidadLote = async (loteId: string) => {
@@ -179,10 +228,14 @@ export default function VistaNuevoProducto() {
       return;
     }
 
+    const productoId = productoExistente?.id ?? crearIdentificadorUnico();
     let imagenBase64 = productoExistente?.imagen_url;
+    let imagenArchivo = productoExistente?.imagen_archivo;
     if (archivoImagen && puedeEditar) {
       try {
         imagenBase64 = await convertirABase64(archivoImagen);
+        imagenArchivo = `${productoId}__${archivoImagen.name}`;
+        await guardarImagenLocal(imagenArchivo, archivoImagen);
       } catch {
         setAvisoGenerico({
           titulo: "Error de Imagen",
@@ -190,8 +243,9 @@ export default function VistaNuevoProducto() {
         });
         return;
       }
-    } else if (!previewImagen && puedeEditar) {
+    } else if (imagenEliminada && puedeEditar) {
       imagenBase64 = undefined;
+      imagenArchivo = undefined;
     }
 
     const cantidadAgregada = editando ? cantidadNuevoLote : stockActual;
@@ -207,7 +261,7 @@ export default function VistaNuevoProducto() {
       });
 
     const producto: Producto = {
-      id: productoExistente?.id ?? crypto.randomUUID(),
+      id: productoId,
       nombre: puedeEditar ? nombre : productoExistente?.nombre || "",
       codigo_barras: codigo,
       descripcion: puedeEditar ? descripcion : productoExistente?.descripcion || "",
@@ -224,6 +278,7 @@ export default function VistaNuevoProducto() {
       descuento_porcentaje: puedeEditarPrecio ? Math.max(0, Math.min(100, descuento)) : (productoExistente?.descuento_porcentaje ?? 0),
       activo: true,
       imagen_url: imagenBase64,
+      imagen_archivo: imagenArchivo,
       requiere_autorizacion: puedeEditar ? requiereAutorizacion : (productoExistente?.requiere_autorizacion ?? false),
       mensaje_autorizacion: puedeEditar ? mensajeAutorizacion.trim() : (productoExistente?.mensaje_autorizacion || ""),
       permite_foto_autorizacion: puedeEditar ? (requiereAutorizacion && permiteFotoAutorizacion) : (productoExistente?.permite_foto_autorizacion ?? false),
@@ -396,7 +451,7 @@ export default function VistaNuevoProducto() {
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">{editando ? "Cantidad actual" : "Cantidad inicial"}</label>
                 {editando ? (
-                  <div className={cn(campo, "font-bold")}>{productoExistente?.stock_actual ?? 0} {unidad.toLowerCase()}</div>
+                  <div className={cn(campo, "font-bold")}>{productoExistente?.stock_actual ?? 0}</div>
                 ) : (
                   <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
                 )}
@@ -406,7 +461,7 @@ export default function VistaNuevoProducto() {
                 <input type="number" min="0" disabled={!puedeEditar} placeholder="0" value={stockMinimo === 0 ? "" : stockMinimo} onChange={(e) => setStockMinimo(e.target.value ? Number(e.target.value) : 0)} className={campo} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Paquete {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Contiene: {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
                 <input type="text" disabled={!puedeEditar} value={paquete} onChange={(e) => setPaquete(e.target.value)} className={campo} placeholder="Ej: 1 kg" />
               </div>
             </div>
@@ -450,11 +505,11 @@ export default function VistaNuevoProducto() {
                   <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                     <CalendarDays size={13} /> Caducidad del stock que agregas (opcional)
                   </label>
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={fechaCaducidadNuevoLote}
-                    onChange={(evento) => setFechaCaducidadNuevoLote(evento.target.value)}
+                    onChange={setFechaCaducidadNuevoLote}
                     className={campo}
+                    aria-label="Fecha de caducidad del stock agregado"
                   />
                   </div>
                 )}
@@ -507,11 +562,10 @@ export default function VistaNuevoProducto() {
                       </div>
                       {loteCaducidadEditando === lote.id ? (
                         <div className="flex items-center gap-1.5">
-                          <input
+                          <CampoFecha
                             aria-label="Corregir fecha de caducidad"
-                            type="date"
                             value={fechaCaducidadEditada}
-                            onChange={(evento) => setFechaCaducidadEditada(evento.target.value)}
+                            onChange={setFechaCaducidadEditada}
                             className={cn(campo, "w-auto")}
                           />
                           <button type="button" onClick={() => void guardarCaducidadLote(lote.id)} aria-label="Guardar fecha" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"><Check size={15} /></button>
@@ -545,8 +599,13 @@ export default function VistaNuevoProducto() {
               <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value as Producto["unidad"])} className={campo}>
                 <option value="PIEZA">Pieza</option>
                 <option value="KG">Kilogramos</option>
+                <option value="GRAMO">Gramos</option>
                 <option value="LITRO">Litros</option>
+                <option value="MILILITRO">Mililitros</option>
+                <option value="MILIGRAMO">Miligramos</option>
                 <option value="PAQUETE">Paquete</option>
+                <option value="SOBRE">Sobre</option>
+                <option value="DOCENA">Docena</option>
               </select>
             </div>
           </div>
@@ -558,22 +617,36 @@ export default function VistaNuevoProducto() {
               Imagen {!puedeEditar && <Lock size={14} className="text-slate-400" />}
             </h2>
             <input type="file" disabled={!puedeEditar} accept="image/png, image/jpeg, image/webp" className="hidden" ref={inputArchivoRef} onChange={manejarSeleccionImagen} />
+            {esAndroid && (
+              <input type="file" disabled={!puedeEditar} accept="image/*" capture="environment" className="hidden" ref={inputCamaraRef} onChange={manejarSeleccionImagen} />
+            )}
+            <input type="file" disabled={!puedeEditar} accept="image/png, image/jpeg, image/webp" className="hidden" ref={inputGaleriaRef} onChange={manejarSeleccionImagen} />
             {previewImagen ? (
-              <div className="relative w-full h-28 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 group">
+              <div className="relative w-full h-28 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
                 <img src={previewImagen} alt="Vista previa" className="w-full h-full object-cover" />
-                {puedeEditar && (
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <button type="button" onClick={removerImagen} className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors">
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
-              <button type="button" disabled={!puedeEditar} onClick={() => inputArchivoRef.current?.click()} className="w-full h-24 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-emerald-600 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 text-xs transition-colors disabled:hover:bg-transparent disabled:hover:border-slate-200 dark:disabled:hover:border-slate-700 disabled:hover:text-slate-400 disabled:cursor-not-allowed">
+              <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-1 text-slate-400 text-xs">
                 <ImagePlus size={18} />
-                Subir foto
-              </button>
+                Agrega una foto del producto
+              </div>
+            )}
+            {puedeEditar && (
+              <div className="flex flex-wrap gap-2">
+                {esAndroid && (
+                  <button type="button" onClick={() => inputCamaraRef.current?.click()} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/20">
+                    <Camera size={14} /> Tomar foto
+                  </button>
+                )}
+                <button type="button" onClick={() => (esAndroid ? inputGaleriaRef.current : inputArchivoRef.current)?.click()} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">
+                  <ImagePlus size={14} /> {esAndroid ? "Elegir de galería" : previewImagen ? "Cambiar imagen" : "Elegir imagen"}
+                </button>
+                {previewImagen && (
+                  <button type="button" onClick={removerImagen} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-900/20">
+                    <X size={14} /> Quitar
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

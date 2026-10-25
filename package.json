@@ -1,7 +1,7 @@
 {
   "name": "AhorraTiempo-mitienda",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -22,6 +22,7 @@
     "@supabase/supabase-js": "^2.112.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/qrcode": "^1.5.6",
+    "barcode-detector": "^3.2.3",
     "clsx": "^2.1.1",
     "cordova-plugin-serial": "^0.0.3",
     "electron-updater": "^6.8.9",

@@ -5,6 +5,7 @@ import { Users, UserPlus } from "lucide-react";
 import TarjetaTrabajador from "../componentes/equipo/TarjetaTrabajador";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoPlan } from "../estado/estadoPlan"; 
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 export default function VistaEquipo() {
   const { trabajadores, trabajadorActivo, agregarTrabajador } = useEstadoTrabajadores();
@@ -33,7 +34,7 @@ export default function VistaEquipo() {
 
     try {
       await agregarTrabajador({
-        id: crypto.randomUUID(),
+        id: crearIdentificadorUnico(),
         nombre,
         rol,
         pin,

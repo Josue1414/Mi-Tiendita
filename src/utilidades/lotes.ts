@@ -1,4 +1,5 @@
 import type { LoteProducto } from "../tipos/producto";
+import { crearIdentificadorUnico } from "./identificador";
 
 export const DIAS_ALERTA_CADUCIDAD = 7;
 
@@ -44,7 +45,7 @@ export function ajustarLotes(
 ): LoteProducto[] {
   if (ajuste > 0) {
     const nuevoLote: LoteProducto = {
-      id: crypto.randomUUID(),
+      id: crearIdentificadorUnico(),
       cantidad: ajuste,
       fecha_ingreso: new Date().toISOString().slice(0, 10),
       agregado_por: opciones.agregadoPor,
