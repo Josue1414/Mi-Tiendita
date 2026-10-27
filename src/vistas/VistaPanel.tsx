@@ -10,6 +10,7 @@ import {
 import { cn } from "../utilidades/utils";
 import { useState } from "react";
 import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
+import VistaFacturacion from "./VistaFacturacion";
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
@@ -354,6 +355,8 @@ export default function VistaPanel({
           </div>
         </div>
       </div>
+
+      <VistaFacturacion integrada />
     </div>
   );
 }

@@ -46,28 +46,31 @@ export function useEmisorPantallaCliente(
     let socket: Socket | null = null;
     let listenerClienteAndroid: PluginListenerHandle | null = null;
     let cancelado = false;
-    if (esAndroid) {
-      const peer = new Peer(crearIdPeer(nombreCajaLocal));
-      peerRef.current = peer;
-      peer.on("error", (error) => {
-        console.error("Error en la conexión P2P de pantalla cliente:", error);
-      });
-      peer.on("connection", (conexion) => {
-        conexionesPeerRef.current.push(conexion);
-        conexion.on("open", () => {
-          setClientesConectados((actual) => actual + 1);
-          const mensajePendiente = mensajePendienteRef.current;
-          if (mensajePendiente) {
-            conexion.send(mensajePendiente);
-            mensajePendienteRef.current = null;
-          }
-        });
-        conexion.on("close", () => {
-          conexionesPeerRef.current = conexionesPeerRef.current.filter((actual) => actual !== conexion);
-          setClientesConectados((actual) => Math.max(0, actual - 1));
-        });
-      });
 
+    // 1. INICIALIZAR PEERJS (P2P QR) SIEMPRE, EN TODAS LAS PLATAFORMAS (Corrige tu error de conexión)
+    const peer = new Peer(crearIdPeer(nombreCajaLocal));
+    peerRef.current = peer;
+    peer.on("error", (error) => {
+      console.error("Error en la conexión P2P de pantalla cliente:", error);
+    });
+    peer.on("connection", (conexion) => {
+      conexionesPeerRef.current.push(conexion);
+      conexion.on("open", () => {
+        setClientesConectados((actual) => actual + 1);
+        const mensajePendiente = mensajePendienteRef.current;
+        if (mensajePendiente) {
+          conexion.send(mensajePendiente);
+          mensajePendienteRef.current = null;
+        }
+      });
+      conexion.on("close", () => {
+        conexionesPeerRef.current = conexionesPeerRef.current.filter((actual) => actual !== conexion);
+        setClientesConectados((actual) => Math.max(0, actual - 1));
+      });
+    });
+
+    // 2. LISTENER DE LAN EXCLUSIVO PARA ANDROID
+    if (esAndroid) {
       androidLan.addListener("customerDisplayConnected", (data) => {
         if (data.cajaId === nombreCajaLocal) setClientesConectados((actual) => actual + 1);
       }).then((listener) => {
@@ -77,10 +80,12 @@ export function useEmisorPantallaCliente(
         console.error("No se pudo escuchar las conexiones LAN de pantalla cliente:", error);
       });
     }
+
+    // 3. CONEXIÓN SOCKET.IO (LAN LOCAL)
     const hostMaestro = esMaestro ? "localhost" : ipMaestro || "localhost";
     socket = io(`http://${hostMaestro}:4000`, {
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5, // <-- Soluciona el "spam" de errores rojos en consola web
       reconnectionDelay: 2000,
       timeout: 10000,
     });
@@ -105,16 +110,17 @@ export function useEmisorPantallaCliente(
   }, [esAndroid, esMaestro, ipMaestro, nombreCajaLocal]);
 
   const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
+    // 1. Misma PC (Electron/Ventanas locales)
     const bc = new BroadcastChannel(CANAL);
     bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
     bc.close();
 
-    if (esAndroid) {
-      const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
-      conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
-      mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
-    }
+    // 2. P2P QR (Internet) - AHORA SE ENVÍA SIEMPRE Y NO SOLO EN ANDROID
+    const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
+    conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
+    mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
 
+    // 3. LAN (Socket.io)
     const socket = socketRef.current;
     if (socket?.connected) {
       socket.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
@@ -122,7 +128,7 @@ export function useEmisorPantallaCliente(
     } else {
       mensajePendienteSocketRef.current = mensaje;
     }
-  }, [esAndroid, nombreCajaLocal]);
+  }, [nombreCajaLocal]);
   
   return { enviarMensaje, clientesConectados };
 }
@@ -134,10 +140,9 @@ export function useReceptorPantallaCliente() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const cajaObjetivo = params.get("cliente"); // Obtiene el nombre de la caja desde la URL
+    const cajaObjetivo = params.get("cliente"); 
 
     const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
-      // Filtrado único: Si la URL tiene un nombre específico y no coincide con el emisor, ignorar.
       if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
       
       if (msj.tipo === "ACTUALIZAR_CARRITO") {
@@ -168,7 +173,7 @@ export function useReceptorPantallaCliente() {
     bc.onmessage = (event) => {
       const data = event.data;
       if (data.payload) procesarMensaje(data.cajaId, data.payload);
-      else procesarMensaje("Local", data); // Retrocompatibilidad
+      else procesarMensaje("Local", data); 
     };
 
     const peerObjetivo = params.get("peer");
@@ -177,6 +182,7 @@ export function useReceptorPantallaCliente() {
       || params.has("lanPort")
       || window.location.port === "4000"
       || window.location.port === "4001";
+      
     let peerCliente: Peer | null = null;
     if (peerObjetivo && !usaConexionLAN) {
       peerCliente = new Peer();
@@ -201,7 +207,7 @@ export function useReceptorPantallaCliente() {
         || "localhost";
       socket = io(`http://${host}:4000`, {
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5, // <-- Evita el spam infinito en consola
         reconnectionDelay: 2000,
         timeout: 10000,
       });

@@ -28,7 +28,6 @@ export default function VistaPantallaCliente() {
 
   // SOLUCIÓN: Obtenemos el nombre de la tienda extraído de los parámetros del link
   const params = new URLSearchParams(window.location.search);
-  const esConexionRemota = params.has("cliente");
   const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
 
   useEffect(() => {
@@ -141,15 +140,13 @@ export default function VistaPantallaCliente() {
               {esPantallaCompleta ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
 
-            {!esConexionRemota && (
-              <button
-                onClick={() => setModalQRAbierto(true)}
-                aria-label="Mostrar QR para conectar tablet"
-                className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
-              >
-                <QrCode size={18} />
-              </button>
-            )}
+            <button
+              onClick={() => setModalQRAbierto(true)}
+              aria-label="Mostrar QR para conectar tablet"
+              className={`rounded-lg p-2 transition-colors ${temaClaro ? "text-slate-500 hover:bg-slate-100" : "text-white/70 hover:text-white hover:bg-white/10"}`}
+            >
+              <QrCode size={18} />
+            </button>
             <button
               onClick={() => setOpcionesAbiertas((abierto) => !abierto)}
               aria-label="Opciones de pantalla"

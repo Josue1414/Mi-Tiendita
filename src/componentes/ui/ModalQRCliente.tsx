@@ -40,7 +40,7 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
       setBaseUrl("");
       setErrorConexion("");
       try {
-        if (esAndroid && modoConexion === "internet") {
+        if (modoConexion === "internet") {
           if (!cancelado) setBaseUrl("https://mitienda.ahorratiempo.com.mx");
           return;
         }
@@ -108,10 +108,11 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
   const enlaceCliente = baseUrl
     ? (() => {
       const urlCliente = new URL(baseUrl);
-      if (esAndroid && modoConexion === "internet") urlCliente.searchParams.set("peer", idPeer);
-      if (urlCliente.protocol === "http:" && ["4000", "4001"].includes(urlCliente.port)) {
-        urlCliente.searchParams.set("lanHost", urlCliente.hostname);
-        urlCliente.searchParams.set("lanPort", urlCliente.port);
+      if (modoConexion === "internet") urlCliente.searchParams.set("peer", idPeer);
+      if (modoConexion === "local" && urlCliente.protocol === "http:") {
+        const puertoWeb = urlCliente.port || Number(localStorage.getItem("puerto_web_maestro_lan")) || "4000";
+        urlCliente.searchParams.set("lanHost", esMaestro ? urlCliente.hostname : ipMaestro || urlCliente.hostname);
+        urlCliente.searchParams.set("lanPort", String(puertoWeb));
       }
       urlCliente.searchParams.set("cliente", nombreCaja);
       urlCliente.searchParams.set("tienda", generarSlug(nombreTienda));
@@ -138,29 +139,29 @@ export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props)
         </div>
         
         <div className="p-5 flex flex-col items-center text-center gap-4">
-          {esAndroid && (
-            <div className="grid w-full grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-              <button
-                type="button"
-                onClick={() => seleccionarModoConexion("internet")}
-                aria-pressed={modoConexion === "internet"}
-                className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "internet" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
-              >
-                Internet · P2P
-              </button>
-              <button
-                type="button"
-                onClick={() => seleccionarModoConexion("local")}
-                aria-pressed={modoConexion === "local"}
-                className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "local" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
-              >
-                Wi-Fi local
-              </button>
-            </div>
-          )}
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => seleccionarModoConexion("internet")}
+              aria-pressed={modoConexion === "internet"}
+              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "internet" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
+            >
+              Internet · P2P
+            </button>
+            <button
+              type="button"
+              onClick={() => seleccionarModoConexion("local")}
+              aria-pressed={modoConexion === "local"}
+              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "local" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
+            >
+              Wi-Fi local
+            </button>
+          </div>
 
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Escanea este código desde un dispositivo conectado a la misma Wi-Fi para mostrar las ventas de <strong>{nombreCaja}</strong> al instante.
+            {modoConexion === "internet"
+              ? <>Escanea este código para conectar una pantalla cliente por Internet mediante P2P y mostrar las ventas de <strong>{nombreCaja}</strong>.</>
+              : <>Escanea este código desde un dispositivo conectado a la misma Wi-Fi para mostrar las ventas de <strong>{nombreCaja}</strong> al instante.</>}
           </p>
 
           {enlaceCliente ? (

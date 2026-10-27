@@ -1,11 +1,10 @@
+// src/estado/estadoTrabajadores.ts
 import { create } from "zustand";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { cifrarPin, descifrarPin } from "../utilidades/seguridad";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
-import { useEstadoPlan } from "./estadoPlan"; // <-- NUEVA IMPORTACIÓN
+import { useEstadoPlan } from "./estadoPlan"; 
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
-
-const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
 export type RolTrabajador = "DUENO" | "SUPERVISOR" | "TRABAJADOR";
 
@@ -21,8 +20,7 @@ export interface PermisosTrabajador {
   permisoFiados?: boolean;
 }
 
-const obtenerClavePermisosFiados = () =>
-  "permisos_fiados_trabajadores";
+const obtenerClavePermisosFiados = () => "permisos_fiados_trabajadores";
 
 const leerPermisosFiadosLocales = (): Record<string, boolean> => {
   try {
@@ -40,8 +38,7 @@ const guardarPermisoFiadosLocal = (trabajadorId: string, permitido: boolean) => 
   localStorage.setItem(obtenerClavePermisosFiados(), JSON.stringify(permisos));
 };
 
-const obtenerPermisoFiadosLocal = (trabajadorId: string) =>
-  leerPermisosFiadosLocales()[trabajadorId];
+const obtenerPermisoFiadosLocal = (trabajadorId: string) => leerPermisosFiadosLocales()[trabajadorId];
 
 const obtenerPermisosSinFiados = (permisos?: PermisosTrabajador) => {
   if (!permisos) return permisos;
@@ -114,10 +111,8 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   cargarTrabajadores: async () => {
     set({ cargando: true });
     try {
-      let estadoTrabajadores: Trabajador[] = [];
-
       const permiteSincronizar = debeSincronizarConNube();
-      const tiendaId = permiteSincronizar ? await obtenerTiendaIdActual() : null;
+      const tiendaId = permiteSincronizar ? await obtenerTiendaIdActual() : localStorage.getItem("tienda_id");
 
       if (permiteSincronizar && navigator.onLine && tiendaId) {
         const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
@@ -138,19 +133,14 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
             horarioSemanal: m.horario
           }));
 
-          if (esEscritorio) {
-            const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
-            const tLocal = await obtenerRegistros("trabajadores");
+          const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
+          const tLocal = await obtenerRegistros("trabajadores");
 
-            for (const t of tLocal) {
-              if (!idsNube.has(t.id)) {
-                await eliminarRegistro("trabajadores", t.id);
-              }
-            }
-
-            for (const t of trabajadoresNube) {
-              await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
-            }
+          for (const t of tLocal) {
+            if (!idsNube.has(t.id)) await eliminarRegistro("trabajadores", t.id);
+          }
+          for (const t of trabajadoresNube) {
+            await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
           }
 
           set({ trabajadores: trabajadoresNube, cargando: false });
@@ -158,23 +148,19 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         }
       }
 
-      if (esEscritorio) {
-        const data = await obtenerRegistros("trabajadores");
-        if (data.length === 0) {
-          for (const t of TRABAJADORES_INICIALES) {
-            const tCifrado = { ...t, pin: cifrarPin(t.pin) };
-            await guardarRegistro("trabajadores", tCifrado);
-          }
-          estadoTrabajadores = TRABAJADORES_INICIALES;
-        } else {
-          estadoTrabajadores = (data as Trabajador[]).map((t) => ({ ...t, pin: descifrarPin(t.pin) }));
+      const data = await obtenerRegistros("trabajadores");
+      let estadoTrabajadores: Trabajador[] = [];
+      
+      if (data.length === 0) {
+        for (const t of TRABAJADORES_INICIALES) {
+          await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
         }
-        set({ trabajadores: estadoTrabajadores, cargando: false });
-      } else if (!navigator.onLine) {
-        set({ cargando: false });
+        estadoTrabajadores = TRABAJADORES_INICIALES;
       } else {
-        set({ cargando: false });
+        estadoTrabajadores = (data as Trabajador[]).map((t) => ({ ...t, pin: descifrarPin(t.pin) }));
       }
+      
+      set({ trabajadores: estadoTrabajadores, cargando: false });
     } catch (error) {
       console.error("Error al cargar trabajadores:", error);
       set({ cargando: false });
@@ -194,16 +180,14 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   
   agregarTrabajador: async (trabajador, propagado = false) => {
     try {
-      // <-- LÓGICA DINÁMICA DE LÍMITE DE PLAN AQUÍ -->
       const maxUsuarios = useEstadoPlan.getState().maxUsuarios;
-      
       if (get().trabajadores.length >= maxUsuarios) {
         throw new Error(`Límite máximo de ${maxUsuarios} usuarios alcanzado para tu plan actual.`);
       }
       
       await guardarRegistro("trabajadores", {
         ...trabajador,
-        pin: esEscritorio ? cifrarPin(trabajador.pin) : trabajador.pin
+        pin: cifrarPin(trabajador.pin)
       });
       guardarPermisoFiadosLocal(trabajador.id, trabajador.permisos?.permisoFiados ?? false);
       set((estado) => ({ trabajadores: [...estado.trabajadores, trabajador] }));
@@ -218,26 +202,30 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
       });
       if (enviadoLAN) return;
 
-      if (debeSincronizarConNube() && navigator.onLine) {
+      if (debeSincronizarConNube()) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('miembros_tienda').insert({
+          const payloadNube = {
             tienda_id: tiendaId,
             usuario_id: trabajador.id,
             rol: trabajador.rol,
             nombre: trabajador.nombre,
             pin_hash: cifrarPin(trabajador.pin),
             activo: trabajador.activo,
-            horario: trabajador.horarioSemanal,
+            horario: trabajador.horarioSemanal, // Aseguramos enviar como "horario" para Supabase
             permisos: obtenerPermisosSinFiados(trabajador.permisos)
-          });
+          };
+
+          if (navigator.onLine) {
+            await supabase.from('miembros_tienda').insert(payloadNube);
+          } else {
+            await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'AGREGAR', payload: payloadNube });
+          }
         }
-      } else if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'AGREGAR', payload: trabajadorSinPermisoFiados });
       }
     } catch (error) {
       console.error("Error al agregar trabajador:", error);
-      throw error; // Lanzamos el error para que la UI (VistaEquipo) pueda capturarlo y mostrarlo
+      throw error;
     }
   },
 
@@ -248,35 +236,43 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
         trabajadores: estado.trabajadores.map((actual) => actual.id === trabajador.id ? trabajador : actual),
         trabajadorActivo: estado.trabajadorActivo?.id === trabajador.id ? trabajador : estado.trabajadorActivo
       }));
+      
       await guardarRegistro("trabajadores", {
         ...trabajador,
-        pin: esEscritorio ? cifrarPin(trabajador.pin) : trabajador.pin
+        pin: cifrarPin(trabajador.pin)
       });
 
       const trabajadorSinPermisoFiados = {
         ...trabajador,
         permisos: obtenerPermisosSinFiados(trabajador.permisos)
       };
+      
       const enviadoLAN = !propagado && enviarAccionLAN({
         tipo: "LAN_TRABAJADOR_ACTUALIZAR",
         payload: trabajadorSinPermisoFiados
       });
+      
       if (enviadoLAN) return;
 
-      if (debeSincronizarConNube() && navigator.onLine) {
+      if (debeSincronizarConNube() && !propagado) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('miembros_tienda').update({
+          const payloadNube = {
             rol: trabajador.rol,
             nombre: trabajador.nombre,
             pin_hash: cifrarPin(trabajador.pin),
             activo: trabajador.activo,
-            horario: trabajador.horarioSemanal,
+            horario: trabajador.horarioSemanal, // Aseguramos enviar como "horario" para Supabase
             permisos: obtenerPermisosSinFiados(trabajador.permisos)
-          }).eq('tienda_id', tiendaId).eq('usuario_id', trabajador.id);
+          };
+
+          if (navigator.onLine) {
+            await supabase.from('miembros_tienda').update(payloadNube)
+              .eq('tienda_id', tiendaId).eq('usuario_id', trabajador.id);
+          } else {
+            await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ACTUALIZAR', payload: payloadNube });
+          }
         }
-      } else if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ACTUALIZAR', payload: trabajadorSinPermisoFiados });
       }
     } catch (error) {
       console.error("Error al actualizar trabajador:", error);
@@ -294,13 +290,15 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
       const enviadoLAN = !propagado && enviarAccionLAN({ tipo: "LAN_TRABAJADOR_ELIMINAR", payload: id });
       if (enviadoLAN) return;
 
-      if (debeSincronizarConNube() && navigator.onLine) {
+      if (debeSincronizarConNube() && !propagado) {
         const tiendaId = await obtenerTiendaIdActual();
         if (tiendaId) {
-          await supabase.from('miembros_tienda').delete().eq('tienda_id', tiendaId).eq('usuario_id', id);
+          if (navigator.onLine) {
+            await supabase.from('miembros_tienda').delete().eq('tienda_id', tiendaId).eq('usuario_id', id);
+          } else {
+            await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ELIMINAR', payload: id });
+          }
         }
-      } else if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'miembros_tienda', operacion: 'ELIMINAR', payload: id });
       }
     } catch (error) {
       console.error("Error al eliminar trabajador:", error);
@@ -311,6 +309,7 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     if (tipo === "LAN_TRABAJADOR_AGREGAR" || tipo === "LAN_TRABAJADOR_ACTUALIZAR") {
       const trabajadorRecibido = payload as Trabajador;
       if (!trabajadorRecibido?.id) return;
+      
       const trabajador: Trabajador = {
         ...trabajadorRecibido,
         permisos: {
@@ -319,20 +318,14 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           eliminarProductos: trabajadorRecibido.permisos?.eliminarProductos ?? false,
           actualizarStockCodigo: trabajadorRecibido.permisos?.actualizarStockCodigo ?? false,
           permisoFiados: obtenerPermisoFiadosLocal(trabajadorRecibido.id) ?? false
-        }
+        },
+        horarioSemanal: trabajadorRecibido.horarioSemanal // Aseguramos integrar explícitamente el horario del payload
       };
-      if (tipo === "LAN_TRABAJADOR_AGREGAR") {
-        if (get().trabajadores.some((actual) => actual.id === trabajador.id)) {
-          await get().actualizarTrabajador(trabajador, true);
-        } else {
-          await get().agregarTrabajador(trabajador, true);
-        }
+      
+      if (get().trabajadores.some((actual) => actual.id === trabajador.id)) {
+        await get().actualizarTrabajador(trabajador, true);
       } else {
-        if (get().trabajadores.some((actual) => actual.id === trabajador.id)) {
-          await get().actualizarTrabajador(trabajador, true);
-        } else {
-          await get().agregarTrabajador(trabajador, true);
-        }
+        await get().agregarTrabajador(trabajador, true);
       }
       return;
     }
@@ -363,7 +356,7 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
     for (const trabajador of trabajadoresLAN) {
       await guardarRegistro("trabajadores", {
         ...trabajador,
-        pin: esEscritorio ? cifrarPin(trabajador.pin) : trabajador.pin
+        pin: cifrarPin(trabajador.pin)
       });
     }
 
@@ -398,12 +391,12 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           ...(nuevo.permisos || {}),
           permisoFiados: obtenerPermisoFiadosLocal(nuevo.usuario_id) ?? false
         },
-        horarioSemanal: nuevo.horario
+        horarioSemanal: nuevo.horario // Convertimos de BD al cliente
       };
 
       await guardarRegistro("trabajadores", {
         ...trabajadorMapeado,
-        pin: esEscritorio ? cifrarPin(trabajadorMapeado.pin) : trabajadorMapeado.pin
+        pin: cifrarPin(trabajadorMapeado.pin)
       });
 
       if (eventType === 'INSERT') {
@@ -416,6 +409,7 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           trabajadorActivo: trabajadorActivo?.id === trabajadorMapeado.id ? trabajadorMapeado : trabajadorActivo
         });
       }
+      
       const trabajadorLAN = {
         ...trabajadorMapeado,
         permisos: obtenerPermisosSinFiados(trabajadorMapeado.permisos)

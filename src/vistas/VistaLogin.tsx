@@ -53,7 +53,6 @@ export default function VistaLogin() {
   const [mostrarPassword, setMostrarPassword] = useState(false); 
   const [modoRecuperacion, setModoRecuperacion] = useState(false);
 
-  // NUEVOS ESTADOS PARA CAMBIO DE CONTRASEÑA
   const [modoActualizarPassword, setModoActualizarPassword] = useState(false);
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [confirmarPassword, setConfirmarPassword] = useState("");
@@ -81,7 +80,6 @@ export default function VistaLogin() {
   const criterioPasswordClass = (cumple: boolean) =>
     cumple ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500";
 
-  // ESCUCHA EVENTO DE RECUPERACIÓN DE SUPABASE
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -173,6 +171,7 @@ export default function VistaLogin() {
               }
               const registro = await registrarDispositivoActual(tienda);
               setNombrePC(registro.dispositivo.nombre_dispositivo);
+              
               setCuentaSaaSLogueada(true);
             }
           }
@@ -306,7 +305,6 @@ export default function VistaLogin() {
     }
   };
 
-  // FUNCIÓN PARA GUARDAR LA NUEVA CONTRASEÑA
   const manejarActualizarPassword = async (e?: React.SyntheticEvent) => {
     if (e) e.preventDefault();
     if (nuevaPassword.length < 8 || !/[A-Z]/.test(nuevaPassword) || !/[^A-Za-z0-9]/.test(nuevaPassword)) {
@@ -406,7 +404,13 @@ export default function VistaLogin() {
   };
 
   const manejarRegresoCuenta = async () => {
-    if (navigator.onLine) await supabase.auth.signOut();
+    if (!navigator.onLine) {
+      setErrorSaaS("No puedes desvincular el equipo de tu cuenta sin conexión a internet.");
+      alert("Por seguridad, necesitas conexión a internet para desvincular este equipo.");
+      return;
+    }
+    await supabase.auth.signOut();
+    localStorage.removeItem("tienda_id");
     setCuentaSaaSLogueada(false);
     window.location.reload(); 
   };
@@ -684,30 +688,34 @@ export default function VistaLogin() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Selecciona tu usuario</h2>
               <button onClick={manejarRegresoCuenta} className="text-xs font-semibold text-slate-500 hover:text-red-500 flex items-center gap-1 transition-colors">
-                <LogOut size={14} /> Cerrar Sesión
+                <LogOut size={14} /> Desvincular equipo
               </button>
             </div>
             
             <div className="flex flex-col gap-3">
-              {usuariosActivos.map((usuario) => (
-                <button key={usuario.id} onClick={() => setUsuarioSeleccionado(usuario)} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all text-left group bg-white dark:bg-slate-900 shadow-sm">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-inner transition-transform group-hover:scale-105", usuario.rol === "DUENO" ? "bg-purple-500" : usuario.rol === "SUPERVISOR" ? "bg-indigo-500" : "bg-blue-500")}>
-                    {usuario.nombre.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{usuario.nombre}</h3>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                      {usuario.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : usuario.rol === "SUPERVISOR" ? <ShieldCheck size={12} className="text-indigo-500" /> : <Briefcase size={12} className="text-blue-500" />}
-                      <span className={cn(usuario.rol === "DUENO" ? "text-purple-600 dark:text-purple-400" : usuario.rol === "SUPERVISOR" ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400")}>
-                        {usuario.rol === "DUENO" ? "Dueño" : usuario.rol === "SUPERVISOR" ? "Supervisor" : "Trabajador"}
-                      </span>
+              {usuariosActivos.length === 0 ? (
+                <p className="text-sm text-center text-slate-500 py-4">No hay trabajadores registrados. Por favor, conéctate a internet para sincronizar la información.</p>
+              ) : (
+                usuariosActivos.map((usuario) => (
+                  <button key={usuario.id} onClick={() => setUsuarioSeleccionado(usuario)} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all text-left group bg-white dark:bg-slate-900 shadow-sm">
+                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg shadow-inner transition-transform group-hover:scale-105", usuario.rol === "DUENO" ? "bg-purple-500" : usuario.rol === "SUPERVISOR" ? "bg-indigo-500" : "bg-blue-500")}>
+                      {usuario.nombre.substring(0, 2).toUpperCase()}
                     </div>
-                  </div>
-                  <div className="text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors">
-                    <ArrowLeft size={20} className="rotate-180" />
-                  </div>
-                </button>
-              ))}
+                    <div className="flex-1">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{usuario.nombre}</h3>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                        {usuario.rol === "DUENO" ? <Shield size={12} className="text-purple-500" /> : usuario.rol === "SUPERVISOR" ? <ShieldCheck size={12} className="text-indigo-500" /> : <Briefcase size={12} className="text-blue-500" />}
+                        <span className={cn(usuario.rol === "DUENO" ? "text-purple-600 dark:text-purple-400" : usuario.rol === "SUPERVISOR" ? "text-indigo-600 dark:text-indigo-400" : "text-blue-600 dark:text-blue-400")}>
+                          {usuario.rol === "DUENO" ? "Dueño" : usuario.rol === "SUPERVISOR" ? "Supervisor" : "Trabajador"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors">
+                      <ArrowLeft size={20} className="rotate-180" />
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         ) : (
@@ -753,6 +761,7 @@ export default function VistaLogin() {
         )}
       </div>
       <p className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-medium z-10 text-center">&copy; {new Date().getFullYear()} Mi Tienda Software. <br className="sm:hidden" /> Todos los derechos reservados.</p>
+      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.4.8</p>
     </div>
   );
 }
