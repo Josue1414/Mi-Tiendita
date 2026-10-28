@@ -196,11 +196,28 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   cargando: true,
 
   cargarConfiguracion: async () => {
-    set({ cargando: true });
     try {
+      const permiteNube = useEstadoPlan.getState().permiteNube;
+      const datosLocales = await obtenerRegistros("configuracion");
+      const configLocal = datosLocales[0] as Configuracion | undefined;
+      let estadoLocal = { ...CONFIG_INICIAL, ...(configLocal ?? {}) };
+      if (datosLocales.length === 0 && esEscritorio) {
+        await guardarRegistro("configuracion", CONFIG_INICIAL);
+      }
+      if (esEscritorio && !permiteNube) {
+        estadoLocal.sincronizacionNube = false;
+        await guardarRegistro("configuracion", estadoLocal);
+      }
+      const preferenciasFiados = leerPreferenciasFiados();
+      estadoLocal = {
+        ...estadoLocal,
+        habilitarFiados: preferenciasFiados.habilitarFiados ?? estadoLocal.habilitarFiados,
+        modoAccesoFiados: preferenciasFiados.modoAccesoFiados ?? estadoLocal.modoAccesoFiados
+      };
+      set({ ...estadoLocal, cargando: false });
+
       const sincronizacionNubePermitida = debeSincronizarConNube();
       const tiendaId = sincronizacionNubePermitida ? await obtenerTiendaIdActual() : null;
-      const permiteNube = useEstadoPlan.getState().permiteNube;
 
       if (sincronizacionNubePermitida && navigator.onLine && tiendaId) {
         const { data: tiendaNube, error: errorTiendaNube } = await supabase
@@ -208,11 +225,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           .select('*')
           .eq('id', tiendaId)
           .single();
+        if (!debeSincronizarConNube()) return;
         if (errorTiendaNube) throw errorTiendaNube;
 
         if (tiendaNube) {
-          const datosLocales = await obtenerRegistros("configuracion");
-          const configLocal = datosLocales[0] as Configuracion | undefined;
           const estadoActualizado: Configuracion = {
             ...CONFIG_INICIAL,
             nombreTienda: tiendaNube.nombre || CONFIG_INICIAL.nombreTienda,
@@ -281,29 +297,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         }
       }
 
-      let estadoLocal = { ...CONFIG_INICIAL };
-
-      const data = await obtenerRegistros("configuracion");
-      if (data.length === 0) {
-        if (esEscritorio) {
-          await guardarRegistro("configuracion", CONFIG_INICIAL);
-        }
-      } else {
-        estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
-        if (esEscritorio && !permiteNube) {
-            estadoLocal.sincronizacionNube = false;
-            await guardarRegistro("configuracion", estadoLocal);
-        }
-      }
-
-      const preferenciasFiados = leerPreferenciasFiados();
-      estadoLocal = {
-        ...estadoLocal,
-        habilitarFiados: preferenciasFiados.habilitarFiados ?? estadoLocal.habilitarFiados,
-        modoAccesoFiados: preferenciasFiados.modoAccesoFiados ?? estadoLocal.modoAccesoFiados
-      };
-
-      set({ ...estadoLocal, cargando: false });
+      set({ cargando: false });
     } catch (error) {
       console.error("Error al cargar configuracion:", error);
       set({ cargando: false });

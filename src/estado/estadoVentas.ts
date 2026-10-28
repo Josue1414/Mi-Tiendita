@@ -6,6 +6,7 @@ import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 import { useEstadoPlan } from "./estadoPlan";
+import { useEstadoRed } from "./estadoRed"; // NUEVO: Para saber si somos Cerebro o Esclavo
 
 interface VentaSupabase {
   id: string;
@@ -57,7 +58,7 @@ const mapearVentaDesdeSupabase = (v: VentaSupabase): Venta => ({
     nombre: d.nombre_producto,
     cantidad: d.cantidad,
     precio: d.precio_unitario,
-    costo: d.costo_unitario || 0, // NUEVO: Mapeo del costo unitario
+    costo: d.costo_unitario || 0,
     unidad: "PIEZA",
     subtotal: d.subtotal,
     autorizacion_confirmada: d.autorizacion_confirmada ?? undefined
@@ -117,6 +118,26 @@ const obtenerVentasFiadasLocales = async () => {
   return [...ventasFiadas.values()];
 };
 
+// NUEVO: Función que determina el límite de meses según el plan y si es esclavo
+const obtenerFechaCorteEsclavo = (): string | null => {
+  const { esMaestro } = useEstadoRed.getState();
+  // Si es Cerebro, no hay fecha de corte (lo guarda todo)
+  if (esMaestro) return null; 
+
+  const { planActivo } = useEstadoPlan.getState();
+  const fecha = new Date();
+  
+  if (planActivo === "BASICO") {
+    fecha.setMonth(fecha.getMonth() - 1); // Básico: 1 mes
+  } else if (planActivo === "ESTANDAR") {
+    fecha.setMonth(fecha.getMonth() - 3); // Estándar: 3 meses
+  } else {
+    fecha.setMonth(fecha.getMonth() - 6); // Plus: 6 meses
+  }
+  
+  return fecha.toISOString().slice(0, 10);
+};
+
 interface EstadoVentas {
   ventas: Venta[];
   cargando: boolean;
@@ -134,8 +155,31 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   cargando: true,
 
   cargarVentas: async () => {
-    set({ cargando: true });
+    set({ cargando: get().ventas.length === 0 });
     try {
+      const fechaCorte = obtenerFechaCorteEsclavo();
+      let datosLocales = await obtenerVentasLocales();
+      
+      // NUEVO: Limpieza automática de ventas viejas en esclavos al iniciar
+      if (fechaCorte) {
+        const aBorrar = datosLocales.filter(v => v.metodoPago !== "FIADO" && v.fecha.slice(0, 10) < fechaCorte);
+        for (const v of aBorrar) {
+          await eliminarRegistro("ventas", v.id);
+        }
+        // Actualizamos los datos locales dejando solo lo reciente
+        datosLocales = datosLocales.filter(v => v.metodoPago === "FIADO" || v.fecha.slice(0, 10) >= fechaCorte);
+      }
+
+      const ventasFiadasLocales = await obtenerVentasFiadasLocales();
+      const ventasLocales = [
+        ...datosLocales.filter(venta => venta.metodoPago !== "FIADO"),
+        ...ventasFiadasLocales
+      ];
+      set({
+        ventas: ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+        cargando: false
+      });
+
       const puedeConsultarNube = useEstadoPlan.getState().permiteNube;
       const tiendaId = puedeConsultarNube ? await obtenerTiendaIdActual() : null;
 
@@ -148,25 +192,29 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           .order('created_at', { ascending: false });
 
         if (!error && ventasNube) {
+          if (!debeSincronizarConNube()) return;
           const ventasMapeadas: Venta[] = ventasNube
             .filter((venta: VentaSupabase) => venta.metodo_pago !== "FIADO")
             .map((venta: VentaSupabase) => mapearVentaDesdeSupabase(venta));
-          const ventasFiadasLocales = await obtenerVentasFiadasLocales();
 
-          if (esEscritorio) {
-            for (const v of ventasMapeadas) {
-              await guardarRegistro("ventas", v);
-            }
+          // NUEVO: Filtrar las ventas que vienen de Supabase antes de guardarlas en el esclavo
+          const ventasA_Guardar = fechaCorte
+            ? ventasMapeadas.filter(v => v.fecha.slice(0, 10) >= fechaCorte)
+            : ventasMapeadas;
+
+          for (const venta of ventasA_Guardar) {
+            await guardarRegistro("ventas", venta);
           }
 
-          const datosLocales = await obtenerVentasLocales();
+          const ventasLocalActualizadas = await obtenerVentasLocales();
           const ventasCombinadas = new Map(
-            datosLocales
+            ventasLocalActualizadas
               .filter(venta => venta.metodoPago !== "FIADO")
               .map(venta => [venta.id, venta])
           );
-          ventasMapeadas.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          ventasA_Guardar.forEach(venta => ventasCombinadas.set(venta.id, venta));
           ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          
           set({
             ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
             cargando: false
@@ -177,13 +225,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         if (error) console.error("Error al consultar el historial de ventas en Supabase:", error);
       }
 
-      const dataLocal = await obtenerVentasLocales();
-      const ventasFiadasLocales = await obtenerVentasFiadasLocales();
-      const ventasLocales = [...dataLocal.filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
-      const estadoVentas = ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-      set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
-
-      if (!navigator.onLine) set({ cargando: false });
+      set({ cargando: false });
     } catch (error) {
       console.error("Error al cargar ventas:", error);
       set({ cargando: false });
@@ -242,7 +284,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             nombre_producto: art.nombre,
             cantidad: art.cantidad,
             precio_unitario: art.precio,
-            costo_unitario: art.costo || 0, // NUEVO: Inserción del costo unitario en DB
+            costo_unitario: art.costo || 0,
             subtotal: art.subtotal,
             autorizacion_confirmada: art.autorizacion_confirmada || false,
             evidencia_nombre_archivo_local: null 
@@ -359,6 +401,11 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         if (!error && ventaNube) {
           const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
           if (ventaMapeada.metodoPago === "FIADO") return;
+          
+          // NUEVO: Verificamos si la venta entra en el límite de tiempo del esclavo
+          const fechaCorte = obtenerFechaCorteEsclavo();
+          if (fechaCorte && ventaMapeada.fecha.slice(0, 10) < fechaCorte) return;
+
           if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
           const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
           set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
@@ -410,6 +457,11 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         if (!error && ventaNube) {
           const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
           if (ventaMapeada.metodoPago === "FIADO") return;
+          
+          // NUEVO: Verificamos fecha de corte en sincronización por Push de Supabase
+          const fechaCorte = obtenerFechaCorteEsclavo();
+          if (fechaCorte && ventaMapeada.fecha.slice(0, 10) < fechaCorte) return;
+
           if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
           const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
           set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
@@ -423,7 +475,14 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
   aplicarAccionLAN: async (tipo, payload) => {
     if (tipo === "LAN_VENTA_AGREGAR") {
-      if (esVenta(payload)) await get().agregarVenta(payload, true);
+      if (esVenta(payload)) {
+        // NUEVO: Al recibir una venta por LAN, el esclavo revisa la fecha
+        const fechaCorte = obtenerFechaCorteEsclavo();
+        if (fechaCorte && payload.fecha.slice(0, 10) < fechaCorte && payload.metodoPago !== "FIADO") {
+          return; // Si es muy vieja, el esclavo la descarta
+        }
+        await get().agregarVenta(payload, true);
+      }
     } else if (tipo === "LAN_VENTA_CANCELAR") {
       const id = typeof payload === "string"
         ? payload
@@ -435,13 +494,21 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   hidratarEstadoLAN: async (snapshot) => {
     if (!esRegistro(snapshot) || !Array.isArray(snapshot.ventas)) return;
 
+    const fechaCorte = obtenerFechaCorteEsclavo();
     const ventasLAN = snapshot.ventas.filter(esVenta);
-    const ventasNormalesLAN = ventasLAN.filter(venta => venta.metodoPago !== "FIADO");
+    
+    // NUEVO: Filtramos el snapshot recibido del cerebro por LAN
+    const ventasNormalesLAN = ventasLAN.filter(venta => 
+      venta.metodoPago !== "FIADO" && 
+      (!fechaCorte || venta.fecha.slice(0, 10) >= fechaCorte)
+    );
     const ventasFiadasLAN = ventasLAN.filter(venta => venta.metodoPago === "FIADO");
+    
     const locales = await obtenerVentasLocales();
     const ventasFiadasLocales = await obtenerVentasFiadasLocales();
     const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
 
+    // Limpia localmente las que el Cerebro no mandó o que ya superaron el límite de tiempo
     for (const local of locales.filter(venta => venta.metodoPago !== "FIADO" && !idsLAN.has(venta.id))) {
       await eliminarRegistro("ventas", local.id);
     }
@@ -456,6 +523,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
       }
     }
     for (const venta of ventasFiadasLAN) await guardarVentaFiadoLocal(venta);
+    
     const ventasCombinadas = new Map(ventasNormalesLAN.map(venta => [venta.id, venta]));
     ventasFiadasLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
     ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));

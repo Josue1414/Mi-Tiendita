@@ -109,15 +109,28 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   cargando: true,
 
   cargarTrabajadores: async () => {
-    set({ cargando: true });
+    set({ cargando: get().trabajadores.length === 0 });
     try {
+      const datosLocales = await obtenerRegistros("trabajadores");
+      const trabajadoresLocales = (datosLocales as Trabajador[]).map((trabajador) => ({
+        ...trabajador,
+        pin: descifrarPin(trabajador.pin)
+      }));
+      if (trabajadoresLocales.length > 0) {
+        set({ trabajadores: trabajadoresLocales, cargando: false });
+      }
+
       const permiteSincronizar = debeSincronizarConNube();
       const tiendaId = permiteSincronizar ? await obtenerTiendaIdActual() : localStorage.getItem("tienda_id");
 
       if (permiteSincronizar && navigator.onLine && tiendaId) {
-        const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
+        const { data: miembrosNube, error } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
 
         if (miembrosNube) {
+          if (!debeSincronizarConNube()) {
+            set({ cargando: false });
+            return;
+          }
           const trabajadoresNube = miembrosNube.map((m: any) => ({
             id: m.usuario_id,
             nombre: m.nombre,
@@ -132,11 +145,9 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
             },
             horarioSemanal: m.horario
           }));
-
           const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
-          const tLocal = await obtenerRegistros("trabajadores");
 
-          for (const t of tLocal) {
+          for (const t of datosLocales) {
             if (!idsNube.has(t.id)) await eliminarRegistro("trabajadores", t.id);
           }
           for (const t of trabajadoresNube) {
@@ -146,18 +157,18 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           set({ trabajadores: trabajadoresNube, cargando: false });
           return;
         }
+        if (error) console.warn("No se pudieron cargar los trabajadores desde Supabase; se usarán los datos locales:", error);
       }
 
-      const data = await obtenerRegistros("trabajadores");
       let estadoTrabajadores: Trabajador[] = [];
       
-      if (data.length === 0) {
+      if (trabajadoresLocales.length === 0) {
         for (const t of TRABAJADORES_INICIALES) {
           await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
         }
         estadoTrabajadores = TRABAJADORES_INICIALES;
       } else {
-        estadoTrabajadores = (data as Trabajador[]).map((t) => ({ ...t, pin: descifrarPin(t.pin) }));
+        estadoTrabajadores = trabajadoresLocales;
       }
       
       set({ trabajadores: estadoTrabajadores, cargando: false });

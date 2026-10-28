@@ -43,7 +43,9 @@ export default function VistaLogin() {
   
   const planActivo = useEstadoPlan((estado) => estado.planActivo);
   
-  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(esAccesoLAN);
+  const cuentaLocalVigente = Boolean(localStorage.getItem("tienda_id"))
+    && evaluarEstadoSuscripcion(localStorage.getItem("fecha_vencimiento_cache")) !== "VENCIDO";
+  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(esAccesoLAN || cuentaLocalVigente);
   const [emailSaaS, setEmailSaaS] = useState("");
   const [passwordSaaS, setPasswordSaaS] = useState("");
   const [cargandoSaaS, setCargandoSaaS] = useState(false);
@@ -112,6 +114,7 @@ export default function VistaLogin() {
           setCuentaSaaSLogueada(true);
           restaurarPlanCacheado(validacion.fechaVencimiento || null);
         } else {
+          setCuentaSaaSLogueada(false);
           setAvisoSuscripcion({ 
             titulo: "Servicio Suspendido", 
             mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
@@ -127,6 +130,7 @@ export default function VistaLogin() {
         const estado = evaluarEstadoSuscripcion(fechaLocal);
         
         if (estado === "VENCIDO") {
+          setCuentaSaaSLogueada(false);
           setAvisoSuscripcion({ 
             titulo: "Servicio Suspendido", 
             mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
@@ -173,6 +177,13 @@ export default function VistaLogin() {
               setNombrePC(registro.dispositivo.nombre_dispositivo);
               
               setCuentaSaaSLogueada(true);
+            } else if (error && evaluarEstadoSuscripcion(localStorage.getItem("fecha_vencimiento_cache")) === "VENCIDO") {
+              setCuentaSaaSLogueada(false);
+              setAvisoSuscripcion({
+                titulo: "Servicio Suspendido",
+                mensaje: "No se pudo validar la suscripción y la última fecha guardada indica que ya venció. Conéctate a internet para validar tu pago y restablecer el acceso.",
+                tipo: "bloqueo"
+              });
             }
           }
         }

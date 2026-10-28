@@ -6,13 +6,30 @@ import { crearIdentificadorUnico } from '../utilidades/identificador';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+const fetchConTiempoLimite: typeof fetch = async (input, init) => {
+  const controlador = new AbortController();
+  const senalOriginal = init?.signal ?? (typeof Request !== "undefined" && input instanceof Request ? input.signal : null);
+  const cancelarPorSolicitud = () => controlador.abort();
+  if (senalOriginal?.aborted) cancelarPorSolicitud();
+  else senalOriginal?.addEventListener("abort", cancelarPorSolicitud, { once: true });
+
+  const temporizador = setTimeout(() => controlador.abort(), 3500);
+  try {
+    return await fetch(input, { ...init, signal: controlador.signal });
+  } finally {
+    clearTimeout(temporizador);
+    senalOriginal?.removeEventListener("abort", cancelarPorSolicitud);
+  }
+};
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Faltan las variables de entorno de Supabase. El sistema funcionará en modo 100% local.");
 }
 
 export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co", 
-  supabaseAnonKey || "placeholder"
+  supabaseAnonKey || "placeholder",
+  { global: { fetch: fetchConTiempoLimite } }
 );
 
 let tiendaIdCache: string | null = null;

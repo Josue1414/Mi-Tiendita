@@ -1219,251 +1219,6 @@ ext {
 <svg xmlns="http://www.w3.org/2000/svg" width="77" height="47" fill="none" aria-labelledby="vite-logo-title" viewBox="0 0 77 47"><title id="vite-logo-title">Vite</title><style>.parenthesis{fill:#000}@media (prefers-color-scheme:dark){.parenthesis{fill:#fff}}</style><path fill="#9135ff" d="M40.151 45.71c-.663.844-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.493c-.92 0-1.457-1.04-.92-1.788l7.479-10.471c1.07-1.498 0-3.578-1.842-3.578H15.443c-.92 0-1.456-1.04-.92-1.788l9.696-13.576c.213-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.472c-1.07 1.497 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.087.89 1.83L40.153 45.712z"/><mask id="a" width="48" height="47" x="14" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M40.047 45.71c-.663.843-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.389c-.92 0-1.457-1.04-.92-1.788l7.479-10.472c1.07-1.497 0-3.578-1.842-3.578H15.34c-.92 0-1.456-1.04-.92-1.788l9.696-13.575c.213-.297.556-.474.92-.474H53.93c.92 0 1.456 1.04.92 1.788L47.37 13.03c-1.07 1.498 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.088.89 1.831L40.049 45.712z"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#eee6ff" rx="5.508" ry="14.704" transform="rotate(269.814 20.96 11.29)scale(-1 1)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#eee6ff" rx="10.399" ry="29.851" transform="rotate(89.814 -16.902 -8.275)scale(1 -1)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#8900ff" rx="5.508" ry="30.487" transform="rotate(89.814 -19.197 -7.127)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.928 4.177)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.738 5.52)scale(1 -1)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#eee6ff" rx="14.072" ry="22.078" transform="rotate(93.35 31.245 55.578)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx="14.592" cy="9.743" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(39.51 14.592 9.743)"/></g><g filter="url(#k)"><ellipse cx="61.728" cy="-5.321" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 61.728 -5.32)"/></g><g filter="url(#l)"><ellipse cx="55.618" cy="7.104" fill="#00c2ff" rx="5.971" ry="9.665" transform="rotate(37.892 55.618 7.104)"/></g><g filter="url(#m)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#n)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#o)"><ellipse cx="49.857" cy="30.678" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 49.857 30.678)"/></g><g filter="url(#p)"><ellipse cx="52.623" cy="33.171" fill="#00c2ff" rx="5.971" ry="15.297" transform="rotate(37.892 52.623 33.17)"/></g></g><path d="M6.919 0c-9.198 13.166-9.252 33.575 0 46.789h6.215c-9.25-13.214-9.196-33.623 0-46.789zm62.424 0h-6.215c9.198 13.166 9.252 33.575 0 46.789h6.215c9.25-13.214 9.196-33.623 0-46.789" class="parenthesis"/><defs><filter id="b" width="60.045" height="41.654" x="-5.564" y="16.92" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-40.407" y="-6.762" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-35.435" y="2.801" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-30.84" y="20.8" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-29.307" y="21.949" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="29.961" y="-17.13" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-13.43" y="-22.082" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="34.321" y="-37.644" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="38.847" y="-10.552" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="22.45" y="-1.645" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="32.919" y="11.36" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter></defs></svg>
 </file>
 
-<file path="src/componentes/app/AppPrincipal.tsx">
-import { useEffect, useState } from "react";
-import { useEstadoNavegacion, type SeccionApp } from "../../estado/estadoNavegacion";
-import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
-import { useEstadoInventario } from "../../estado/estadoInventario";
-import { useEstadoVentas } from "../../estado/estadoVentas";
-import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
-import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
-import { useEstadoRed } from "../../estado/estadoRed";
-import { useEstadoPlan } from "../../estado/estadoPlan";
-import { useSincronizacion } from "../../hooks/useSincronizacion";
-import useDescubrimientoCerebro from "../../hooks/app/useDescubrimientoCerebro";
-import useEnlacesApp from "../../hooks/app/useEnlacesApp";
-import useServidorLAN from "../../hooks/app/useServidorLAN";
-import useTemaYEscalaApp from "../../hooks/app/useTemaYEscalaApp";
-import { useEstadoConfiguracion as obtenerEstadoConfiguracion } from "../../estado/estadoConfiguracion";
-import { claseTemaVisual } from "../../utilidades/temas";
-import { estadoCaducidad } from "../../utilidades/lotes";
-import { tieneAlertaStock } from "../../utilidades/stock";
-import { cn } from "../../utilidades/utils";
-import { AlertTriangle, BookUser, History, LayoutDashboard, MonitorPlay, Package, Settings, ShoppingCart, UserCircle, Users, Wallet } from "lucide-react";
-import type { ItemMenuApp } from "./tipos";
-import { componentesSeccion } from "../../vistas/secciones_app/componentesSeccion";
-import ContenidoPrincipal from "./ContenidoPrincipal";
-import MenuEscritorio from "./MenuEscritorio";
-import MenuMovil from "./MenuMovil";
-import ModalCerrarSesion from "./ModalCerrarSesion";
-import ModalSeleccionDispositivo from "../ui/ModalSeleccionDispositivo";
-import ModalQRCliente from "../ui/ModalQRCliente";
-import VistaLogin from "../../vistas/VistaLogin";
-import VistaPantallaCliente from "../../vistas/VistaPantallaCliente";
-
-export default function AppPrincipal() {
-  const { seccionActual, setSeccionActual } = useEstadoNavegacion();
-  const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
-  const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
-  const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
-  const { cargarConfiguracion, cargando: cargandoConfiguracion, habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
-  const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
-  const {
-    esMaestro,
-    esRespaldo,
-    ipMaestro,
-    conectadoLAN,
-    servidorLANActivo,
-    dispositivosLANConectados,
-    setIpMaestro,
-    setEstadoLAN
-  } = useEstadoRed();
-  const { estaEnLinea } = useSincronizacion();
-  const permiteNube = useEstadoPlan((estado) => estado.permiteNube);
-
-  const { hostLanEnlace, esVistaCliente } = useEnlacesApp();
-  useDescubrimientoCerebro({ esVistaCliente, setIpMaestro });
-  const temaVisual = useTemaYEscalaApp();
-  useServidorLAN({
-    esMaestro,
-    esVistaCliente,
-    hostLanEnlace,
-    ipMaestro,
-    cargarProductos,
-    cargarTrabajadores,
-    cargarVentas,
-    cargarConfiguracion,
-    cargarAsistencias,
-    setIpMaestro,
-    setEstadoLAN,
-  });
-
-  const [menuAbierto, setMenuAbierto] = useState(true);
-  const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
-  const [modalQRAbierto, setModalQRAbierto] = useState(false);
-
-  useEffect(() => {
-    if (esVistaCliente) return;
-    cargarProductos();
-    cargarVentas();
-    cargarTrabajadores();
-    cargarConfiguracion();
-    cargarAsistencias();
-  }, [esVistaCliente, cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
-
-  useEffect(() => {
-    if (esVistaCliente) return;
-    const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito";
-    document.documentElement.classList.toggle("dark", usaModoOscuro);
-  }, [esVistaCliente, temaVisual]);
-
-  if (esVistaCliente) return <VistaPantallaCliente />;
-
-  const estaCargandoGlobal = cargandoTrabajadores || cargandoInventario || cargandoVentas || cargandoConfiguracion;
-  if (estaCargandoGlobal) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-emerald-50/30 dark:bg-slate-950">
-        <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 font-medium">Iniciando sistema...</p>
-      </div>
-    );
-  }
-
-  if (!trabajadorActivo) return <VistaLogin />;
-
-  const puedeAccederFiados = habilitarFiados && (
-    trabajadorActivo.rol === "DUENO" ||
-    modoAccesoFiados === "TODOS" ||
-    trabajadorActivo.permisos?.permisoFiados === true
-  );
-  const ComponenteActivo = seccionActual === "panel"
-    ? componentesSeccion.pos
-    : seccionActual === "fiados" && !puedeAccederFiados
-    ? componentesSeccion.pos
-    : componentesSeccion[seccionActual as Exclude<SeccionApp | "fiados" | "facturacion", "panel">] || componentesSeccion.pos;
-
-  const abrirPantallaCliente = () => {
-    const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
-    const nombreTienda = obtenerEstadoConfiguracion.getState().nombreTienda;
-
-    const esEscritorio = typeof window !== "undefined" && window.apiLocal !== undefined;
-    const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
-
-    if (esEscritorio || !esDispositivoMovil) {
-      const rutaBase = window.location.href.split("?")[0];
-      window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
-    } else {
-      setModalQRAbierto(true);
-    }
-  };
-
-  const baseMenusOperativos: ItemMenuApp[] = [
-    { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
-    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
-    { id: "inventario", icono: Package, texto: "Inventario" },
-    { id: "historial", icono: History, texto: "Historial de Ventas" },
-    { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
-    { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
-    { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
-  ];
-  if (puedeAccederFiados) {
-    baseMenusOperativos.splice(4, 0, { id: "fiados", icono: BookUser, texto: "Libreta de Fiados" });
-  }
-
-  const baseMenusMovilesOperativos: ItemMenuApp[] = [
-    { id: "inventario", icono: Package, texto: "Inventario" },
-    { id: "stock-bajo", icono: AlertTriangle, texto: "Stock" },
-    { id: "historial", icono: History, texto: "Historial" },
-    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
-    { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
-  ];
-  if (puedeAccederFiados) {
-    baseMenusMovilesOperativos.splice(3, 0, { id: "fiados", icono: BookUser, texto: "Fiados" });
-  }
-
-  const productosConAlerta = productos.filter(tieneAlertaStock);
-  const lotesConCaducidad = productos.flatMap((producto) =>
-    (producto.lotes ?? []).filter((lote) => lote.cantidad > 0).map((lote) => lote)
-  );
-  const alertasCaducadas = lotesConCaducidad.filter(
-    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "vencido"
-  ).length;
-  const alertasCaducidadProxima = lotesConCaducidad.filter(
-    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "proximo"
-  ).length;
-  const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
-  const alertasPorTerminar = productosConAlerta.filter(p => p.stock_actual > 0).length + alertasCaducidadProxima;
-  const menusAdmin = [
-    { id: "panel", icono: LayoutDashboard, texto: "Panel Principal" },
-    { id: "equipo", icono: Users, texto: "Equipo" },
-    { id: "configuracion", icono: Settings, texto: "Configuración" },
-  ] as const;
-  const esAdmin = trabajadorActivo.rol === "DUENO" || trabajadorActivo.rol === "SUPERVISOR";
-  const esVistaMovil = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
-  const menuPantallaCliente = { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" };
-  const menusMoviles = esVistaMovil
-    ? [...baseMenusMovilesOperativos, ...(esAdmin ? menusAdmin : []), menuPantallaCliente]
-    : [...baseMenusOperativos, ...(esAdmin ? menusAdmin : [])];
-  const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
-
-  const confirmarCerrarSesion = async () => {
-    setMostrarModalSalida(false);
-    if (trabajadorActivo) await registrarSalida(trabajadorActivo.id);
-    cerrarSesion();
-    setSeccionActual("pos");
-  };
-
-  return (
-    <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
-      <ModalSeleccionDispositivo />
-      <ModalQRCliente
-        abierto={modalQRAbierto}
-        alCerrar={() => setModalQRAbierto(false)}
-        nombreCaja={localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
-      />
-      <ModalCerrarSesion
-        abierto={mostrarModalSalida}
-        alCancelar={() => setMostrarModalSalida(false)}
-        alConfirmar={confirmarCerrarSesion}
-      />
-      <MenuEscritorio
-        alertasPorTerminar={alertasPorTerminar}
-        alertasAgotados={alertasAgotados}
-        alertasCaducadas={alertasCaducadas}
-        menuAbierto={menuAbierto}
-        alCambiarMenu={() => setMenuAbierto(!menuAbierto)}
-        nombreTrabajador={trabajadorActivo.nombre}
-        permiteNube={permiteNube}
-        estaEnLinea={estaEnLinea}
-        esMaestro={esMaestro}
-        esRespaldo={esRespaldo}
-        conectadoLAN={conectadoLAN}
-        servidorLANActivo={servidorLANActivo}
-        dispositivosLANConectados={dispositivosLANConectados}
-        menusOperativos={baseMenusOperativos}
-        menusAdmin={menusAdmin}
-        esAdmin={esAdmin}
-        seccionActual={seccionActual}
-        setSeccionActual={setSeccionActual}
-        abrirPantallaCliente={abrirPantallaCliente}
-        cerrarSesion={() => setMostrarModalSalida(true)}
-      />
-      <MenuMovil
-        alertasPorTerminar={alertasPorTerminar}
-        alertasAgotados={alertasAgotados}
-        alertasCaducadas={alertasCaducadas}
-        menus={menusMoviles}
-        puntoEscaneo={puntoEscaneo}
-        seccionActual={seccionActual}
-        setSeccionActual={setSeccionActual}
-        abrirPantallaCliente={abrirPantallaCliente}
-        cerrarSesion={() => setMostrarModalSalida(true)}
-      />
-      <ContenidoPrincipal
-        seccionActual={seccionActual}
-        componenteActivo={ComponenteActivo}
-        estaEnLinea={estaEnLinea}
-        permiteNube={permiteNube}
-        esMaestro={esMaestro}
-        servidorLANActivo={servidorLANActivo}
-        conectadoLAN={conectadoLAN}
-        dispositivosLANConectados={dispositivosLANConectados}
-      />
-    </div>
-  );
-}
-</file>
-
 <file path="src/componentes/app/ContenidoPrincipal.tsx">
 import type { ComponentType } from "react";
 import VistaPanel from "../../vistas/VistaPanel";
@@ -2543,25 +2298,18 @@ export default function useEnlacesApp() {
 <file path="src/hooks/app/useServidorLAN.ts">
 import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
-import { useEstadoFiados } from "../../estado/estadoFiados";
 import { useEstadoRed } from "../../estado/estadoRed";
 import { androidLan } from "../../servicios/androidLan";
 import { aplicarAccionLANRecibida, crearSnapshotLAN, hidratarDesdeLAN } from "../../servicios/appLAN";
 import { conectarLAN, desconectarLAN } from "../../servicios/socketCliente";
 import { obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
 
-type CargarDatos = () => Promise<void>;
-
 interface PropsServidorLAN {
   esMaestro: boolean;
   esVistaCliente: boolean;
+  datosInicialesCargados: boolean;
   hostLanEnlace: string | null;
   ipMaestro: string | null;
-  cargarProductos: CargarDatos;
-  cargarTrabajadores: CargarDatos;
-  cargarVentas: CargarDatos;
-  cargarConfiguracion: CargarDatos;
-  cargarAsistencias: CargarDatos;
   setIpMaestro: (ip: string) => void;
   setEstadoLAN: (activo: boolean, dispositivosConectados: number) => void;
 }
@@ -2569,18 +2317,14 @@ interface PropsServidorLAN {
 export default function useServidorLAN({
   esMaestro,
   esVistaCliente,
+  datosInicialesCargados,
   hostLanEnlace,
   ipMaestro,
-  cargarProductos,
-  cargarTrabajadores,
-  cargarVentas,
-  cargarConfiguracion,
-  cargarAsistencias,
   setIpMaestro,
   setEstadoLAN,
 }: PropsServidorLAN) {
   useEffect(() => {
-    if (esVistaCliente || !esMaestro || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+    if (esVistaCliente || !esMaestro || !datosInicialesCargados || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
 
     let cancelado = false;
     let suscripciones: Awaited<ReturnType<typeof androidLan.addListener>>[] = [];
@@ -2591,17 +2335,7 @@ export default function useServidorLAN({
             setEstadoLAN(estado.activo, estado.dispositivosConectados);
           }),
           androidLan.addListener("snapshotRequested", ({ socketId }) => {
-            void (async () => {
-              await Promise.all([
-                cargarProductos(),
-                cargarTrabajadores(),
-                cargarVentas(),
-                cargarConfiguracion(),
-                cargarAsistencias(),
-                useEstadoFiados.getState().cargarDeudores(),
-              ]);
-              await androidLan.emitSnapshot({ socketId, snapshot: crearSnapshotLAN() });
-            })().catch((error: unknown) => {
+            void androidLan.emitSnapshot({ socketId, snapshot: crearSnapshotLAN() }).catch((error: unknown) => {
               console.error("No se pudo enviar el estado inicial por LAN desde Android:", error);
             });
           }),
@@ -2615,7 +2349,6 @@ export default function useServidorLAN({
           obtenerTiendaIdActual(),
           obtenerIdentificadorDispositivo()
         ]);
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 4000));
         if (cancelado || !useEstadoRed.getState().esMaestro) {
           suscripciones.forEach((suscripcion) => void suscripcion.remove());
           return;
@@ -2639,10 +2372,11 @@ export default function useServidorLAN({
         console.error("No se pudo detener el servidor LAN de Android:", error);
       });
     };
-  }, [esMaestro, esVistaCliente, cargarProductos, cargarTrabajadores, cargarVentas, cargarConfiguracion, cargarAsistencias, setEstadoLAN]);
+  }, [esMaestro, esVistaCliente, datosInicialesCargados, setEstadoLAN]);
 
   useEffect(() => {
     if (esVistaCliente) return;
+    if (esMaestro && !datosInicialesCargados) return;
     const api = window.apiLocal;
     if (esMaestro) {
       desconectarLAN();
@@ -2651,24 +2385,13 @@ export default function useServidorLAN({
           setEstadoLAN(estado.activo, estado.dispositivosConectados);
         });
         api.onSolicitudSnapshotLAN((socketId: string) => {
-          void (async () => {
-            await Promise.all([
-              cargarProductos(),
-              cargarTrabajadores(),
-              cargarVentas(),
-              cargarConfiguracion(),
-              cargarAsistencias(),
-              useEstadoFiados.getState().cargarDeudores(),
-            ]);
-            await api.emitirSnapshotLAN(socketId, crearSnapshotLAN());
-          })().catch((error: unknown) => {
+          void api.emitirSnapshotLAN(socketId, crearSnapshotLAN()).catch((error: unknown) => {
             console.error("No se pudo enviar el estado inicial por LAN:", error);
           });
         });
         api.onAccionDeEsclavo(aplicarAccionLANRecibida);
         void Promise.all([obtenerTiendaIdActual(), obtenerIdentificadorDispositivo()])
-          .then(async ([tiendaId, deviceId]) => {
-            await new Promise<void>((resolve) => window.setTimeout(resolve, 4000));
+          .then(([tiendaId, deviceId]) => {
             if (!useEstadoRed.getState().esMaestro) return null;
             return api.iniciarServidorLAN(tiendaId || "", deviceId);
           })
@@ -2716,7 +2439,7 @@ export default function useServidorLAN({
         });
       });
     }
-  }, [esMaestro, esVistaCliente, hostLanEnlace, ipMaestro, setIpMaestro, setEstadoLAN, cargarProductos, cargarTrabajadores, cargarVentas, cargarConfiguracion, cargarAsistencias]);
+  }, [esMaestro, esVistaCliente, datosInicialesCargados, hostLanEnlace, ipMaestro, setIpMaestro, setEstadoLAN]);
 }
 </file>
 
@@ -4512,6 +4235,254 @@ project(':capacitor-mlkit-barcode-scanning').projectDir = new File('../node_modu
 
 include ':capacitor-filesystem'
 project(':capacitor-filesystem').projectDir = new File('../node_modules/@capacitor/filesystem/android')
+</file>
+
+<file path="src/componentes/app/AppPrincipal.tsx">
+import { useEffect, useState } from "react";
+import { useEstadoNavegacion, type SeccionApp } from "../../estado/estadoNavegacion";
+import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
+import { useEstadoInventario } from "../../estado/estadoInventario";
+import { useEstadoVentas } from "../../estado/estadoVentas";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
+import { useEstadoAsistencias } from "../../estado/estadoAsistencias";
+import { useEstadoRed } from "../../estado/estadoRed";
+import { useEstadoPlan } from "../../estado/estadoPlan";
+import { useSincronizacion } from "../../hooks/useSincronizacion";
+import useDescubrimientoCerebro from "../../hooks/app/useDescubrimientoCerebro";
+import useEnlacesApp from "../../hooks/app/useEnlacesApp";
+import useServidorLAN from "../../hooks/app/useServidorLAN";
+import useTemaYEscalaApp from "../../hooks/app/useTemaYEscalaApp";
+import { useEstadoConfiguracion as obtenerEstadoConfiguracion } from "../../estado/estadoConfiguracion";
+import { claseTemaVisual } from "../../utilidades/temas";
+import { estadoCaducidad } from "../../utilidades/lotes";
+import { tieneAlertaStock } from "../../utilidades/stock";
+import { cn } from "../../utilidades/utils";
+import { AlertTriangle, BookUser, History, LayoutDashboard, MonitorPlay, Package, Settings, ShoppingCart, UserCircle, Users, Wallet } from "lucide-react";
+import type { ItemMenuApp } from "./tipos";
+import { componentesSeccion } from "../../vistas/secciones_app/componentesSeccion";
+import ContenidoPrincipal from "./ContenidoPrincipal";
+import MenuEscritorio from "./MenuEscritorio";
+import MenuMovil from "./MenuMovil";
+import ModalCerrarSesion from "./ModalCerrarSesion";
+import ModalSeleccionDispositivo from "../ui/ModalSeleccionDispositivo";
+import ModalQRCliente from "../ui/ModalQRCliente";
+import VistaLogin from "../../vistas/VistaLogin";
+import VistaPantallaCliente from "../../vistas/VistaPantallaCliente";
+
+export default function AppPrincipal() {
+  const { seccionActual, setSeccionActual } = useEstadoNavegacion();
+  const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
+  const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
+  const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
+  const { cargarConfiguracion, cargando: cargandoConfiguracion, habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
+  const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
+  const {
+    esMaestro,
+    esRespaldo,
+    ipMaestro,
+    conectadoLAN,
+    servidorLANActivo,
+    dispositivosLANConectados,
+    setIpMaestro,
+    setEstadoLAN
+  } = useEstadoRed();
+  const { estaEnLinea } = useSincronizacion();
+  const permiteNube = useEstadoPlan((estado) => estado.permiteNube);
+  const datosInicialesCargados = !cargandoTrabajadores
+    && !cargandoInventario
+    && !cargandoVentas
+    && !cargandoConfiguracion;
+
+  const { hostLanEnlace, esVistaCliente } = useEnlacesApp();
+  useDescubrimientoCerebro({ esVistaCliente, setIpMaestro });
+  const temaVisual = useTemaYEscalaApp();
+  useServidorLAN({
+    esMaestro,
+    esVistaCliente,
+    datosInicialesCargados,
+    hostLanEnlace,
+    ipMaestro,
+    setIpMaestro,
+    setEstadoLAN,
+  });
+
+  const [menuAbierto, setMenuAbierto] = useState(true);
+  const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
+  const [modalQRAbierto, setModalQRAbierto] = useState(false);
+
+  useEffect(() => {
+    if (esVistaCliente) return;
+    cargarProductos();
+    cargarVentas();
+    cargarTrabajadores();
+    cargarConfiguracion();
+    cargarAsistencias();
+  }, [esVistaCliente, cargarProductos, cargarVentas, cargarTrabajadores, cargarConfiguracion, cargarAsistencias]);
+
+  useEffect(() => {
+    if (esVistaCliente) return;
+    const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito";
+    document.documentElement.classList.toggle("dark", usaModoOscuro);
+  }, [esVistaCliente, temaVisual]);
+
+  if (esVistaCliente) return <VistaPantallaCliente />;
+
+  const estaCargandoGlobal = cargandoTrabajadores || cargandoInventario || cargandoVentas || cargandoConfiguracion;
+  if (estaCargandoGlobal) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-emerald-50/30 dark:bg-slate-950">
+        <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-500 font-medium">Iniciando sistema...</p>
+      </div>
+    );
+  }
+
+  if (!trabajadorActivo) return <VistaLogin />;
+
+  const puedeAccederFiados = habilitarFiados && (
+    trabajadorActivo.rol === "DUENO" ||
+    modoAccesoFiados === "TODOS" ||
+    trabajadorActivo.permisos?.permisoFiados === true
+  );
+  const ComponenteActivo = seccionActual === "panel"
+    ? componentesSeccion.pos
+    : seccionActual === "fiados" && !puedeAccederFiados
+    ? componentesSeccion.pos
+    : componentesSeccion[seccionActual as Exclude<SeccionApp | "fiados" | "facturacion", "panel">] || componentesSeccion.pos;
+
+  const abrirPantallaCliente = () => {
+    const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
+    const nombreTienda = obtenerEstadoConfiguracion.getState().nombreTienda;
+
+    const esEscritorio = typeof window !== "undefined" && window.apiLocal !== undefined;
+    const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
+
+    if (esEscritorio || !esDispositivoMovil) {
+      const rutaBase = window.location.href.split("?")[0];
+      window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
+    }
+    setModalQRAbierto(true);
+  };
+
+  const baseMenusOperativos: ItemMenuApp[] = [
+    { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
+    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
+    { id: "inventario", icono: Package, texto: "Inventario" },
+    { id: "historial", icono: History, texto: "Historial de Ventas" },
+    { id: "stock-bajo", icono: AlertTriangle, texto: "Stock Bajo" },
+    { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
+    { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" },
+  ];
+  if (puedeAccederFiados) {
+    baseMenusOperativos.splice(4, 0, { id: "fiados", icono: BookUser, texto: "Libreta de Fiados" });
+  }
+
+  const baseMenusMovilesOperativos: ItemMenuApp[] = [
+    { id: "inventario", icono: Package, texto: "Inventario" },
+    { id: "stock-bajo", icono: AlertTriangle, texto: "Stock" },
+    { id: "historial", icono: History, texto: "Historial" },
+    { id: "caja", icono: Wallet, texto: "Corte de Caja" },
+    { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
+  ];
+  if (puedeAccederFiados) {
+    baseMenusMovilesOperativos.splice(3, 0, { id: "fiados", icono: BookUser, texto: "Fiados" });
+  }
+
+  const productosConAlerta = productos.filter(tieneAlertaStock);
+  const lotesConCaducidad = productos.flatMap((producto) =>
+    (producto.lotes ?? []).filter((lote) => lote.cantidad > 0).map((lote) => lote)
+  );
+  const alertasCaducadas = lotesConCaducidad.filter(
+    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "vencido"
+  ).length;
+  const alertasCaducidadProxima = lotesConCaducidad.filter(
+    (lote) => estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta) === "proximo"
+  ).length;
+  const alertasAgotados = productosConAlerta.filter(p => p.stock_actual === 0).length;
+  const alertasPorTerminar = productosConAlerta.filter(p => p.stock_actual > 0).length + alertasCaducidadProxima;
+  const menusAdmin = [
+    { id: "panel", icono: LayoutDashboard, texto: "Panel Principal" },
+    { id: "equipo", icono: Users, texto: "Equipo" },
+    { id: "configuracion", icono: Settings, texto: "Configuración" },
+  ] as const;
+  const esAdmin = trabajadorActivo.rol === "DUENO" || trabajadorActivo.rol === "SUPERVISOR";
+  const esVistaMovil = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
+  const menuPantallaCliente = { id: "pantalla-cliente", icono: MonitorPlay, texto: "Pantalla Cliente" };
+  const menusMoviles = esVistaMovil
+    ? [...baseMenusMovilesOperativos, ...(esAdmin ? menusAdmin : []), menuPantallaCliente]
+    : [...baseMenusOperativos, ...(esAdmin ? menusAdmin : [])];
+  const puntoEscaneo = Math.ceil(menusMoviles.length / 2);
+
+  const confirmarCerrarSesion = async () => {
+    setMostrarModalSalida(false);
+    if (trabajadorActivo) {
+      void registrarSalida(trabajadorActivo.id).catch((error: unknown) => {
+        console.error("No se pudo registrar la salida del trabajador:", error);
+      });
+    }
+    cerrarSesion();
+    setSeccionActual("pos");
+  };
+
+  return (
+    <div className={cn("flex h-screen transition-colors overflow-hidden text-sm relative", claseTemaVisual(temaVisual))}>
+      <ModalSeleccionDispositivo />
+      <ModalQRCliente
+        abierto={modalQRAbierto}
+        alCerrar={() => setModalQRAbierto(false)}
+        nombreCaja={localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
+      />
+      <ModalCerrarSesion
+        abierto={mostrarModalSalida}
+        alCancelar={() => setMostrarModalSalida(false)}
+        alConfirmar={confirmarCerrarSesion}
+      />
+      <MenuEscritorio
+        alertasPorTerminar={alertasPorTerminar}
+        alertasAgotados={alertasAgotados}
+        alertasCaducadas={alertasCaducadas}
+        menuAbierto={menuAbierto}
+        alCambiarMenu={() => setMenuAbierto(!menuAbierto)}
+        nombreTrabajador={trabajadorActivo.nombre}
+        permiteNube={permiteNube}
+        estaEnLinea={estaEnLinea}
+        esMaestro={esMaestro}
+        esRespaldo={esRespaldo}
+        conectadoLAN={conectadoLAN}
+        servidorLANActivo={servidorLANActivo}
+        dispositivosLANConectados={dispositivosLANConectados}
+        menusOperativos={baseMenusOperativos}
+        menusAdmin={menusAdmin}
+        esAdmin={esAdmin}
+        seccionActual={seccionActual}
+        setSeccionActual={setSeccionActual}
+        abrirPantallaCliente={abrirPantallaCliente}
+        cerrarSesion={() => setMostrarModalSalida(true)}
+      />
+      <MenuMovil
+        alertasPorTerminar={alertasPorTerminar}
+        alertasAgotados={alertasAgotados}
+        alertasCaducadas={alertasCaducadas}
+        menus={menusMoviles}
+        puntoEscaneo={puntoEscaneo}
+        seccionActual={seccionActual}
+        setSeccionActual={setSeccionActual}
+        abrirPantallaCliente={abrirPantallaCliente}
+        cerrarSesion={() => setMostrarModalSalida(true)}
+      />
+      <ContenidoPrincipal
+        seccionActual={seccionActual}
+        componenteActivo={ComponenteActivo}
+        estaEnLinea={estaEnLinea}
+        permiteNube={permiteNube}
+        esMaestro={esMaestro}
+        servidorLANActivo={servidorLANActivo}
+        conectadoLAN={conectadoLAN}
+        dispositivosLANConectados={dispositivosLANConectados}
+      />
+    </div>
+  );
+}
 </file>
 
 <file path="src/componentes/pos/PanelCamaraEscaner.tsx">
@@ -7984,241 +7955,6 @@ export function useBascula(config: BasculaConfig = {}) {
 }
 </file>
 
-<file path="src/hooks/usePantallaClienteLAN.ts">
-// src/hooks/usePantallaClienteLAN.ts
-import { useEffect, useState, useCallback, useRef } from "react";
-import { io, Socket } from "socket.io-client";
-import Peer, { type DataConnection } from "peerjs";
-import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
-import { useEstadoRed } from "../estado/estadoRed";
-import type { ItemCarrito } from "../estado/estadoCarrito";
-import type { Producto } from "../tipos/producto";
-import { androidLan } from "../servicios/androidLan";
-
-export type MensajePantalla = 
-  | { tipo: "ACTUALIZAR_CARRITO"; items: ItemCarrito[]; total: number; descuento: number }
-  | { tipo: "ACTUALIZAR_PAGO"; metodoPago: string; datosTransferencia?: DatosTransferencia }
-  | { tipo: "COBRO_EXITOSO"; total: number; cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia }
-  | { tipo: "MOSTRAR_PRODUCTO_CLIENTE"; producto: Producto }
-  | { tipo: "QUITAR_PRODUCTO_CLIENTE" }
-  | { tipo: "LIMPIAR" };
-
-export interface DatosTransferencia {
-  banco: string;
-  titular: string;
-  cuenta: string;
-}
-
-const CANAL = "pantalla_cliente_mi_tienda";
-
-const crearIdPeer = (nombreCaja: string) => {
-  const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
-  return `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-};
-
-export function useEmisorPantallaCliente(
-  nombreCajaLocal: string = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal",
-) {
-  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
-  const esMaestro = useEstadoRed((estado) => estado.esMaestro);
-  const ipMaestro = useEstadoRed((estado) => estado.ipMaestro);
-  const socketRef = useRef<Socket | null>(null);
-  const peerRef = useRef<Peer | null>(null);
-  const conexionesPeerRef = useRef<DataConnection[]>([]);
-  const mensajePendienteRef = useRef<MensajePantalla | null>(null);
-  const mensajePendienteSocketRef = useRef<MensajePantalla | null>(null);
-  const [clientesConectados, setClientesConectados] = useState(0);
-
-  useEffect(() => {
-    let socket: Socket | null = null;
-    let listenerClienteAndroid: PluginListenerHandle | null = null;
-    let cancelado = false;
-
-    // 1. INICIALIZAR PEERJS (P2P QR) SIEMPRE, EN TODAS LAS PLATAFORMAS (Corrige tu error de conexión)
-    const peer = new Peer(crearIdPeer(nombreCajaLocal));
-    peerRef.current = peer;
-    peer.on("error", (error) => {
-      console.error("Error en la conexión P2P de pantalla cliente:", error);
-    });
-    peer.on("connection", (conexion) => {
-      conexionesPeerRef.current.push(conexion);
-      conexion.on("open", () => {
-        setClientesConectados((actual) => actual + 1);
-        const mensajePendiente = mensajePendienteRef.current;
-        if (mensajePendiente) {
-          conexion.send(mensajePendiente);
-          mensajePendienteRef.current = null;
-        }
-      });
-      conexion.on("close", () => {
-        conexionesPeerRef.current = conexionesPeerRef.current.filter((actual) => actual !== conexion);
-        setClientesConectados((actual) => Math.max(0, actual - 1));
-      });
-    });
-
-    // 2. LISTENER DE LAN EXCLUSIVO PARA ANDROID
-    if (esAndroid) {
-      androidLan.addListener("customerDisplayConnected", (data) => {
-        if (data.cajaId === nombreCajaLocal) setClientesConectados((actual) => actual + 1);
-      }).then((listener) => {
-        if (cancelado) void listener.remove();
-        else listenerClienteAndroid = listener;
-      }).catch((error: unknown) => {
-        console.error("No se pudo escuchar las conexiones LAN de pantalla cliente:", error);
-      });
-    }
-
-    // 3. CONEXIÓN SOCKET.IO (LAN LOCAL)
-    const hostMaestro = esMaestro ? "localhost" : ipMaestro || "localhost";
-    socket = io(`http://${hostMaestro}:4000`, {
-      reconnection: true,
-      reconnectionAttempts: 5, // <-- Soluciona el "spam" de errores rojos en consola web
-      reconnectionDelay: 2000,
-      timeout: 10000,
-    });
-    socketRef.current = socket;
-    socket.on("connect", () => {
-      const mensajePendiente = mensajePendienteSocketRef.current;
-      if (mensajePendiente) {
-        socket?.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensajePendiente });
-        mensajePendienteSocketRef.current = null;
-      }
-    });
-
-    return () => {
-      cancelado = true;
-      socket?.disconnect();
-      socketRef.current = null;
-      if (listenerClienteAndroid) void listenerClienteAndroid.remove();
-      conexionesPeerRef.current = [];
-      peerRef.current?.destroy();
-      peerRef.current = null;
-    };
-  }, [esAndroid, esMaestro, ipMaestro, nombreCajaLocal]);
-
-  const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
-    // 1. Misma PC (Electron/Ventanas locales)
-    const bc = new BroadcastChannel(CANAL);
-    bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
-    bc.close();
-
-    // 2. P2P QR (Internet) - AHORA SE ENVÍA SIEMPRE Y NO SOLO EN ANDROID
-    const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
-    conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
-    mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
-
-    // 3. LAN (Socket.io)
-    const socket = socketRef.current;
-    if (socket?.connected) {
-      socket.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
-      mensajePendienteSocketRef.current = null;
-    } else {
-      mensajePendienteSocketRef.current = mensaje;
-    }
-  }, [nombreCajaLocal]);
-  
-  return { enviarMensaje, clientesConectados };
-}
-
-export function useReceptorPantallaCliente() {
-  const [datosCarrito, setDatosCarrito] = useState<{items: ItemCarrito[], total: number, descuento: number; metodoPago: string; datosTransferencia?: DatosTransferencia}>({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
-  const [mensajeExito, setMensajeExito] = useState<{total: number, cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia} | null>(null);
-  const [productoEnPantalla, setProductoEnPantalla] = useState<Producto | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cajaObjetivo = params.get("cliente"); 
-
-    const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
-      if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
-      
-      if (msj.tipo === "ACTUALIZAR_CARRITO") {
-        setDatosCarrito((actual) => ({ ...actual, items: msj.items, total: msj.total, descuento: msj.descuento }));
-        if (msj.items.length > 0) setMensajeExito(null);
-      } else if (msj.tipo === "ACTUALIZAR_PAGO") {
-        setDatosCarrito((actual) => ({ ...actual, metodoPago: msj.metodoPago, datosTransferencia: msj.datosTransferencia }));
-      } else if (msj.tipo === "MOSTRAR_PRODUCTO_CLIENTE") {
-        setProductoEnPantalla(msj.producto);
-      } else if (msj.tipo === "QUITAR_PRODUCTO_CLIENTE") {
-        setProductoEnPantalla(null);
-      } else if (msj.tipo === "COBRO_EXITOSO") {
-        setMensajeExito({ total: msj.total, cambio: msj.cambio, metodoPago: msj.metodoPago || "EFECTIVO", mensajePago: msj.mensajePago || "Pago realizado. Gracias.", datosTransferencia: msj.datosTransferencia });
-        setProductoEnPantalla(null);
-        setTimeout(() => {
-          setMensajeExito(null);
-          setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
-        }, 3000);
-      } else if (msj.tipo === "LIMPIAR") {
-        setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
-        setProductoEnPantalla(null);
-        setMensajeExito(null);
-      }
-    };
-
-    // 1. Escuchar Local (misma PC)
-    const bc = new BroadcastChannel(CANAL);
-    bc.onmessage = (event) => {
-      const data = event.data;
-      if (data.payload) procesarMensaje(data.cajaId, data.payload);
-      else procesarMensaje("Local", data); 
-    };
-
-    const peerObjetivo = params.get("peer");
-    const hostRelay = params.get("lanHost");
-    const usaConexionLAN = Boolean(hostRelay)
-      || params.has("lanPort")
-      || window.location.port === "4000"
-      || window.location.port === "4001";
-      
-    let peerCliente: Peer | null = null;
-    if (peerObjetivo && !usaConexionLAN) {
-      peerCliente = new Peer();
-      peerCliente.on("error", (error) => {
-        console.error("Error al conectar la pantalla cliente con el POS:", error);
-      });
-      peerCliente.on("open", () => {
-        const conexion = peerCliente?.connect(peerObjetivo);
-        conexion?.on("data", (mensaje) => procesarMensaje(cajaObjetivo || "", mensaje as MensajePantalla));
-        conexion?.on("error", (error) => {
-          console.error("Error en el canal P2P de pantalla cliente:", error);
-        });
-      });
-    }
-
-    // 2. Escuchar LAN (Tableta externa)
-    let socket: Socket | null = null;
-    if (!peerObjetivo || usaConexionLAN) {
-      const host = hostRelay
-        || useEstadoRed.getState().ipMaestro
-        || window.location.hostname
-        || "localhost";
-      socket = io(`http://${host}:4000`, {
-        reconnection: true,
-        reconnectionAttempts: 5, // <-- Evita el spam infinito en consola
-        reconnectionDelay: 2000,
-        timeout: 10000,
-      });
-
-      socket.on("connect", () => {
-        if (cajaObjetivo) socket?.emit("registrar-pantalla-cliente", { cajaId: cajaObjetivo });
-      });
-      socket.on("update-pantalla-cliente", (data) => {
-        if (data && data.payload && data.cajaId) procesarMensaje(data.cajaId, data.payload);
-      });
-    }
-
-    return () => {
-      bc.close();
-      socket?.removeAllListeners();
-      socket?.disconnect();
-      peerCliente?.destroy();
-    };
-  }, []);
-
-  return { datosCarrito, mensajeExito, productoEnPantalla };
-}
-</file>
-
 <file path="src/servicios/importadorProductos.ts">
 // src/servicios/importadorProductos.ts
 import * as XLSX from "xlsx";
@@ -8492,8 +8228,8 @@ android {
         applicationId "com.ahorratiempo.mitienda"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.4.8"
+        versionCode 2
+        versionName "1.4.9"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -8829,6 +8565,257 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
       </div>
     </div>
   );
+}
+</file>
+
+<file path="src/hooks/usePantallaClienteLAN.ts">
+// src/hooks/usePantallaClienteLAN.ts
+import { useEffect, useState, useCallback, useRef } from "react";
+import { io, Socket } from "socket.io-client";
+import Peer, { type DataConnection } from "peerjs";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { useEstadoRed } from "../estado/estadoRed";
+import type { ItemCarrito } from "../estado/estadoCarrito";
+import type { Producto } from "../tipos/producto";
+import { androidLan } from "../servicios/androidLan";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
+
+export type MensajePantalla = 
+  | { tipo: "ACTUALIZAR_CARRITO"; items: ItemCarrito[]; total: number; descuento: number }
+  | { tipo: "ACTUALIZAR_PAGO"; metodoPago: string; datosTransferencia?: DatosTransferencia }
+  | { tipo: "COBRO_EXITOSO"; total: number; cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia }
+  | { tipo: "MOSTRAR_PRODUCTO_CLIENTE"; producto: Producto }
+  | { tipo: "QUITAR_PRODUCTO_CLIENTE" }
+  | { tipo: "LIMPIAR" };
+
+export interface DatosTransferencia {
+  banco: string;
+  titular: string;
+  cuenta: string;
+}
+
+const CANAL = "pantalla_cliente_mi_tienda";
+
+export const crearIdPeer = (nombreCaja: string) => {
+  const tiendaId = localStorage.getItem("tienda_id_cache")
+    || localStorage.getItem("tienda_id")
+    || "tienda-demo";
+  const clavePeer = `peer_id_pantalla_cliente:${tiendaId}`;
+  let idDispositivo = localStorage.getItem(clavePeer);
+  if (!idDispositivo) {
+    idDispositivo = crearIdentificadorUnico().replace(/-/g, "");
+    localStorage.setItem(clavePeer, idDispositivo);
+  }
+  return `pos-${tiendaId}-${idDispositivo}-${nombreCaja}`
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase()
+    .slice(0, 120);
+};
+
+export function useEmisorPantallaCliente(
+  nombreCajaLocal: string = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal",
+) {
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const esMaestro = useEstadoRed((estado) => estado.esMaestro);
+  const ipMaestro = useEstadoRed((estado) => estado.ipMaestro);
+  const socketRef = useRef<Socket | null>(null);
+  const peerRef = useRef<Peer | null>(null);
+  const conexionesPeerRef = useRef<DataConnection[]>([]);
+  const mensajePendienteRef = useRef<MensajePantalla | null>(null);
+  const mensajePendienteSocketRef = useRef<MensajePantalla | null>(null);
+  const [clientesConectados, setClientesConectados] = useState(0);
+
+  useEffect(() => {
+    let socket: Socket | null = null;
+    let listenerClienteAndroid: PluginListenerHandle | null = null;
+    let cancelado = false;
+
+    // 1. INICIALIZAR PEERJS (P2P QR) SIEMPRE, EN TODAS LAS PLATAFORMAS (Corrige tu error de conexión)
+    const peer = new Peer(crearIdPeer(nombreCajaLocal));
+    peerRef.current = peer;
+    peer.on("error", (error) => {
+      console.error("Error en la conexión P2P de pantalla cliente:", error);
+    });
+    peer.on("connection", (conexion) => {
+      conexionesPeerRef.current.push(conexion);
+      conexion.on("open", () => {
+        setClientesConectados((actual) => actual + 1);
+        const mensajePendiente = mensajePendienteRef.current;
+        if (mensajePendiente) {
+          conexion.send(mensajePendiente);
+          mensajePendienteRef.current = null;
+        }
+      });
+      conexion.on("close", () => {
+        conexionesPeerRef.current = conexionesPeerRef.current.filter((actual) => actual !== conexion);
+        setClientesConectados((actual) => Math.max(0, actual - 1));
+      });
+    });
+
+    // 2. LISTENER DE LAN EXCLUSIVO PARA ANDROID
+    if (esAndroid) {
+      androidLan.addListener("customerDisplayConnected", (data) => {
+        if (data.cajaId === nombreCajaLocal) setClientesConectados((actual) => actual + 1);
+      }).then((listener) => {
+        if (cancelado) void listener.remove();
+        else listenerClienteAndroid = listener;
+      }).catch((error: unknown) => {
+        console.error("No se pudo escuchar las conexiones LAN de pantalla cliente:", error);
+      });
+    }
+
+    // 3. CONEXIÓN SOCKET.IO (LAN LOCAL)
+    const sirvePaginaDesdeLAN = window.location.protocol === "http:"
+      && [4000, 4001].includes(Number(window.location.port));
+    const hostMaestro = esMaestro
+      ? "localhost"
+      : ipMaestro || (sirvePaginaDesdeLAN ? window.location.hostname : "localhost");
+    socket = io(`http://${hostMaestro}:4000`, {
+      reconnection: true,
+      reconnectionAttempts: 5, // <-- Soluciona el "spam" de errores rojos en consola web
+      reconnectionDelay: 2000,
+      timeout: 10000,
+    });
+    socketRef.current = socket;
+    socket.on("connect", () => {
+      const mensajePendiente = mensajePendienteSocketRef.current;
+      if (mensajePendiente) {
+        socket?.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensajePendiente });
+        mensajePendienteSocketRef.current = null;
+      }
+    });
+
+    return () => {
+      cancelado = true;
+      socket?.disconnect();
+      socketRef.current = null;
+      if (listenerClienteAndroid) void listenerClienteAndroid.remove();
+      conexionesPeerRef.current = [];
+      peerRef.current?.destroy();
+      peerRef.current = null;
+    };
+  }, [esAndroid, esMaestro, ipMaestro, nombreCajaLocal]);
+
+  const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
+    // 1. Misma PC (Electron/Ventanas locales)
+    const bc = new BroadcastChannel(CANAL);
+    bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
+    bc.close();
+
+    // 2. P2P QR (Internet) - AHORA SE ENVÍA SIEMPRE Y NO SOLO EN ANDROID
+    const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
+    conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
+    mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
+
+    // 3. LAN (Socket.io)
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
+      mensajePendienteSocketRef.current = null;
+    } else {
+      mensajePendienteSocketRef.current = mensaje;
+    }
+  }, [nombreCajaLocal]);
+  
+  return { enviarMensaje, clientesConectados };
+}
+
+export function useReceptorPantallaCliente() {
+  const [datosCarrito, setDatosCarrito] = useState<{items: ItemCarrito[], total: number, descuento: number; metodoPago: string; datosTransferencia?: DatosTransferencia}>({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
+  const [mensajeExito, setMensajeExito] = useState<{total: number, cambio?: number; metodoPago: string; mensajePago: string; datosTransferencia?: DatosTransferencia} | null>(null);
+  const [productoEnPantalla, setProductoEnPantalla] = useState<Producto | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cajaObjetivo = params.get("cliente"); 
+
+    const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
+      if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
+      
+      if (msj.tipo === "ACTUALIZAR_CARRITO") {
+        setDatosCarrito((actual) => ({ ...actual, items: msj.items, total: msj.total, descuento: msj.descuento }));
+        if (msj.items.length > 0) setMensajeExito(null);
+      } else if (msj.tipo === "ACTUALIZAR_PAGO") {
+        setDatosCarrito((actual) => ({ ...actual, metodoPago: msj.metodoPago, datosTransferencia: msj.datosTransferencia }));
+      } else if (msj.tipo === "MOSTRAR_PRODUCTO_CLIENTE") {
+        setProductoEnPantalla(msj.producto);
+      } else if (msj.tipo === "QUITAR_PRODUCTO_CLIENTE") {
+        setProductoEnPantalla(null);
+      } else if (msj.tipo === "COBRO_EXITOSO") {
+        setMensajeExito({ total: msj.total, cambio: msj.cambio, metodoPago: msj.metodoPago || "EFECTIVO", mensajePago: msj.mensajePago || "Pago realizado. Gracias.", datosTransferencia: msj.datosTransferencia });
+        setProductoEnPantalla(null);
+        setTimeout(() => {
+          setMensajeExito(null);
+          setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
+        }, 3000);
+      } else if (msj.tipo === "LIMPIAR") {
+        setDatosCarrito({ items: [], total: 0, descuento: 0, metodoPago: "EFECTIVO" });
+        setProductoEnPantalla(null);
+        setMensajeExito(null);
+      }
+    };
+
+    // 1. Escuchar Local (misma PC)
+    const bc = new BroadcastChannel(CANAL);
+    bc.onmessage = (event) => {
+      const data = event.data;
+      if (data.payload) procesarMensaje(data.cajaId, data.payload);
+      else procesarMensaje("Local", data); 
+    };
+
+    const peerObjetivo = params.get("peer");
+    const hostRelay = params.get("lanHost");
+    const usaConexionLAN = Boolean(hostRelay)
+      || params.has("lanPort")
+      || window.location.port === "4000"
+      || window.location.port === "4001";
+      
+    let peerCliente: Peer | null = null;
+    if (peerObjetivo && !usaConexionLAN) {
+      peerCliente = new Peer();
+      peerCliente.on("error", (error) => {
+        console.error("Error al conectar la pantalla cliente con el POS:", error);
+      });
+      peerCliente.on("open", () => {
+        const conexion = peerCliente?.connect(peerObjetivo);
+        conexion?.on("data", (mensaje) => procesarMensaje(cajaObjetivo || "", mensaje as MensajePantalla));
+        conexion?.on("error", (error) => {
+          console.error("Error en el canal P2P de pantalla cliente:", error);
+        });
+      });
+    }
+
+    // 2. Escuchar LAN (Tableta externa)
+    let socket: Socket | null = null;
+    if (!peerObjetivo || usaConexionLAN) {
+      const host = hostRelay
+        || useEstadoRed.getState().ipMaestro
+        || window.location.hostname
+        || "localhost";
+      socket = io(`http://${host}:4000`, {
+        reconnection: true,
+        reconnectionAttempts: 5, // <-- Evita el spam infinito en consola
+        reconnectionDelay: 2000,
+        timeout: 10000,
+      });
+
+      socket.on("connect", () => {
+        if (cajaObjetivo) socket?.emit("registrar-pantalla-cliente", { cajaId: cajaObjetivo });
+      });
+      socket.on("update-pantalla-cliente", (data) => {
+        if (data && data.payload && data.cajaId) procesarMensaje(data.cajaId, data.payload);
+      });
+    }
+
+    return () => {
+      bc.close();
+      socket?.removeAllListeners();
+      socket?.disconnect();
+      peerCliente?.destroy();
+    };
+  }, []);
+
+  return { datosCarrito, mensajeExito, productoEnPantalla };
 }
 </file>
 
@@ -9573,18 +9560,6 @@ export const useEstadoRed = create<EstadoRed>((set) => ({
 }));
 </file>
 
-<file path="src/hooks/usePantallaCliente.ts">
-// src/hooks/usePantallaCliente.ts
-export {
-  useEmisorPantallaCliente,
-  useReceptorPantallaCliente,
-} from "./usePantallaClienteLAN";
-export type {
-  DatosTransferencia,
-  MensajePantalla,
-} from "./usePantallaClienteLAN";
-</file>
-
 <file path="src/utilidades/utils.ts">
 // src/utilidades/utils.ts
 import { type ClassValue, clsx } from "clsx";
@@ -9629,281 +9604,6 @@ export function generarSlug(texto: string): string {
     .replace(/-+/g, "-");
 
   return slug || "tienda";
-}
-</file>
-
-<file path="src/componentes/ui/ModalCobro.tsx">
-// src/componentes/ui/ModalCobro.tsx
-import { useState, useEffect, useRef } from "react";
-import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser } from "lucide-react";
-import { cn } from "../../utilidades/utils";
-
-interface PropsModalCobro {
-  estaAbierto: boolean;
-  alCerrar: () => void;
-  subtotal: number;
-  descuento: number;
-  total: number;
-  cantidadArticulos: number;
-  fiadosPermitidos: boolean;
-  alConfirmarVenta: (metodoPago: string) => void;
-  teclaCobro: string;
-  teclaEfectivo: string;
-  teclaTarjeta: string;
-  teclaTransferencia: string;
-  alCambiarMetodoPago: (metodoPago: MetodoPago) => void;
-}
-
-// NUEVO: Agregado FIADO a los tipos permitidos
-type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
-
-export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
-  const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
-  const [cantidadRecibida, setCantidadRecibida] = useState<string>("");
-  const entradaRecibidaRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (estaAbierto) {
-      setMetodoPago("EFECTIVO");
-      // Forzar exactamente 2 decimales para evitar números largos
-      setCantidadRecibida(total.toFixed(2));
-      window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
-    }
-  }, [estaAbierto, total]);
-
-  const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
-  const cambio = recibidoNumerico - total;
-  
-  // Validamos si es válido cobrar. Si es fiado, siempre es válido (no se pide cantidad de pago inmediato)
-  const esValido = metodoPago !== "EFECTIVO" || recibidoNumerico >= total;
-
-  useEffect(() => {
-    if (!estaAbierto) return;
-    const manejarTecla = (evento: KeyboardEvent) => {
-      const objetivo = evento.target as HTMLElement | null;
-      const tecla = evento.key.toLowerCase();
-
-      // Limpiar todo el campo con la tecla Delete (Suprimir)
-      if (tecla === "delete") {
-        evento.preventDefault();
-        setCantidadRecibida("");
-        return;
-      }
-
-      // Validar tecla de confirmación general
-      if (tecla === teclaCobro.toLowerCase()) {
-        evento.preventDefault();
-        if (esValido) {
-          alConfirmarVenta(metodoPago);
-          alCerrar();
-        }
-        return;
-      }
-      
-      // Validamos los atajos de método de pago ANTES de bloquear por el Input
-      if (tecla === teclaEfectivo.toLowerCase()) {
-        evento.preventDefault();
-        seleccionarMetodo("EFECTIVO");
-        return;
-      }
-      if (tecla === teclaTarjeta.toLowerCase()) {
-        evento.preventDefault();
-        seleccionarMetodo("TARJETA");
-        return;
-      }
-      if (tecla === teclaTransferencia.toLowerCase()) {
-        evento.preventDefault();
-        seleccionarMetodo("TRANSFERENCIA");
-        return;
-      }
-
-      // Si la tecla no fue ningún atajo, y estamos dentro del input de dinero, dejamos que el usuario escriba normal
-      if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
-    };
-    
-    window.addEventListener("keydown", manejarTecla);
-    return () => window.removeEventListener("keydown", manejarTecla);
-  }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCambiarMetodoPago]);
-
-  if (!estaAbierto) return null;
-
-  const manejarVenta = () => {
-    if (esValido) {
-      alConfirmarVenta(metodoPago);
-      alCerrar();
-    }
-  };
-
-  const agregarDigito = (digito: string) => {
-    setCantidadRecibida((actual) => {
-      if (digito === "C") return "";
-      if (digito === "." && actual.includes(".")) return actual;
-      return actual === "0" ? digito : `${actual}${digito}`;
-    });
-  };
-
-  const seleccionarMetodo = (metodo: MetodoPago) => {
-    setMetodoPago(metodo);
-    alCambiarMetodoPago(metodo);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden p-4 sm:p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[calc(100vh-32px)] overflow-hidden rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col gap-2">
-        
-        {/* Encabezado */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Confirmar Cobro</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {cantidadArticulos} artículo(s)
-            </p>
-          </div>
-          <button onClick={alCerrar} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-[0.85fr_1.15fr] gap-3 items-start">
-          {/* Desglose y Total */}
-          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
-            
-            {descuento > 0 && (
-              <>
-                <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium">
-                  <span>Subtotal:</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span>Descuento aplicado:</span>
-                  <span>-${descuento.toFixed(2)}</span>
-                </div>
-                <div className="h-px w-full bg-slate-200 dark:bg-white/10 my-1"></div>
-              </>
-            )}
-
-            <div className="text-center mt-1">
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total a cobrar</p>
-              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${total.toFixed(2)}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {/* Selección de Método de Pago */}
-            <div className={cn("grid gap-1.5", fiadosPermitidos ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
-              <button onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-                <Banknote size={20} />
-                <span className="text-xs font-semibold">Efectivo ({teclaEfectivo})</span>
-              </button>
-              <button onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-                <CreditCard size={20} />
-                <span className="text-xs font-semibold">Tarjeta ({teclaTarjeta})</span>
-              </button>
-              <button onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-                <ArrowRightLeft size={20} />
-                <span className="text-xs font-semibold">Transf. ({teclaTransferencia})</span>
-              </button>
-
-              {/* NUEVO BOTÓN DE FIADO */}
-              {fiadosPermitidos && (
-                <button onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
-                  <BookUser size={20} />
-                  <span className="text-xs font-semibold">Fiado</span>
-                </button>
-              )}
-            </div>
-
-            {/* Calculadora de Cambio (Solo si es Efectivo) */}
-            {metodoPago === "EFECTIVO" && (
-              <div className="flex flex-col gap-1 animate-in slide-in-from-top-2">
-                <div>
-                  <label className="flex justify-between items-center text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    <span>Cantidad recibida</span>
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded tracking-wide">
-                      [Delete] para borrar todo
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      ref={entradaRecibidaRef}
-                      autoFocus
-                      value={cantidadRecibida}
-                      onChange={(e) => setCantidadRecibida(e.target.value)}
-                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-5 gap-1.5 mt-1">
-                  {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
-                    <button
-                      key={billete}
-                      onClick={() => setCantidadRecibida(billete.toString())}
-                      className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
-                    >
-                      ${billete}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-4 gap-1.5">
-                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
-                    <button
-                      key={digito}
-                      onClick={() => agregarDigito(digito)}
-                      className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40"
-                    >
-                      {digito === "C" ? "Limpiar" : digito}
-                    </button>
-                  ))}
-                </div>
-
-                {cambio >= 0 ? (
-                  <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-xl">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Su cambio</p>
-                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">${cambio.toFixed(2)}</p>
-                  </div>
-                ) : (
-                  <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl">
-                    <p className="text-sm font-bold text-red-600 dark:text-red-400">Falta ${Math.abs(cambio).toFixed(2)}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Vista de Mensaje para FIADO */}
-            {metodoPago === "FIADO" && (
-              <div className="flex flex-col items-center justify-center p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl animate-in fade-in">
-                <BookUser size={32} className="text-amber-500 mb-2" />
-                <p className="text-sm font-bold text-amber-700 dark:text-amber-400 text-center">Venta a Crédito Local</p>
-                <p className="text-xs text-amber-600 dark:text-amber-500 text-center mt-1">
-                  Al continuar, podrás seleccionar a qué cliente asignar esta deuda.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Botón Confirmar */}
-        <button 
-          onClick={manejarVenta}
-          disabled={!esValido}
-          className={cn(
-            "w-full mt-2 flex justify-center items-center gap-2 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed",
-            metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
-          )}
-        >
-          <Check size={20} />
-          {metodoPago === "FIADO" ? "Continuar Fiado" : "Confirmar Venta"} ({teclaCobro})
-        </button>
-
-      </div>
-    </div>
-  );
 }
 </file>
 
@@ -10370,6 +10070,19 @@ export const useEstadoNavegacion = create<EstadoNavegacion>((set) => ({
   abrirLoteCaducidad: (loteId) => set({ seccionActual: "stock-bajo", productoEditandoId: null, loteCaducidadSeleccionadoId: loteId }),
   limpiarLoteCaducidad: () => set({ loteCaducidadSeleccionadoId: null }),
 }));
+</file>
+
+<file path="src/hooks/usePantallaCliente.ts">
+// src/hooks/usePantallaCliente.ts
+export {
+  crearIdPeer,
+  useEmisorPantallaCliente,
+  useReceptorPantallaCliente,
+} from "./usePantallaClienteLAN";
+export type {
+  DatosTransferencia,
+  MensajePantalla,
+} from "./usePantallaClienteLAN";
 </file>
 
 <file path="src/utilidades/impresion.ts">
@@ -11089,6 +10802,295 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
 }
 </file>
 
+<file path="src/componentes/ui/ModalCobro.tsx">
+// src/componentes/ui/ModalCobro.tsx
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { cn } from "../../utilidades/utils";
+
+interface PropsModalCobro {
+  estaAbierto: boolean;
+  alCerrar: () => void;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  cantidadArticulos: number;
+  fiadosPermitidos: boolean;
+  alConfirmarVenta: (metodoPago: string) => void;
+  teclaCobro: string;
+  teclaEfectivo: string;
+  teclaTarjeta: string;
+  teclaTransferencia: string;
+  alCambiarMetodoPago: (metodoPago: MetodoPago) => void;
+}
+
+// NUEVO: Agregado FIADO a los tipos permitidos
+type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
+
+export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
+  const [cantidadRecibida, setCantidadRecibida] = useState(() => total.toFixed(2));
+  const entradaRecibidaRef = useRef<HTMLInputElement>(null);
+
+  const seleccionarMetodo = useCallback((metodo: MetodoPago) => {
+    setMetodoPago(metodo);
+    alCambiarMetodoPago(metodo);
+  }, [alCambiarMetodoPago]);
+
+  useEffect(() => {
+    if (!estaAbierto) return;
+    const temporizador = window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
+    return () => window.clearTimeout(temporizador);
+  }, [estaAbierto]);
+
+  const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
+  const cambio = recibidoNumerico - total;
+  
+  // Validamos si es válido cobrar. Si es fiado, siempre es válido (no se pide cantidad de pago inmediato)
+  const esValido = metodoPago !== "EFECTIVO" || recibidoNumerico >= total;
+
+  useEffect(() => {
+    if (!estaAbierto) return;
+    const manejarTecla = (evento: KeyboardEvent) => {
+      const objetivo = evento.target as HTMLElement | null;
+      const tecla = evento.key.toLowerCase();
+
+      // Limpiar todo el campo con la tecla Delete (Suprimir)
+      if (tecla === "delete") {
+        evento.preventDefault();
+        setCantidadRecibida("");
+        return;
+      }
+
+      // Validar tecla de confirmación general
+      if (tecla === teclaCobro.toLowerCase()) {
+        evento.preventDefault();
+        if (esValido) {
+          alConfirmarVenta(metodoPago);
+          alCerrar();
+        }
+        return;
+      }
+      
+      // Validamos los atajos de método de pago ANTES de bloquear por el Input
+      if (tecla === teclaEfectivo.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("EFECTIVO");
+        return;
+      }
+      if (tecla === teclaTarjeta.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("TARJETA");
+        return;
+      }
+      if (tecla === teclaTransferencia.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("TRANSFERENCIA");
+        return;
+      }
+
+      // Si la tecla no fue ningún atajo, y estamos dentro del input de dinero, dejamos que el usuario escriba normal
+      if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
+    };
+    
+    window.addEventListener("keydown", manejarTecla);
+    return () => window.removeEventListener("keydown", manejarTecla);
+  }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCerrar, seleccionarMetodo]);
+
+  if (!estaAbierto) return null;
+
+  const manejarVenta = () => {
+    if (esValido) {
+      alConfirmarVenta(metodoPago);
+      alCerrar();
+    }
+  };
+
+  const agregarDigito = (digito: string) => {
+    setCantidadRecibida((actual) => {
+      if (digito === "C") return "";
+      if (digito === "." && actual.includes(".")) return actual;
+      return actual === "0" ? digito : `${actual}${digito}`;
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden p-4 sm:p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[calc(100vh-32px)] overflow-hidden rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col gap-2">
+        
+        {/* Encabezado */}
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">Confirmar Cobro</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {cantidadArticulos} artículo(s)
+            </p>
+          </div>
+          <button
+            onClick={manejarVenta}
+            disabled={!esValido}
+            aria-label={metodoPago === "FIADO" ? "Continuar fiado" : "Confirmar venta"}
+            title={`${metodoPago === "FIADO" ? "Continuar fiado" : "Confirmar venta"} (${teclaCobro})`}
+            className={cn(
+              "shrink-0 items-center justify-center gap-1 justify-self-center rounded-lg px-2 py-1.5 text-xs font-bold leading-none text-white shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50",
+              esAndroid ? "flex" : "hidden",
+              metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+            )}
+          >
+            <Check size={14} />
+            {metodoPago === "FIADO" ? "Fiado" : "Cobrar"}
+          </button>
+          <button onClick={alCerrar} className="shrink-0 justify-self-end p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[0.85fr_1.15fr] gap-3 items-start">
+          {/* Desglose y Total */}
+          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
+            
+            {descuento > 0 && (
+              <>
+                <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Descuento aplicado:</span>
+                  <span>-${descuento.toFixed(2)}</span>
+                </div>
+                <div className="h-px w-full bg-slate-200 dark:bg-white/10 my-1"></div>
+              </>
+            )}
+
+            <div className="text-center mt-1">
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total a cobrar</p>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">${total.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {/* Selección de Método de Pago */}
+            <div className={cn("grid gap-1.5", fiadosPermitidos ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+              <button onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <Banknote size={20} />
+                <span className="text-xs font-semibold">Efectivo ({teclaEfectivo})</span>
+              </button>
+              <button onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <CreditCard size={20} />
+                <span className="text-xs font-semibold">Tarjeta ({teclaTarjeta})</span>
+              </button>
+              <button onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <ArrowRightLeft size={20} />
+                <span className="text-xs font-semibold">Transf. ({teclaTransferencia})</span>
+              </button>
+
+              {/* NUEVO BOTÓN DE FIADO */}
+              {fiadosPermitidos && (
+                <button onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                  <BookUser size={20} />
+                  <span className="text-xs font-semibold">Fiado</span>
+                </button>
+              )}
+            </div>
+
+            {/* Calculadora de Cambio (Solo si es Efectivo) */}
+            {metodoPago === "EFECTIVO" && (
+              <div className="flex flex-col gap-1 animate-in slide-in-from-top-2">
+                <div>
+                  <label className="flex justify-between items-center text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    <span>Cantidad recibida</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded tracking-wide">
+                      [Delete] para borrar todo
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      ref={entradaRecibidaRef}
+                      autoFocus
+                      value={cantidadRecibida}
+                      onChange={(e) => setCantidadRecibida(e.target.value)}
+                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1.5 mt-1">
+                  {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
+                    <button
+                      key={billete}
+                      onClick={() => setCantidadRecibida(billete.toString())}
+                      className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
+                    >
+                      ${billete}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
+                    <button
+                      key={digito}
+                      onClick={() => agregarDigito(digito)}
+                      className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40"
+                    >
+                      {digito === "C" ? "Limpiar" : digito}
+                    </button>
+                  ))}
+                </div>
+
+                {cambio >= 0 ? (
+                  <div className="text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-xl">
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Su cambio</p>
+                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300">${cambio.toFixed(2)}</p>
+                  </div>
+                ) : (
+                  <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl">
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">Falta ${Math.abs(cambio).toFixed(2)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Vista de Mensaje para FIADO */}
+            {metodoPago === "FIADO" && (
+              <div className="flex flex-col items-center justify-center p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl animate-in fade-in">
+                <BookUser size={32} className="text-amber-500 mb-2" />
+                <p className="text-sm font-bold text-amber-700 dark:text-amber-400 text-center">Venta a Crédito Local</p>
+                <p className="text-xs text-amber-600 dark:text-amber-500 text-center mt-1">
+                  Al continuar, podrás seleccionar a qué cliente asignar esta deuda.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Botón Confirmar */}
+        <button 
+          onClick={manejarVenta}
+          disabled={!esValido}
+          className={cn(
+            "w-full mt-2 justify-center items-center gap-2 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed",
+            esAndroid ? "hidden" : "flex",
+            metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+          )}
+        >
+          <Check size={20} />
+          {metodoPago === "FIADO" ? "Continuar Fiado" : "Confirmar Venta"} ({teclaCobro})
+        </button>
+
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="src/servicios/baseDatosLocal.ts">
 // src/servicios/baseDatosLocal.ts
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
@@ -11228,13 +11230,30 @@ import { crearIdentificadorUnico } from '../utilidades/identificador';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+const fetchConTiempoLimite: typeof fetch = async (input, init) => {
+  const controlador = new AbortController();
+  const senalOriginal = init?.signal ?? (typeof Request !== "undefined" && input instanceof Request ? input.signal : null);
+  const cancelarPorSolicitud = () => controlador.abort();
+  if (senalOriginal?.aborted) cancelarPorSolicitud();
+  else senalOriginal?.addEventListener("abort", cancelarPorSolicitud, { once: true });
+
+  const temporizador = setTimeout(() => controlador.abort(), 3500);
+  try {
+    return await fetch(input, { ...init, signal: controlador.signal });
+  } finally {
+    clearTimeout(temporizador);
+    senalOriginal?.removeEventListener("abort", cancelarPorSolicitud);
+  }
+};
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Faltan las variables de entorno de Supabase. El sistema funcionará en modo 100% local.");
 }
 
 export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co", 
-  supabaseAnonKey || "placeholder"
+  supabaseAnonKey || "placeholder",
+  { global: { fetch: fetchConTiempoLimite } }
 );
 
 let tiendaIdCache: string | null = null;
@@ -11573,207 +11592,6 @@ contextBridge.exposeInMainWorld('apiLocal', {
     ipcRenderer.on('accion-de-esclavo', (event, data) => callback(data));
   }
 });
-</file>
-
-<file path="src/componentes/ui/ModalQRCliente.tsx">
-// src/componentes/ui/ModalQRCliente.tsx
-import { useEffect, useState } from "react";
-import QRCode from "react-qr-code";
-import { Capacitor } from "@capacitor/core";
-import { X, MonitorSmartphone } from "lucide-react";
-import { androidLan } from "../../servicios/androidLan";
-import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
-import { useEstadoRed } from "../../estado/estadoRed";
-import { generarSlug } from "../../utilidades/utils";
-
-const CLAVE_MODO_CONEXION = "modo_conexion_pantalla_cliente_v2";
-
-interface Props {
-  abierto: boolean;
-  alCerrar: () => void;
-  nombreCaja: string;
-}
-
-export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props) {
-  const { nombreTienda } = useEstadoConfiguracion();
-  const { esMaestro, ipMaestro } = useEstadoRed();
-  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
-  const [baseUrl, setBaseUrl] = useState("");
-  const [errorConexion, setErrorConexion] = useState("");
-  const [intentosConexion, setIntentosConexion] = useState(0);
-  const [modoConexion, setModoConexion] = useState<"internet" | "local">(() =>
-    localStorage.getItem(CLAVE_MODO_CONEXION) === "local" ? "local" : "internet"
-  );
-
-  const seleccionarModoConexion = (modo: "internet" | "local") => {
-    localStorage.setItem(CLAVE_MODO_CONEXION, modo);
-    setModoConexion(modo);
-  };
-
-  useEffect(() => {
-    if (!abierto) return;
-    let cancelado = false;
-
-    const obtenerBaseUrl = async () => {
-      setBaseUrl("");
-      setErrorConexion("");
-      try {
-        if (modoConexion === "internet") {
-          if (!cancelado) setBaseUrl("https://mitienda.ahorratiempo.com.mx");
-          return;
-        }
-
-        if (esAndroid && modoConexion === "local") {
-          if (esMaestro) {
-            let estado = await androidLan.getServerStatus();
-            if (!estado.activo) estado = await androidLan.startServer();
-            if (!estado.activo || !estado.ip || estado.ip === "127.0.0.1") {
-              throw new Error("No se pudo iniciar automáticamente el servidor LAN. Conecta este equipo a una red Wi-Fi y vuelve a intentarlo.");
-            }
-            if (!cancelado) setBaseUrl(`http://${estado.ip}:${estado.webPort}`);
-          } else {
-            const puertoWeb = Number(localStorage.getItem("puerto_web_maestro_lan")) || 4000;
-            if (!ipMaestro) throw new Error("No se encontró el Cerebro en la red. Conéctate a la misma Wi-Fi e intenta de nuevo.");
-            if (!cancelado) setBaseUrl(`http://${ipMaestro}:${puertoWeb}`);
-          }
-          return;
-        }
-
-        const apiLocal = (window as Window & {
-          apiLocal?: {
-            obtenerEstadoLAN?: () => Promise<{ activo: boolean; ip: string }>;
-            obtenerIpLocal?: () => Promise<string>;
-          };
-        }).apiLocal;
-        if (apiLocal?.obtenerEstadoLAN) {
-          if (!esMaestro) {
-            const puertoWeb = Number(localStorage.getItem("puerto_web_maestro_lan")) || 4000;
-            if (!ipMaestro) throw new Error("No se encontró el Cerebro en la red. Conéctate a la misma Wi-Fi e intenta de nuevo.");
-            if (!cancelado) setBaseUrl(`http://${ipMaestro}:${puertoWeb}`);
-            return;
-          }
-          const estado = await apiLocal.obtenerEstadoLAN();
-          if (estado.activo && estado.ip && estado.ip !== "127.0.0.1") {
-            if (!cancelado) setBaseUrl(`http://${estado.ip}:4000`);
-            return;
-          }
-          throw new Error("El servidor LAN no está activo. Activa este equipo como Cerebro para compartir la pantalla por Wi-Fi.");
-        }
-
-        if (window.location.protocol === "http:" && window.location.hostname !== "localhost") {
-          if (!cancelado) setBaseUrl(window.location.origin);
-          return;
-        }
-
-        throw new Error("No se detectó un servidor LAN. Conecta la pantalla cliente desde un equipo Cerebro en la misma red Wi-Fi.");
-      } catch (error: unknown) {
-        if (!cancelado) {
-          setErrorConexion(error instanceof Error ? error.message : "No se pudo preparar el enlace de la pantalla cliente.");
-        }
-      }
-    };
-
-    void obtenerBaseUrl();
-    return () => {
-      cancelado = true;
-    };
-  }, [abierto, esAndroid, esMaestro, ipMaestro, intentosConexion, modoConexion]);
-
-  if (!abierto) return null;
-
-  const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
-  const idPeer = `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  const enlaceCliente = baseUrl
-    ? (() => {
-      const urlCliente = new URL(baseUrl);
-      if (modoConexion === "internet") urlCliente.searchParams.set("peer", idPeer);
-      if (modoConexion === "local" && urlCliente.protocol === "http:") {
-        const puertoWeb = urlCliente.port || Number(localStorage.getItem("puerto_web_maestro_lan")) || "4000";
-        urlCliente.searchParams.set("lanHost", esMaestro ? urlCliente.hostname : ipMaestro || urlCliente.hostname);
-        urlCliente.searchParams.set("lanPort", String(puertoWeb));
-      }
-      urlCliente.searchParams.set("cliente", nombreCaja);
-      urlCliente.searchParams.set("tienda", generarSlug(nombreTienda));
-      urlCliente.searchParams.set("nombreTienda", nombreTienda);
-      return urlCliente.toString();
-    })()
-    : "";
-  const enlaceQR = enlaceCliente;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={alCerrar}>
-      <div 
-        className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col scrollbar-thin"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-950/50 shrink-0 sticky top-0 z-10">
-          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
-            <MonitorSmartphone className="text-emerald-600" size={20} />
-            Pantalla Remota
-          </h2>
-          <button onClick={alCerrar} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="p-5 flex flex-col items-center text-center gap-4">
-          <div className="grid w-full grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-            <button
-              type="button"
-              onClick={() => seleccionarModoConexion("internet")}
-              aria-pressed={modoConexion === "internet"}
-              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "internet" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
-            >
-              Internet · P2P
-            </button>
-            <button
-              type="button"
-              onClick={() => seleccionarModoConexion("local")}
-              aria-pressed={modoConexion === "local"}
-              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "local" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
-            >
-              Wi-Fi local
-            </button>
-          </div>
-
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            {modoConexion === "internet"
-              ? <>Escanea este código para conectar una pantalla cliente por Internet mediante P2P y mostrar las ventas de <strong>{nombreCaja}</strong>.</>
-              : <>Escanea este código desde un dispositivo conectado a la misma Wi-Fi para mostrar las ventas de <strong>{nombreCaja}</strong> al instante.</>}
-          </p>
-
-          {enlaceCliente ? (
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 relative flex items-center justify-center shrink-0">
-              <QRCode value={enlaceQR} size={180} className="rounded-lg" />
-            </div>
-          ) : (
-            <div role="alert" className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300">
-              {errorConexion || "Obteniendo la dirección de la red local..."}
-              {errorConexion && (
-                <button
-                  type="button"
-                  onClick={() => setIntentosConexion((intento) => intento + 1)}
-                  className="mt-2 block font-bold underline"
-                >
-                  Reintentar
-                </button>
-              )}
-            </div>
-          )}
-
-          {enlaceCliente && (
-            <div className="w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-white/5 shrink-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">O ingresa esta URL en la tablet:</p>
-              <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 break-all select-all font-semibold">
-                {enlaceCliente}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 </file>
 
 <file path="src/vistas/VistaEquipo.tsx">
@@ -12546,6 +12364,269 @@ export default function VistaStockBajo() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+</file>
+
+<file path="src/componentes/ui/ModalQRCliente.tsx">
+// src/componentes/ui/ModalQRCliente.tsx
+import { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
+import { Capacitor } from "@capacitor/core";
+import { X, MonitorSmartphone } from "lucide-react";
+import { androidLan } from "../../servicios/androidLan";
+import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
+import { useEstadoRed } from "../../estado/estadoRed";
+import { obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
+import { generarSlug } from "../../utilidades/utils";
+import { crearIdPeer } from "../../hooks/usePantallaCliente";
+
+const CLAVE_MODO_CONEXION = "modo_conexion_pantalla_cliente_v2";
+
+interface Props {
+  abierto: boolean;
+  alCerrar: () => void;
+  nombreCaja: string;
+}
+
+export default function ModalQRCliente({ abierto, alCerrar, nombreCaja }: Props) {
+  const { nombreTienda } = useEstadoConfiguracion();
+  const { esMaestro, ipMaestro, setIpMaestro } = useEstadoRed();
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const [baseUrl, setBaseUrl] = useState("");
+  const [errorConexion, setErrorConexion] = useState("");
+  const [intentosConexion, setIntentosConexion] = useState(0);
+  const [modoConexion, setModoConexion] = useState<"internet" | "local">(() =>
+    localStorage.getItem(CLAVE_MODO_CONEXION) === "local" ? "local" : "internet"
+  );
+
+  const seleccionarModoConexion = (modo: "internet" | "local") => {
+    localStorage.setItem(CLAVE_MODO_CONEXION, modo);
+    setModoConexion(modo);
+  };
+
+  useEffect(() => {
+    if (!abierto) return;
+    let cancelado = false;
+    let cancelarDescubrimiento: (() => void) | null = null;
+
+    const descubrirCerebro = async () => {
+      const api = window.apiLocal;
+      if (!api?.onCerebroDetectado || !api.iniciarDescubrimientoLAN) {
+        throw new Error("Este equipo no puede buscar el Cerebro automáticamente. Configura su IP desde Configuración > Red.");
+      }
+
+      const tiendaId = await obtenerTiendaIdActual();
+      const deviceId = await obtenerIdentificadorDispositivo();
+      if (!tiendaId) throw new Error("No se encontró la tienda activa para buscar el Cerebro.");
+
+      return new Promise<{ ip: string; puertoWeb: number }>((resolve, reject) => {
+        let finalizado = false;
+        let quitarListener: (() => void) | null = null;
+        const temporizador = window.setTimeout(() => {
+          finalizar(() => reject(new Error("No se encontró el Cerebro en la red. Verifica que ambos equipos estén en la misma Wi-Fi y vuelve a intentar.")));
+        }, 10000);
+
+        const finalizar = (accion: () => void) => {
+          if (finalizado) return;
+          finalizado = true;
+          window.clearTimeout(temporizador);
+          quitarListener?.();
+          cancelarDescubrimiento = null;
+          accion();
+        };
+
+        cancelarDescubrimiento = () => {
+          finalizar(() => reject(new Error("Se canceló la búsqueda del Cerebro.")));
+        };
+        quitarListener = api.onCerebroDetectado((cerebro) => {
+          if (cerebro.tiendaId !== tiendaId || cerebro.deviceId === deviceId) return;
+          if (![4000, 4001].includes(cerebro.puertoWeb)) return;
+          finalizar(() => resolve({ ip: cerebro.ip, puertoWeb: cerebro.puertoWeb }));
+        });
+
+        void api.iniciarDescubrimientoLAN().catch((error: unknown) => {
+          finalizar(() => reject(error));
+        });
+      });
+    };
+
+    const obtenerBaseUrl = async () => {
+      setBaseUrl("");
+      setErrorConexion("");
+      try {
+        if (modoConexion === "internet") {
+          if (!cancelado) setBaseUrl("https://mitienda.ahorratiempo.com.mx");
+          return;
+        }
+
+        if (esAndroid && modoConexion === "local") {
+          if (esMaestro) {
+            let estado = await androidLan.getServerStatus();
+            if (!estado.activo) estado = await androidLan.startServer();
+            if (!estado.activo || !estado.ip || estado.ip === "127.0.0.1") {
+              throw new Error("No se pudo iniciar automáticamente el servidor LAN. Conecta este equipo a una red Wi-Fi y vuelve a intentarlo.");
+            }
+            if (!cancelado) setBaseUrl(`http://${estado.ip}:${estado.webPort}`);
+          } else {
+            const puertoWeb = Number(localStorage.getItem("puerto_web_maestro_lan")) || 4000;
+            if (!ipMaestro) throw new Error("No se encontró el Cerebro en la red. Conéctate a la misma Wi-Fi e intenta de nuevo.");
+            if (!cancelado) setBaseUrl(`http://${ipMaestro}:${puertoWeb}`);
+          }
+          return;
+        }
+
+        const apiLocal = (window as Window & {
+          apiLocal?: {
+            obtenerEstadoLAN?: () => Promise<{ activo: boolean; ip: string }>;
+            obtenerIpLocal?: () => Promise<string>;
+          };
+        }).apiLocal;
+        if (apiLocal?.obtenerEstadoLAN) {
+          if (!esMaestro) {
+            let hostMaestro = ipMaestro;
+            let puertoWeb = Number(localStorage.getItem("puerto_web_maestro_lan"));
+            if (!hostMaestro || ![4000, 4001].includes(puertoWeb)) {
+              const cerebro = await descubrirCerebro();
+              hostMaestro = cerebro.ip;
+              puertoWeb = cerebro.puertoWeb;
+              localStorage.setItem("puerto_web_maestro_lan", String(puertoWeb));
+              setIpMaestro(hostMaestro);
+            }
+            if (!cancelado) setBaseUrl(`http://${hostMaestro}:${puertoWeb}`);
+            return;
+          }
+          const estado = await apiLocal.obtenerEstadoLAN();
+          if (estado.activo && estado.ip && estado.ip !== "127.0.0.1") {
+            if (!cancelado) setBaseUrl(`http://${estado.ip}:4000`);
+            return;
+          }
+          throw new Error("El servidor LAN no está activo. Activa este equipo como Cerebro para compartir la pantalla por Wi-Fi.");
+        }
+
+        const puertoWebLocal = Number(localStorage.getItem("puerto_web_maestro_lan")) || 4000;
+        const puertoActual = Number(window.location.port);
+        if (
+          window.location.protocol === "http:"
+          && window.location.hostname !== "localhost"
+          && [4000, 4001].includes(puertoActual)
+        ) {
+          if (!cancelado) setBaseUrl(window.location.origin);
+          return;
+        }
+
+        if (ipMaestro) {
+          if (!cancelado) setBaseUrl(`http://${ipMaestro}:${puertoWebLocal}`);
+          return;
+        }
+
+        throw new Error("No se encontró el Cerebro en la red. Conecta este equipo a la misma Wi-Fi y configura su IP desde Configuración > Red.");
+      } catch (error: unknown) {
+        if (!cancelado) {
+          setErrorConexion(error instanceof Error ? error.message : "No se pudo preparar el enlace de la pantalla cliente.");
+        }
+      }
+    };
+
+    void obtenerBaseUrl();
+    return () => {
+      cancelado = true;
+      cancelarDescubrimiento?.();
+    };
+  }, [abierto, esAndroid, esMaestro, ipMaestro, intentosConexion, modoConexion, setIpMaestro]);
+
+  if (!abierto) return null;
+
+  const idPeer = crearIdPeer(nombreCaja);
+  const enlaceCliente = baseUrl
+    ? (() => {
+      const urlCliente = new URL(baseUrl);
+      if (modoConexion === "internet") urlCliente.searchParams.set("peer", idPeer);
+      if (modoConexion === "local" && urlCliente.protocol === "http:") {
+        const puertoWeb = urlCliente.port || Number(localStorage.getItem("puerto_web_maestro_lan")) || "4000";
+        urlCliente.searchParams.set("lanHost", esMaestro ? urlCliente.hostname : ipMaestro || urlCliente.hostname);
+        urlCliente.searchParams.set("lanPort", String(puertoWeb));
+      }
+      urlCliente.searchParams.set("cliente", nombreCaja);
+      urlCliente.searchParams.set("tienda", generarSlug(nombreTienda));
+      urlCliente.searchParams.set("nombreTienda", nombreTienda);
+      return urlCliente.toString();
+    })()
+    : "";
+  const enlaceQR = enlaceCliente;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={alCerrar}>
+      <div 
+        className="w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col scrollbar-thin"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-950/50 shrink-0 sticky top-0 z-10">
+          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+            <MonitorSmartphone className="text-emerald-600" size={20} />
+            Pantalla Remota
+          </h2>
+          <button onClick={alCerrar} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-5 flex flex-col items-center text-center gap-4">
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => seleccionarModoConexion("internet")}
+              aria-pressed={modoConexion === "internet"}
+              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "internet" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
+            >
+              Internet · P2P
+            </button>
+            <button
+              type="button"
+              onClick={() => seleccionarModoConexion("local")}
+              aria-pressed={modoConexion === "local"}
+              className={`rounded-lg px-2 py-2 text-xs font-bold transition-colors ${modoConexion === "local" ? "bg-white text-emerald-700 shadow dark:bg-slate-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-400"}`}
+            >
+              Wi-Fi local
+            </button>
+          </div>
+
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            {modoConexion === "internet"
+              ? <>Escanea este código para conectar una pantalla cliente por Internet mediante P2P y mostrar las ventas de <strong>{nombreCaja}</strong>.</>
+              : <>Escanea este código desde un dispositivo conectado a la misma Wi-Fi para mostrar las ventas de <strong>{nombreCaja}</strong> al instante.</>}
+          </p>
+
+          {enlaceCliente ? (
+            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 relative flex items-center justify-center shrink-0">
+              <QRCode value={enlaceQR} size={180} className="rounded-lg" />
+            </div>
+          ) : (
+            <div role="alert" className="w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300">
+              {errorConexion || "Obteniendo la dirección de la red local..."}
+              {errorConexion && (
+                <button
+                  type="button"
+                  onClick={() => setIntentosConexion((intento) => intento + 1)}
+                  className="mt-2 block font-bold underline"
+                >
+                  Reintentar
+                </button>
+              )}
+            </div>
+          )}
+
+          {enlaceCliente && (
+            <div className="w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-white/5 shrink-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">O ingresa esta URL en la tablet:</p>
+              <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 break-all select-all font-semibold">
+                {enlaceCliente}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -16393,15 +16474,28 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
   cargando: true,
 
   cargarTrabajadores: async () => {
-    set({ cargando: true });
+    set({ cargando: get().trabajadores.length === 0 });
     try {
+      const datosLocales = await obtenerRegistros("trabajadores");
+      const trabajadoresLocales = (datosLocales as Trabajador[]).map((trabajador) => ({
+        ...trabajador,
+        pin: descifrarPin(trabajador.pin)
+      }));
+      if (trabajadoresLocales.length > 0) {
+        set({ trabajadores: trabajadoresLocales, cargando: false });
+      }
+
       const permiteSincronizar = debeSincronizarConNube();
       const tiendaId = permiteSincronizar ? await obtenerTiendaIdActual() : localStorage.getItem("tienda_id");
 
       if (permiteSincronizar && navigator.onLine && tiendaId) {
-        const { data: miembrosNube } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
+        const { data: miembrosNube, error } = await supabase.from('miembros_tienda').select('*').eq('tienda_id', tiendaId);
 
         if (miembrosNube) {
+          if (!debeSincronizarConNube()) {
+            set({ cargando: false });
+            return;
+          }
           const trabajadoresNube = miembrosNube.map((m: any) => ({
             id: m.usuario_id,
             nombre: m.nombre,
@@ -16416,11 +16510,9 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
             },
             horarioSemanal: m.horario
           }));
-
           const idsNube = new Set(trabajadoresNube.map((t: Trabajador) => t.id));
-          const tLocal = await obtenerRegistros("trabajadores");
 
-          for (const t of tLocal) {
+          for (const t of datosLocales) {
             if (!idsNube.has(t.id)) await eliminarRegistro("trabajadores", t.id);
           }
           for (const t of trabajadoresNube) {
@@ -16430,18 +16522,18 @@ export const useEstadoTrabajadores = create<EstadoTrabajadores>((set, get) => ({
           set({ trabajadores: trabajadoresNube, cargando: false });
           return;
         }
+        if (error) console.warn("No se pudieron cargar los trabajadores desde Supabase; se usarán los datos locales:", error);
       }
 
-      const data = await obtenerRegistros("trabajadores");
       let estadoTrabajadores: Trabajador[] = [];
       
-      if (data.length === 0) {
+      if (trabajadoresLocales.length === 0) {
         for (const t of TRABAJADORES_INICIALES) {
           await guardarRegistro("trabajadores", { ...t, pin: cifrarPin(t.pin) });
         }
         estadoTrabajadores = TRABAJADORES_INICIALES;
       } else {
-        estadoTrabajadores = (data as Trabajador[]).map((t) => ({ ...t, pin: descifrarPin(t.pin) }));
+        estadoTrabajadores = trabajadoresLocales;
       }
       
       set({ trabajadores: estadoTrabajadores, cargando: false });
@@ -18062,408 +18154,6 @@ app.on('before-quit', () => {
 });
 </file>
 
-<file path="src/estado/estadoVentas.ts">
-// src/estado/estadoVentas.ts
-import { create } from "zustand";
-import type { ItemCarrito } from "./estadoCarrito";
-import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
-import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
-import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
-import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
-
-const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
-
-const mapearVentaDesdeSupabase = (v: any): Venta => ({
-  id: v.id,
-  fecha: v.created_at,
-  trabajador: v.trabajador_nombre,
-  vendedor_id: v.vendedor_id,
-  subtotal: v.subtotal,
-  descuento: v.descuento,
-  total: v.total,
-  metodoPago: v.metodo_pago,
-  cancelada: v.cancelada,
-  articulos: (v.venta_detalles ?? []).map((d: any) => ({
-    producto_id: d.producto_id,
-    nombre: d.nombre_producto,
-    cantidad: d.cantidad,
-    precio: d.precio_unitario,
-    costo: d.costo_unitario || 0, // NUEVO: Mapeo del costo unitario
-    subtotal: d.subtotal,
-    autorizacion_confirmada: d.autorizacion_confirmada
-  }))
-});
-
-export interface Venta {
-  id: string;
-  fecha: string;
-  trabajador: string;
-  vendedor_id?: string;
-  articulos: ItemCarrito[];
-  subtotal: number;
-  descuento: number;
-  total: number;
-  metodoPago: string;
-  cancelada?: boolean;
-}
-
-const obtenerVentasFiadasLocales = async () => {
-  const ventasFiadas = new Map((await obtenerVentasFiadoLocales()).map(venta => [venta.id, venta]));
-  const ventasEnAlmacenGeneral = await obtenerRegistros("ventas") as Venta[];
-
-  for (const venta of ventasEnAlmacenGeneral.filter(venta => venta.metodoPago === "FIADO")) {
-    if (!ventasFiadas.has(venta.id)) {
-      await guardarVentaFiadoLocal(venta);
-      ventasFiadas.set(venta.id, venta);
-    }
-  }
-
-  return [...ventasFiadas.values()];
-};
-
-interface EstadoVentas {
-  ventas: Venta[];
-  cargando: boolean;
-  cargarVentas: () => Promise<void>;
-  agregarVenta: (venta: Venta, propagado?: boolean) => Promise<void>;
-  cancelarVenta: (id: string, propagado?: boolean) => Promise<void>;
-  aplicarAccionLAN: (tipo: string, payload: any) => Promise<void>;
-  hidratarEstadoLAN: (snapshot: any) => Promise<void>;
-  sincronizarVenta: (payload: any) => Promise<void>;
-  purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>;
-}
-
-export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
-  ventas: [],
-  cargando: true,
-
-  cargarVentas: async () => {
-    set({ cargando: true });
-    try {
-      const puedeSincronizarNube = debeSincronizarConNube();
-      const tiendaId = puedeSincronizarNube ? await obtenerTiendaIdActual() : null;
-
-      if (puedeSincronizarNube && navigator.onLine && tiendaId) {
-        const { data: ventasNube, error } = await supabase
-          .from('ventas')
-          .select('*, venta_detalles(*)')
-          .eq('tienda_id', tiendaId)
-          .neq('metodo_pago', 'FIADO')
-          .order('created_at', { ascending: false });
-
-        if (!error && ventasNube) {
-          const ventasMapeadas: Venta[] = ventasNube
-            .filter((venta: any) => venta.metodo_pago !== "FIADO")
-            .map(mapearVentaDesdeSupabase);
-          const ventasFiadasLocales = await obtenerVentasFiadasLocales();
-
-          if (esEscritorio) {
-            for (const v of ventasMapeadas) {
-              await guardarRegistro("ventas", v);
-            }
-
-            const dataLocal = await obtenerRegistros("ventas");
-            const ventasLocales = [...(dataLocal as Venta[]).filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
-            const estadoVentas = ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-            set({ ventas: estadoVentas, cargando: false });
-          } else {
-            const ventasCombinadas = new Map(ventasMapeadas.map(venta => [venta.id, venta]));
-            ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
-            set({
-              ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
-              cargando: false
-            });
-          }
-          return;
-        }
-      }
-
-      const dataLocal = await obtenerRegistros("ventas");
-      const ventasFiadasLocales = await obtenerVentasFiadasLocales();
-      const ventasLocales = [...(dataLocal as Venta[]).filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
-      const estadoVentas = ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-      set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
-
-      if (!navigator.onLine) set({ cargando: false });
-    } catch (error) {
-      console.error("Error al cargar ventas:", error);
-      set({ cargando: false });
-    }
-  },
-
-  agregarVenta: async (venta, propagado = false) => {
-    try {
-      if (venta.metodoPago === "FIADO") {
-        await guardarVentaFiadoLocal(venta);
-        set((estado) => ({
-          ventas: estado.ventas.some((actual) => actual.id === venta.id)
-            ? estado.ventas.map((actual) => actual.id === venta.id ? venta : actual)
-            : [venta, ...estado.ventas]
-        }));
-        if (!propagado) enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: venta });
-        return;
-      }
-
-      await guardarRegistro("ventas", venta);
-      set((estado) => ({
-        ventas: estado.ventas.some((actual) => actual.id === venta.id)
-          ? estado.ventas.map((actual) => actual.id === venta.id ? venta : actual)
-          : [venta, ...estado.ventas]
-      }));
-
-      if (!propagado) {
-        enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: venta });
-      }
-
-      if (!debeSincronizarConNube()) return;
-
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (tiendaId && session) {
-          venta.vendedor_id = session.user.id;
-          const { error: errorVenta } = await supabase.from('ventas').insert({
-            id: venta.id,
-            tienda_id: tiendaId,
-            vendedor_id: session.user.id,
-            trabajador_nombre: venta.trabajador,
-            subtotal: venta.subtotal,
-            descuento: venta.descuento,
-            total: venta.total,
-            metodo_pago: venta.metodoPago,
-            cancelada: false,
-            created_at: venta.fecha
-          });
-          if (errorVenta) throw errorVenta;
-
-          const detalles = venta.articulos.map(art => ({
-            venta_id: venta.id,
-            producto_id: art.producto_id,
-            nombre_producto: art.nombre,
-            cantidad: art.cantidad,
-            precio_unitario: art.precio,
-            costo_unitario: art.costo || 0, // NUEVO: Inserción del costo unitario en DB
-            subtotal: art.subtotal,
-            autorizacion_confirmada: art.autorizacion_confirmada || false,
-            evidencia_nombre_archivo_local: null 
-          }));
-
-          const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
-          if (errorDetalles) throw errorDetalles;
-        } else {
-          await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
-        }
-      } else {
-        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
-      }
-    } catch (error) {
-      console.error("Error al guardar la venta:", error);
-      if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
-      }
-    }
-  },
-
-  cancelarVenta: async (id, propagado = false) => {
-    try {
-      const ventaEnEstado = get().ventas.find((venta) => venta.id === id);
-      const ventaOriginal = ventaEnEstado ?? (await obtenerVentasFiadasLocales()).find(venta => venta.id === id);
-      if (ventaOriginal?.metodoPago === "FIADO") {
-        const ventaActualizada = { ...ventaOriginal, cancelada: true };
-        await guardarVentaFiadoLocal(ventaActualizada);
-        set((estado) => ({
-          ventas: estado.ventas.map((venta) => venta.id === id ? ventaActualizada : venta)
-        }));
-        if (!propagado) enviarAccionLAN({ tipo: "LAN_VENTA_CANCELAR", payload: { id } });
-        return;
-      }
-
-      set((estado) => ({
-        ventas: estado.ventas.map((v) => v.id === id ? { ...v, cancelada: true } : v)
-      }));
-
-      const ventaActualizada = get().ventas.find(v => v.id === id);
-      if (ventaActualizada) {
-        await guardarRegistro("ventas", ventaActualizada);
-      }
-
-      if (!propagado) {
-        enviarAccionLAN({ tipo: "LAN_VENTA_CANCELAR", payload: { id } });
-      }
-
-      if (!debeSincronizarConNube()) return;
-
-      if (navigator.onLine) {
-        const tiendaId = await obtenerTiendaIdActual();
-        if (tiendaId) {
-          const { error } = await supabase.from('ventas')
-            .update({ cancelada: true })
-            .eq('id', id)
-            .eq('tienda_id', tiendaId);
-          if (error) throw error;
-        } else await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
-      } else {
-        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
-      }
-    } catch (error) {
-      console.error("Error al cancelar la venta:", error);
-      if (debeSincronizarConNube()) {
-        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
-      }
-    }
-  },
-
-  purgarVentasLocales: async (fechaInicio: string, fechaFin: string) => {
-    const todasLocales = await obtenerRegistros("ventas");
-    const aBorrar = (todasLocales as Venta[]).filter(v => {
-      if (v.metodoPago === "FIADO") return false;
-      const fechaVenta = v.fecha.slice(0, 10);
-      return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
-    });
-
-    for (const v of aBorrar) {
-      await eliminarRegistro("ventas", v.id);
-    }
-
-    set(state => ({
-      ventas: state.ventas.filter(v => {
-        if (v.metodoPago === "FIADO") return true;
-        const fechaVenta = v.fecha.slice(0, 10);
-        return !(fechaVenta >= fechaInicio && fechaVenta <= fechaFin);
-      })
-    }));
-  },
-
-  sincronizarVenta: async (payload: any) => {
-    if (!debeSincronizarConNube()) return;
-
-    const { eventType, new: nuevo, old: viejo, table } = payload;
-    const { ventas } = get();
-
-    if (table === 'venta_detalles') {
-      const ventaId = eventType === 'DELETE' ? viejo.venta_id : nuevo.venta_id;
-      const tiendaId = await obtenerTiendaIdActual();
-      if (!tiendaId) return;
-
-      try {
-        const { data: ventaNube, error } = await supabase
-          .from('ventas')
-          .select('*, venta_detalles(*)')
-          .eq('tienda_id', tiendaId)
-          .eq('id', ventaId)
-          .neq('metodo_pago', 'FIADO')
-          .maybeSingle();
-
-        if (!error && ventaNube) {
-          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
-          if (ventaMapeada.metodoPago === "FIADO") return;
-          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
-          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
-          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
-          enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: ventaMapeada });
-        }
-      } catch (error) {
-        console.warn('No se pudo reconstruir la venta:', error);
-      }
-      return;
-    }
-
-    if (eventType === 'DELETE') {
-      if (viejo?.metodo_pago === "FIADO" || ventas.some(v => v.id === viejo.id && v.metodoPago === "FIADO")) return;
-      if (!esEscritorio) {
-        set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
-      }
-    } else if (eventType === 'UPDATE') {
-      if (nuevo?.metodo_pago === "FIADO" || ventas.some(v => v.id === nuevo.id && v.metodoPago === "FIADO")) return;
-      const actualizadas = ventas.map(v => v.id === nuevo.id ? { ...v, cancelada: nuevo.cancelada } : v);
-      if (esEscritorio) {
-        const modificada = actualizadas.find(v => v.id === nuevo.id);
-        if (modificada) await guardarRegistro("ventas", modificada);
-      }
-      set({ ventas: actualizadas });
-      const ventaActualizada = actualizadas.find((venta) => venta.id === nuevo.id);
-      if (ventaActualizada) {
-        enviarAccionLAN({
-          tipo: ventaActualizada.cancelada ? "LAN_VENTA_CANCELAR" : "LAN_VENTA_AGREGAR",
-          payload: ventaActualizada.cancelada ? { id: ventaActualizada.id } : ventaActualizada
-        });
-      }
-    } else if (eventType === 'INSERT') {
-      try {
-        const tiendaId = await obtenerTiendaIdActual();
-        const { data: ventaNube, error } = await supabase
-          .from('ventas')
-          .select('*, venta_detalles(*)')
-          .eq('tienda_id', tiendaId)
-          .eq('id', nuevo.id)
-          .neq('metodo_pago', 'FIADO')
-          .maybeSingle();
-
-        if (!error && ventaNube) {
-          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
-          if (ventaMapeada.metodoPago === "FIADO") return;
-          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
-          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
-          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
-          enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: ventaMapeada });
-        }
-      } catch (error) {
-        console.warn('No se pudo sincronizar silenciosamente:', error);
-      }
-    }
-  },
-
-  aplicarAccionLAN: async (tipo, payload) => {
-    if (tipo === "LAN_VENTA_AGREGAR") {
-      const venta = payload as Venta;
-      if (venta) {
-        await get().agregarVenta(venta, true);
-      }
-    } else if (tipo === "LAN_VENTA_CANCELAR") {
-      const id = typeof payload === "string" ? payload : payload?.id;
-      if (typeof id === "string") await get().cancelarVenta(id, true);
-    }
-  },
-
-  hidratarEstadoLAN: async (snapshot) => {
-    if (!Array.isArray(snapshot?.ventas)) return;
-
-    const ventasLAN = (snapshot.ventas as Venta[]).filter(
-      venta => venta && typeof venta.id === "string"
-    );
-    const ventasNormalesLAN = ventasLAN.filter(venta => venta.metodoPago !== "FIADO");
-    const ventasFiadasLAN = ventasLAN.filter(venta => venta.metodoPago === "FIADO");
-    const registrosLocales = await obtenerRegistros("ventas");
-    const locales = Array.isArray(registrosLocales) ? registrosLocales as Venta[] : [];
-    const ventasFiadasLocales = await obtenerVentasFiadasLocales();
-    const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
-
-    for (const local of locales.filter(venta => venta.metodoPago !== "FIADO" && !idsLAN.has(venta.id))) {
-      await eliminarRegistro("ventas", local.id);
-    }
-    for (const venta of ventasNormalesLAN) {
-      await guardarRegistro("ventas", venta);
-    }
-
-    const idsFiadasLAN = new Set(ventasFiadasLAN.map(venta => venta.id));
-    for (const local of ventasFiadasLocales) {
-      if (!idsFiadasLAN.has(local.id)) {
-        enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: local });
-      }
-    }
-    for (const venta of ventasFiadasLAN) await guardarVentaFiadoLocal(venta);
-    const ventasCombinadas = new Map(ventasNormalesLAN.map(venta => [venta.id, venta]));
-    ventasFiadasLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
-    ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
-    set({
-      ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
-      cargando: false
-    });
-  }
-}));
-</file>
-
 <file path="src/vistas/VistaPantallaCliente.tsx">
 // src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
@@ -18754,6 +18444,479 @@ export default function VistaPantallaCliente() {
 }
 </file>
 
+<file path="src/estado/estadoVentas.ts">
+// src/estado/estadoVentas.ts
+import { create } from "zustand";
+import type { ItemCarrito } from "./estadoCarrito";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
+import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
+import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
+import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
+import { useEstadoPlan } from "./estadoPlan";
+
+interface VentaSupabase {
+  id: string;
+  created_at: string;
+  trabajador_nombre: string;
+  vendedor_id: string | null;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodo_pago: string;
+  cancelada: boolean | null;
+  venta_detalles: DetalleVentaSupabase[] | null;
+}
+
+interface DetalleVentaSupabase {
+  producto_id: string | null;
+  nombre_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  costo_unitario: number | null;
+  subtotal: number;
+  autorizacion_confirmada: boolean | null;
+}
+
+type Registro = Record<string, unknown>;
+
+interface EventoVentaSupabase {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  new: Registro;
+  old: Registro;
+  table: string;
+}
+
+const esEscritorio = typeof window !== "undefined" && window.apiLocal !== undefined;
+
+const mapearVentaDesdeSupabase = (v: VentaSupabase): Venta => ({
+  id: v.id,
+  fecha: v.created_at,
+  trabajador: v.trabajador_nombre,
+  vendedor_id: v.vendedor_id ?? undefined,
+  subtotal: v.subtotal,
+  descuento: v.descuento,
+  total: v.total,
+  metodoPago: v.metodo_pago,
+  cancelada: v.cancelada ?? undefined,
+  articulos: (v.venta_detalles ?? []).map((d, index) => ({
+    id: `${v.id}-${index}`,
+    producto_id: d.producto_id ?? "",
+    nombre: d.nombre_producto,
+    cantidad: d.cantidad,
+    precio: d.precio_unitario,
+    costo: d.costo_unitario || 0, // NUEVO: Mapeo del costo unitario
+    unidad: "PIEZA",
+    subtotal: d.subtotal,
+    autorizacion_confirmada: d.autorizacion_confirmada ?? undefined
+  }))
+});
+
+const esRegistro = (valor: unknown): valor is Registro =>
+  typeof valor === "object" && valor !== null && !Array.isArray(valor);
+
+const esVenta = (valor: unknown): valor is Venta => {
+  if (!esRegistro(valor)) return false;
+  return typeof valor.id === "string"
+    && typeof valor.fecha === "string"
+    && typeof valor.trabajador === "string"
+    && Array.isArray(valor.articulos)
+    && typeof valor.subtotal === "number"
+    && typeof valor.descuento === "number"
+    && typeof valor.total === "number"
+    && typeof valor.metodoPago === "string";
+};
+
+const esEventoVentaSupabase = (valor: unknown): valor is EventoVentaSupabase => {
+  if (!esRegistro(valor)) return false;
+  return (valor.eventType === "INSERT" || valor.eventType === "UPDATE" || valor.eventType === "DELETE")
+    && typeof valor.table === "string"
+    && esRegistro(valor.new)
+    && esRegistro(valor.old);
+};
+
+const obtenerVentasLocales = async (): Promise<Venta[]> =>
+  (await obtenerRegistros("ventas")).filter(esVenta);
+
+export interface Venta {
+  id: string;
+  fecha: string;
+  trabajador: string;
+  vendedor_id?: string;
+  articulos: ItemCarrito[];
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodoPago: string;
+  cancelada?: boolean;
+}
+
+const obtenerVentasFiadasLocales = async () => {
+  const ventasFiadas = new Map((await obtenerVentasFiadoLocales()).map(venta => [venta.id, venta]));
+  const ventasEnAlmacenGeneral = await obtenerVentasLocales();
+
+  for (const venta of ventasEnAlmacenGeneral.filter(venta => venta.metodoPago === "FIADO")) {
+    if (!ventasFiadas.has(venta.id)) {
+      await guardarVentaFiadoLocal(venta);
+      ventasFiadas.set(venta.id, venta);
+    }
+  }
+
+  return [...ventasFiadas.values()];
+};
+
+interface EstadoVentas {
+  ventas: Venta[];
+  cargando: boolean;
+  cargarVentas: () => Promise<void>;
+  agregarVenta: (venta: Venta, propagado?: boolean) => Promise<void>;
+  cancelarVenta: (id: string, propagado?: boolean) => Promise<void>;
+  aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
+  hidratarEstadoLAN: (snapshot: unknown) => Promise<void>;
+  sincronizarVenta: (payload: unknown) => Promise<void>;
+  purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>;
+}
+
+export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
+  ventas: [],
+  cargando: true,
+
+  cargarVentas: async () => {
+    set({ cargando: get().ventas.length === 0 });
+    try {
+      const datosLocales = await obtenerVentasLocales();
+      const ventasFiadasLocales = await obtenerVentasFiadasLocales();
+      const ventasLocales = [
+        ...datosLocales.filter(venta => venta.metodoPago !== "FIADO"),
+        ...ventasFiadasLocales
+      ];
+      set({
+        ventas: ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+        cargando: false
+      });
+
+      const puedeConsultarNube = useEstadoPlan.getState().permiteNube;
+      const tiendaId = puedeConsultarNube ? await obtenerTiendaIdActual() : null;
+
+      if (puedeConsultarNube && navigator.onLine && tiendaId) {
+        const { data: ventasNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .neq('metodo_pago', 'FIADO')
+          .order('created_at', { ascending: false });
+
+        if (!error && ventasNube) {
+          if (!debeSincronizarConNube()) return;
+          const ventasMapeadas: Venta[] = ventasNube
+            .filter((venta: VentaSupabase) => venta.metodo_pago !== "FIADO")
+            .map((venta: VentaSupabase) => mapearVentaDesdeSupabase(venta));
+
+          for (const venta of ventasMapeadas) {
+            await guardarRegistro("ventas", venta);
+          }
+
+          const ventasLocalActualizadas = await obtenerVentasLocales();
+          const ventasCombinadas = new Map(
+            ventasLocalActualizadas
+              .filter(venta => venta.metodoPago !== "FIADO")
+              .map(venta => [venta.id, venta])
+          );
+          ventasMapeadas.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          set({
+            ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+            cargando: false
+          });
+          return;
+        }
+
+        if (error) console.error("Error al consultar el historial de ventas en Supabase:", error);
+      }
+
+      set({ cargando: false });
+    } catch (error) {
+      console.error("Error al cargar ventas:", error);
+      set({ cargando: false });
+    }
+  },
+
+  agregarVenta: async (venta, propagado = false) => {
+    try {
+      if (venta.metodoPago === "FIADO") {
+        await guardarVentaFiadoLocal(venta);
+        set((estado) => ({
+          ventas: estado.ventas.some((actual) => actual.id === venta.id)
+            ? estado.ventas.map((actual) => actual.id === venta.id ? venta : actual)
+            : [venta, ...estado.ventas]
+        }));
+        if (!propagado) enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: venta });
+        return;
+      }
+
+      await guardarRegistro("ventas", venta);
+      set((estado) => ({
+        ventas: estado.ventas.some((actual) => actual.id === venta.id)
+          ? estado.ventas.map((actual) => actual.id === venta.id ? venta : actual)
+          : [venta, ...estado.ventas]
+      }));
+
+      if (!propagado) {
+        enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: venta });
+      }
+
+      if (!debeSincronizarConNube()) return;
+
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (tiendaId && session) {
+          venta.vendedor_id = session.user.id;
+          const { error: errorVenta } = await supabase.from('ventas').insert({
+            id: venta.id,
+            tienda_id: tiendaId,
+            vendedor_id: session.user.id,
+            trabajador_nombre: venta.trabajador,
+            subtotal: venta.subtotal,
+            descuento: venta.descuento,
+            total: venta.total,
+            metodo_pago: venta.metodoPago,
+            cancelada: false,
+            created_at: venta.fecha
+          });
+          if (errorVenta) throw errorVenta;
+
+          const detalles = venta.articulos.map(art => ({
+            venta_id: venta.id,
+            producto_id: art.producto_id,
+            nombre_producto: art.nombre,
+            cantidad: art.cantidad,
+            precio_unitario: art.precio,
+            costo_unitario: art.costo || 0, // NUEVO: Inserción del costo unitario en DB
+            subtotal: art.subtotal,
+            autorizacion_confirmada: art.autorizacion_confirmada || false,
+            evidencia_nombre_archivo_local: null 
+          }));
+
+          const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
+          if (errorDetalles) throw errorDetalles;
+        } else {
+          await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
+        }
+      } else {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
+      }
+    } catch (error) {
+      console.error("Error al guardar la venta:", error);
+      if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
+      }
+    }
+  },
+
+  cancelarVenta: async (id, propagado = false) => {
+    try {
+      const ventaEnEstado = get().ventas.find((venta) => venta.id === id);
+      const ventaOriginal = ventaEnEstado ?? (await obtenerVentasFiadasLocales()).find(venta => venta.id === id);
+      if (ventaOriginal?.metodoPago === "FIADO") {
+        const ventaActualizada = { ...ventaOriginal, cancelada: true };
+        await guardarVentaFiadoLocal(ventaActualizada);
+        set((estado) => ({
+          ventas: estado.ventas.map((venta) => venta.id === id ? ventaActualizada : venta)
+        }));
+        if (!propagado) enviarAccionLAN({ tipo: "LAN_VENTA_CANCELAR", payload: { id } });
+        return;
+      }
+
+      set((estado) => ({
+        ventas: estado.ventas.map((v) => v.id === id ? { ...v, cancelada: true } : v)
+      }));
+
+      const ventaActualizada = get().ventas.find(v => v.id === id);
+      if (ventaActualizada) {
+        await guardarRegistro("ventas", ventaActualizada);
+      }
+
+      if (!propagado) {
+        enviarAccionLAN({ tipo: "LAN_VENTA_CANCELAR", payload: { id } });
+      }
+
+      if (!debeSincronizarConNube()) return;
+
+      if (navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) {
+          const { error } = await supabase.from('ventas')
+            .update({ cancelada: true })
+            .eq('id', id)
+            .eq('tienda_id', tiendaId);
+          if (error) throw error;
+        } else await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
+      } else {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
+      }
+    } catch (error) {
+      console.error("Error al cancelar la venta:", error);
+      if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'ventas', operacion: 'ACTUALIZAR', payload: { id, cancelada: true } });
+      }
+    }
+  },
+
+  purgarVentasLocales: async (fechaInicio: string, fechaFin: string) => {
+    const todasLocales = await obtenerVentasLocales();
+    const aBorrar = todasLocales.filter(v => {
+      if (v.metodoPago === "FIADO") return false;
+      const fechaVenta = v.fecha.slice(0, 10);
+      return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
+    });
+
+    for (const v of aBorrar) {
+      await eliminarRegistro("ventas", v.id);
+    }
+
+    set(state => ({
+      ventas: state.ventas.filter(v => {
+        if (v.metodoPago === "FIADO") return true;
+        const fechaVenta = v.fecha.slice(0, 10);
+        return !(fechaVenta >= fechaInicio && fechaVenta <= fechaFin);
+      })
+    }));
+  },
+
+  sincronizarVenta: async (payload: unknown) => {
+    if (!debeSincronizarConNube()) return;
+    if (!esEventoVentaSupabase(payload)) return;
+
+    const { eventType, new: nuevo, old: viejo, table } = payload;
+    const { ventas } = get();
+
+    if (table === 'venta_detalles') {
+      const ventaId = eventType === 'DELETE' ? viejo.venta_id : nuevo.venta_id;
+      if (typeof ventaId !== "string") return;
+      const tiendaId = await obtenerTiendaIdActual();
+      if (!tiendaId) return;
+
+      try {
+        const { data: ventaNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .eq('id', ventaId)
+          .neq('metodo_pago', 'FIADO')
+          .maybeSingle();
+
+        if (!error && ventaNube) {
+          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
+          if (ventaMapeada.metodoPago === "FIADO") return;
+          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
+          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
+          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
+          enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: ventaMapeada });
+        }
+      } catch (error) {
+        console.warn('No se pudo reconstruir la venta:', error);
+      }
+      return;
+    }
+
+    if (eventType === 'DELETE') {
+      if (viejo.metodo_pago === "FIADO" || (typeof viejo.id === "string" && ventas.some(v => v.id === viejo.id && v.metodoPago === "FIADO"))) return;
+      if (!esEscritorio) {
+        if (typeof viejo.id === "string") set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
+      }
+    } else if (eventType === 'UPDATE') {
+      if (typeof nuevo.id !== "string") return;
+      if (nuevo.metodo_pago === "FIADO" || ventas.some(v => v.id === nuevo.id && v.metodoPago === "FIADO")) return;
+      const actualizadas = ventas.map(v =>
+        v.id === nuevo.id && typeof nuevo.cancelada === "boolean"
+          ? { ...v, cancelada: nuevo.cancelada }
+          : v
+      );
+      if (esEscritorio) {
+        const modificada = actualizadas.find(v => v.id === nuevo.id);
+        if (modificada) await guardarRegistro("ventas", modificada);
+      }
+      set({ ventas: actualizadas });
+      const ventaActualizada = actualizadas.find((venta) => venta.id === nuevo.id);
+      if (ventaActualizada) {
+        enviarAccionLAN({
+          tipo: ventaActualizada.cancelada ? "LAN_VENTA_CANCELAR" : "LAN_VENTA_AGREGAR",
+          payload: ventaActualizada.cancelada ? { id: ventaActualizada.id } : ventaActualizada
+        });
+      }
+    } else if (eventType === 'INSERT') {
+      if (typeof nuevo.id !== "string") return;
+      try {
+        const tiendaId = await obtenerTiendaIdActual();
+        const { data: ventaNube, error } = await supabase
+          .from('ventas')
+          .select('*, venta_detalles(*)')
+          .eq('tienda_id', tiendaId)
+          .eq('id', nuevo.id)
+          .neq('metodo_pago', 'FIADO')
+          .maybeSingle();
+
+        if (!error && ventaNube) {
+          const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
+          if (ventaMapeada.metodoPago === "FIADO") return;
+          if (esEscritorio) await guardarRegistro("ventas", ventaMapeada);
+          const yaExiste = ventas.some((v) => v.id === ventaMapeada.id);
+          set({ ventas: yaExiste ? ventas.map((v) => v.id === ventaMapeada.id ? ventaMapeada : v) : [ventaMapeada, ...ventas] });
+          enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: ventaMapeada });
+        }
+      } catch (error) {
+        console.warn('No se pudo sincronizar silenciosamente:', error);
+      }
+    }
+  },
+
+  aplicarAccionLAN: async (tipo, payload) => {
+    if (tipo === "LAN_VENTA_AGREGAR") {
+      if (esVenta(payload)) await get().agregarVenta(payload, true);
+    } else if (tipo === "LAN_VENTA_CANCELAR") {
+      const id = typeof payload === "string"
+        ? payload
+        : esRegistro(payload) && typeof payload.id === "string" ? payload.id : null;
+      if (id) await get().cancelarVenta(id, true);
+    }
+  },
+
+  hidratarEstadoLAN: async (snapshot) => {
+    if (!esRegistro(snapshot) || !Array.isArray(snapshot.ventas)) return;
+
+    const ventasLAN = snapshot.ventas.filter(esVenta);
+    const ventasNormalesLAN = ventasLAN.filter(venta => venta.metodoPago !== "FIADO");
+    const ventasFiadasLAN = ventasLAN.filter(venta => venta.metodoPago === "FIADO");
+    const locales = await obtenerVentasLocales();
+    const ventasFiadasLocales = await obtenerVentasFiadasLocales();
+    const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
+
+    for (const local of locales.filter(venta => venta.metodoPago !== "FIADO" && !idsLAN.has(venta.id))) {
+      await eliminarRegistro("ventas", local.id);
+    }
+    for (const venta of ventasNormalesLAN) {
+      await guardarRegistro("ventas", venta);
+    }
+
+    const idsFiadasLAN = new Set(ventasFiadasLAN.map(venta => venta.id));
+    for (const local of ventasFiadasLocales) {
+      if (!idsFiadasLAN.has(local.id)) {
+        enviarAccionLAN({ tipo: "LAN_VENTA_AGREGAR", payload: local });
+      }
+    }
+    for (const venta of ventasFiadasLAN) await guardarVentaFiadoLocal(venta);
+    const ventasCombinadas = new Map(ventasNormalesLAN.map(venta => [venta.id, venta]));
+    ventasFiadasLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
+    ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
+    set({
+      ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+      cargando: false
+    });
+  }
+}));
+</file>
+
 <file path="src/estado/estadoConfiguracion.ts">
 // src/estado/estadoConfiguracion.ts
 import { create } from "zustand";
@@ -18953,11 +19116,28 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
   cargando: true,
 
   cargarConfiguracion: async () => {
-    set({ cargando: true });
     try {
+      const permiteNube = useEstadoPlan.getState().permiteNube;
+      const datosLocales = await obtenerRegistros("configuracion");
+      const configLocal = datosLocales[0] as Configuracion | undefined;
+      let estadoLocal = { ...CONFIG_INICIAL, ...(configLocal ?? {}) };
+      if (datosLocales.length === 0 && esEscritorio) {
+        await guardarRegistro("configuracion", CONFIG_INICIAL);
+      }
+      if (esEscritorio && !permiteNube) {
+        estadoLocal.sincronizacionNube = false;
+        await guardarRegistro("configuracion", estadoLocal);
+      }
+      const preferenciasFiados = leerPreferenciasFiados();
+      estadoLocal = {
+        ...estadoLocal,
+        habilitarFiados: preferenciasFiados.habilitarFiados ?? estadoLocal.habilitarFiados,
+        modoAccesoFiados: preferenciasFiados.modoAccesoFiados ?? estadoLocal.modoAccesoFiados
+      };
+      set({ ...estadoLocal, cargando: false });
+
       const sincronizacionNubePermitida = debeSincronizarConNube();
       const tiendaId = sincronizacionNubePermitida ? await obtenerTiendaIdActual() : null;
-      const permiteNube = useEstadoPlan.getState().permiteNube;
 
       if (sincronizacionNubePermitida && navigator.onLine && tiendaId) {
         const { data: tiendaNube, error: errorTiendaNube } = await supabase
@@ -18965,11 +19145,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           .select('*')
           .eq('id', tiendaId)
           .single();
+        if (!debeSincronizarConNube()) return;
         if (errorTiendaNube) throw errorTiendaNube;
 
         if (tiendaNube) {
-          const datosLocales = await obtenerRegistros("configuracion");
-          const configLocal = datosLocales[0] as Configuracion | undefined;
           const estadoActualizado: Configuracion = {
             ...CONFIG_INICIAL,
             nombreTienda: tiendaNube.nombre || CONFIG_INICIAL.nombreTienda,
@@ -19038,29 +19217,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         }
       }
 
-      let estadoLocal = { ...CONFIG_INICIAL };
-
-      const data = await obtenerRegistros("configuracion");
-      if (data.length === 0) {
-        if (esEscritorio) {
-          await guardarRegistro("configuracion", CONFIG_INICIAL);
-        }
-      } else {
-        estadoLocal = { ...CONFIG_INICIAL, ...(data[0] as Configuracion) };
-        if (esEscritorio && !permiteNube) {
-            estadoLocal.sincronizacionNube = false;
-            await guardarRegistro("configuracion", estadoLocal);
-        }
-      }
-
-      const preferenciasFiados = leerPreferenciasFiados();
-      estadoLocal = {
-        ...estadoLocal,
-        habilitarFiados: preferenciasFiados.habilitarFiados ?? estadoLocal.habilitarFiados,
-        modoAccesoFiados: preferenciasFiados.modoAccesoFiados ?? estadoLocal.modoAccesoFiados
-      };
-
-      set({ ...estadoLocal, cargando: false });
+      set({ cargando: false });
     } catch (error) {
       console.error("Error al cargar configuracion:", error);
       set({ cargando: false });
@@ -19642,16 +19799,47 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   cargarProductos: async () => {
-    set({ cargando: true });
+    set({ cargando: get().productos.length === 0 && get().categorias.length === 0 });
     try {
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
 
+      const datosLocales = await obtenerRegistros("productos");
+      productosEstado = (datosLocales as Producto[]).map((producto) => ({
+        ...producto,
+        descuento_porcentaje: producto.descuento_porcentaje ?? 0,
+        lotes: Array.isArray(producto.lotes) ? producto.lotes : [],
+      }));
+      categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
+
+      if (categoriasEstado.length === 0) {
+        categoriasEstado = CATEGORIAS_INICIALES.map((categoria) => ({
+          id: crearIdentificadorUnico(),
+          nombre: categoria.nombre,
+          color: categoria.color
+        }));
+        for (const categoria of categoriasEstado) await guardarRegistro("categorias", categoria);
+      }
+
+      set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
+
       const tiendaId = await obtenerTiendaIdActual();
 
       if (navigator.onLine && debeSincronizarConNube() && tiendaId) {
-        const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
-        const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
+        const [resultadoCategorias, resultadoProductos] = await Promise.all([
+          supabase.from('categorias').select('*').eq('tienda_id', tiendaId),
+          supabase.from('productos').select('*').eq('tienda_id', tiendaId)
+        ]);
+        if (!debeSincronizarConNube()) return;
+        const catSupabase = resultadoCategorias.data;
+        const prodSupabase = resultadoProductos.data;
+        if (resultadoCategorias.error || resultadoProductos.error) {
+          console.warn("No se pudo actualizar el inventario desde Supabase; se conservarán los datos locales.", {
+            categorias: resultadoCategorias.error,
+            productos: resultadoProductos.error
+          });
+          return;
+        }
 
         if (catSupabase && prodSupabase) {
           if (prodSupabase.some((producto) =>
@@ -19679,48 +19867,28 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
             };
           });
 
-          if (esEscritorio) {
-            const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
-            const idsProductosNube = new Set(productosNube.map(p => p.id));
+          const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
+          const idsProductosNube = new Set(productosNube.map(p => p.id));
+          const categoriasLocales = await obtenerRegistros("categorias");
 
-            const categoriasLocal = await obtenerRegistros("categorias");
-
-            for (const catLocal of categoriasLocal) {
-              if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
-            }
-            for (const prodLocal of productosLocales) {
-              if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
-            }
-
-            for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
-            for (const prod of productosNube) await guardarRegistro("productos", prod);
+          for (const categoriaLocal of categoriasLocales) {
+            if (!idsCategoriasNube.has(categoriaLocal.id)) await eliminarRegistro("categorias", categoriaLocal.id);
           }
+          for (const productoLocal of productosLocales) {
+            if (!idsProductosNube.has(productoLocal.id)) await eliminarRegistro("productos", productoLocal.id);
+          }
+
+          for (const categoria of categoriasNube) await guardarRegistro("categorias", categoria);
+          for (const producto of productosNube) await guardarRegistro("productos", producto);
 
           set({ productos: productosNube, categorias: categoriasNube, cargando: false });
           return;
         }
       }
 
-      if (esEscritorio) {
-        const dataLocal = await obtenerRegistros("productos");
-        productosEstado = (dataLocal as Producto[]).map((p) => ({
-          ...p,
-          descuento_porcentaje: p.descuento_porcentaje ?? 0,
-          lotes: Array.isArray(p.lotes) ? p.lotes : [],
-        }));
-        categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
-
-        if (categoriasEstado.length === 0) {
-          categoriasEstado = CATEGORIAS_INICIALES.map((c) => ({ id: crearIdentificadorUnico(), nombre: c.nombre, color: c.color }));
-          for (const cat of categoriasEstado) await guardarRegistro("categorias", cat);
-        }
-        set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
-      } else if (!navigator.onLine) {
-        set({ cargando: false });
-      } else {
-        set({ cargando: false });
-      }
+      set({ cargando: false });
     } catch (error) {
+      console.error("Error al cargar productos locales:", error);
       set({ cargando: false });
     }
   },
@@ -20207,7 +20375,9 @@ export default function VistaLogin() {
   
   const planActivo = useEstadoPlan((estado) => estado.planActivo);
   
-  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(esAccesoLAN);
+  const cuentaLocalVigente = Boolean(localStorage.getItem("tienda_id"))
+    && evaluarEstadoSuscripcion(localStorage.getItem("fecha_vencimiento_cache")) !== "VENCIDO";
+  const [cuentaSaaSLogueada, setCuentaSaaSLogueada] = useState(esAccesoLAN || cuentaLocalVigente);
   const [emailSaaS, setEmailSaaS] = useState("");
   const [passwordSaaS, setPasswordSaaS] = useState("");
   const [cargandoSaaS, setCargandoSaaS] = useState(false);
@@ -20276,6 +20446,7 @@ export default function VistaLogin() {
           setCuentaSaaSLogueada(true);
           restaurarPlanCacheado(validacion.fechaVencimiento || null);
         } else {
+          setCuentaSaaSLogueada(false);
           setAvisoSuscripcion({ 
             titulo: "Servicio Suspendido", 
             mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
@@ -20291,6 +20462,7 @@ export default function VistaLogin() {
         const estado = evaluarEstadoSuscripcion(fechaLocal);
         
         if (estado === "VENCIDO") {
+          setCuentaSaaSLogueada(false);
           setAvisoSuscripcion({ 
             titulo: "Servicio Suspendido", 
             mensaje: "Tu periodo de suscripción ha finalizado. Por favor, realiza tu pago y recuerda mantener este equipo conectado a internet para que el sistema valide tu abono y restablezca el acceso.", 
@@ -20337,6 +20509,13 @@ export default function VistaLogin() {
               setNombrePC(registro.dispositivo.nombre_dispositivo);
               
               setCuentaSaaSLogueada(true);
+            } else if (error && evaluarEstadoSuscripcion(localStorage.getItem("fecha_vencimiento_cache")) === "VENCIDO") {
+              setCuentaSaaSLogueada(false);
+              setAvisoSuscripcion({
+                titulo: "Servicio Suspendido",
+                mensaje: "No se pudo validar la suscripción y la última fecha guardada indica que ya venció. Conéctate a internet para validar tu pago y restablecer el acceso.",
+                tipo: "bloqueo"
+              });
             }
           }
         }
@@ -21613,7 +21792,7 @@ export default function VistaPOS() {
         }}
       />
       
-      <ModalCobro 
+      {modalCobroAbierto && <ModalCobro
         estaAbierto={modalCobroAbierto} 
         alCerrar={() => setModalCobroAbierto(false)} 
         subtotal={subtotal}
@@ -21627,7 +21806,7 @@ export default function VistaPOS() {
         teclaTarjeta={teclaTarjeta}
         teclaTransferencia={teclaTransferencia}
         alCambiarMetodoPago={(metodoPago) => enviarMensaje({ tipo: "ACTUALIZAR_PAGO", metodoPago, datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined })}
-      />
+      />}
 
       <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
         <div className="flex gap-2 relative">
@@ -21809,7 +21988,7 @@ export { default } from "./componentes/app/AppPrincipal";
 {
   "name": "AhorraTiempo-mitienda",
   "private": true,
-  "version": "1.4.8",
+  "version": "1.5.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

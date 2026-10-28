@@ -3,7 +3,7 @@ import { openDB } from "idb";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 const DB_NOMBRE = "mitiendita_db";
-const DB_VERSION = 4; // Subimos la versión a 4 para agregar la tabla turnos_caja
+const DB_VERSION = 4; 
 const obtenerTablaLocal = (tabla: string) => {
   const tiendaId = localStorage.getItem("tienda_id");
   return tiendaId ? `${tabla}__tienda_${encodeURIComponent(tiendaId).replace(/%/g, "_")}` : `${tabla}__local`;
@@ -12,7 +12,9 @@ const obtenerTablaLocal = (tabla: string) => {
 const puedeGuardarCopiaLocal = () => {
   if (!window.apiLocal) return true;
   const tiendaId = localStorage.getItem("tienda_id");
-  return tiendaId !== null && localStorage.getItem(`mi_tienda_es_cerebro:${tiendaId}`) === "true";
+  // CORRECCIÓN: Eliminamos la restricción de cerebro. Todos los dispositivos
+  // deben poder guardar y leer su caché local para funcionar correctamente offline.
+  return tiendaId !== null;
 };
 
 export interface PendienteSync {
@@ -136,7 +138,7 @@ export const eliminarRegistro = async (tabla: string, id: string) => {
   await db.delete(tabla, id);
 };
 
-// --- NUEVAS FUNCIONES PARA COLA DE SINCRONIZACIÓN OFFLINE ---
+// --- FUNCIONES PARA COLA DE SINCRONIZACIÓN OFFLINE ---
 
 export const registrarPendienteSync = async (pendiente: Omit<PendienteSync, 'id' | 'timestamp'>) => {
   const registroCompleto: PendienteSync = {

@@ -125,16 +125,47 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   cargarProductos: async () => {
-    set({ cargando: true });
+    set({ cargando: get().productos.length === 0 && get().categorias.length === 0 });
     try {
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
 
+      const datosLocales = await obtenerRegistros("productos");
+      productosEstado = (datosLocales as Producto[]).map((producto) => ({
+        ...producto,
+        descuento_porcentaje: producto.descuento_porcentaje ?? 0,
+        lotes: Array.isArray(producto.lotes) ? producto.lotes : [],
+      }));
+      categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
+
+      if (categoriasEstado.length === 0) {
+        categoriasEstado = CATEGORIAS_INICIALES.map((categoria) => ({
+          id: crearIdentificadorUnico(),
+          nombre: categoria.nombre,
+          color: categoria.color
+        }));
+        for (const categoria of categoriasEstado) await guardarRegistro("categorias", categoria);
+      }
+
+      set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
+
       const tiendaId = await obtenerTiendaIdActual();
 
       if (navigator.onLine && debeSincronizarConNube() && tiendaId) {
-        const { data: catSupabase } = await supabase.from('categorias').select('*').eq('tienda_id', tiendaId);
-        const { data: prodSupabase } = await supabase.from('productos').select('*').eq('tienda_id', tiendaId);
+        const [resultadoCategorias, resultadoProductos] = await Promise.all([
+          supabase.from('categorias').select('*').eq('tienda_id', tiendaId),
+          supabase.from('productos').select('*').eq('tienda_id', tiendaId)
+        ]);
+        if (!debeSincronizarConNube()) return;
+        const catSupabase = resultadoCategorias.data;
+        const prodSupabase = resultadoProductos.data;
+        if (resultadoCategorias.error || resultadoProductos.error) {
+          console.warn("No se pudo actualizar el inventario desde Supabase; se conservarán los datos locales.", {
+            categorias: resultadoCategorias.error,
+            productos: resultadoProductos.error
+          });
+          return;
+        }
 
         if (catSupabase && prodSupabase) {
           if (prodSupabase.some((producto) =>
@@ -162,48 +193,28 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
             };
           });
 
-          if (esEscritorio) {
-            const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
-            const idsProductosNube = new Set(productosNube.map(p => p.id));
+          const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
+          const idsProductosNube = new Set(productosNube.map(p => p.id));
+          const categoriasLocales = await obtenerRegistros("categorias");
 
-            const categoriasLocal = await obtenerRegistros("categorias");
-
-            for (const catLocal of categoriasLocal) {
-              if (!idsCategoriasNube.has(catLocal.id)) await eliminarRegistro("categorias", catLocal.id);
-            }
-            for (const prodLocal of productosLocales) {
-              if (!idsProductosNube.has(prodLocal.id)) await eliminarRegistro("productos", prodLocal.id);
-            }
-
-            for (const cat of categoriasNube) await guardarRegistro("categorias", cat);
-            for (const prod of productosNube) await guardarRegistro("productos", prod);
+          for (const categoriaLocal of categoriasLocales) {
+            if (!idsCategoriasNube.has(categoriaLocal.id)) await eliminarRegistro("categorias", categoriaLocal.id);
           }
+          for (const productoLocal of productosLocales) {
+            if (!idsProductosNube.has(productoLocal.id)) await eliminarRegistro("productos", productoLocal.id);
+          }
+
+          for (const categoria of categoriasNube) await guardarRegistro("categorias", categoria);
+          for (const producto of productosNube) await guardarRegistro("productos", producto);
 
           set({ productos: productosNube, categorias: categoriasNube, cargando: false });
           return;
         }
       }
 
-      if (esEscritorio) {
-        const dataLocal = await obtenerRegistros("productos");
-        productosEstado = (dataLocal as Producto[]).map((p) => ({
-          ...p,
-          descuento_porcentaje: p.descuento_porcentaje ?? 0,
-          lotes: Array.isArray(p.lotes) ? p.lotes : [],
-        }));
-        categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
-
-        if (categoriasEstado.length === 0) {
-          categoriasEstado = CATEGORIAS_INICIALES.map((c) => ({ id: crearIdentificadorUnico(), nombre: c.nombre, color: c.color }));
-          for (const cat of categoriasEstado) await guardarRegistro("categorias", cat);
-        }
-        set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
-      } else if (!navigator.onLine) {
-        set({ cargando: false });
-      } else {
-        set({ cargando: false });
-      }
+      set({ cargando: false });
     } catch (error) {
+      console.error("Error al cargar productos locales:", error);
       set({ cargando: false });
     }
   },

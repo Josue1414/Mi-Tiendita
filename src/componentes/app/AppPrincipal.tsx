@@ -48,6 +48,10 @@ export default function AppPrincipal() {
   } = useEstadoRed();
   const { estaEnLinea } = useSincronizacion();
   const permiteNube = useEstadoPlan((estado) => estado.permiteNube);
+  const datosInicialesCargados = !cargandoTrabajadores
+    && !cargandoInventario
+    && !cargandoVentas
+    && !cargandoConfiguracion;
 
   const { hostLanEnlace, esVistaCliente } = useEnlacesApp();
   useDescubrimientoCerebro({ esVistaCliente, setIpMaestro });
@@ -55,13 +59,9 @@ export default function AppPrincipal() {
   useServidorLAN({
     esMaestro,
     esVistaCliente,
+    datosInicialesCargados,
     hostLanEnlace,
     ipMaestro,
-    cargarProductos,
-    cargarTrabajadores,
-    cargarVentas,
-    cargarConfiguracion,
-    cargarAsistencias,
     setIpMaestro,
     setEstadoLAN,
   });
@@ -175,7 +175,11 @@ export default function AppPrincipal() {
 
   const confirmarCerrarSesion = async () => {
     setMostrarModalSalida(false);
-    if (trabajadorActivo) await registrarSalida(trabajadorActivo.id);
+    if (trabajadorActivo) {
+      void registrarSalida(trabajadorActivo.id).catch((error: unknown) => {
+        console.error("No se pudo registrar la salida del trabajador:", error);
+      });
+    }
     cerrarSesion();
     setSeccionActual("pos");
   };
