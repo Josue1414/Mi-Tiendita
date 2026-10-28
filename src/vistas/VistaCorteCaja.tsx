@@ -3,13 +3,12 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoCaja, type TurnoCaja } from "../estado/estadoCaja";
-import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power, X } from "lucide-react";
+import { Wallet, CheckCircle, FileText, DollarSign, Save, Clock, Lock, MessageSquare, PlusCircle, TrendingUp, AlertTriangle, KeyRound, Loader2, CreditCard, Banknote, HelpCircle, Ban, Calendar, HandCoins, Power, X, PowerOff } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
 import CampoFecha from "../componentes/ui/CampoFecha";
 
-// Helper para obtener la fecha local correctamente
 const obtenerFechaLocal = () => {
   const fecha = new Date();
   const offset = fecha.getTimezoneOffset() * 60000;
@@ -42,7 +41,6 @@ export default function VistaCorteCaja() {
   const [errorCierreAdmin, setErrorCierreAdmin] = useState("");
   const [cerrandoTurnoAdmin, setCerrandoTurnoAdmin] = useState(false);
   
-  // NUEVO: Estado para el filtro del calendario (inicia en hoy)
   const [fechaFiltro, setFechaFiltro] = useState(obtenerFechaLocal());
 
   useEffect(() => {
@@ -66,7 +64,6 @@ export default function VistaCorteCaja() {
     return f.getDate() === hoy.getDate() && f.getMonth() === hoy.getMonth() && f.getFullYear() === hoy.getFullYear();
   };
 
-  // NUEVO FILTRO: Muestra los turnos basados en la fecha seleccionada en el calendario
   const turnosFiltrados = useMemo(() => {
     return turnos.filter(t => {
       const fechaInicioISO = t.fechaInicio.slice(0, 10);
@@ -123,7 +120,6 @@ export default function VistaCorteCaja() {
   };
 
   const ventasTotalesHoy = useMemo(() => {
-    // Calculamos las ventas totales en base a la FECHA SELECCIONADA en el calendario
     const ventasDiaValidas = ventas.filter(v => v.fecha.slice(0, 10) === fechaFiltro && !v.cancelada);
     const total = ventasDiaValidas.reduce((acc, v) => acc + (v.total || 0), 0);
     const efectivo = ventasDiaValidas.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
@@ -213,6 +209,24 @@ export default function VistaCorteCaja() {
       <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-in fade-in duration-300">
         <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
         <p className="font-bold text-slate-500 dark:text-slate-400">Cargando información de caja...</p>
+      </div>
+    );
+  }
+
+  // NUEVO: Vista para trabajadores cuando el control de turnos está apagado
+  if (!esDueñoOSupervisor && !controlTurnosHabilitado) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="efecto-cristal max-w-md w-full p-8 rounded-3xl border border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-4 bg-slate-50 dark:bg-slate-900/50 shadow-sm">
+          <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 mb-2 shadow-inner">
+            <PowerOff size={40} strokeWidth={1.5} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Corte de Caja Deshabilitado</h2>
+          <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+            El administrador ha desactivado temporalmente el control de turnos y cortes de caja. 
+            Puedes realizar ventas en el Punto de Venta sin necesidad de abrir una caja.
+          </p>
+        </div>
       </div>
     );
   }
@@ -463,7 +477,6 @@ export default function VistaCorteCaja() {
                   <FileText size={18} className="text-blue-600" /> Historial de Turnos
                 </h2>
                 
-                {/* CALENDARIO AGREGADO AQUÍ */}
                 <label className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-black/30 dark:text-slate-300 shadow-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-black/50 transition-colors">
                   <Calendar size={15} className="text-emerald-600" />
                   <CampoFecha value={fechaFiltro} onChange={setFechaFiltro} className="h-8 border-0 bg-transparent px-1 dark:bg-transparent" aria-label="Fecha del corte de caja" />

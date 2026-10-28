@@ -10,7 +10,7 @@ const { Server } = require('socket.io');
 const os = require('os');
 const dgram = require('dgram');
 const net = require('net');
-const { exec } = require('child_process'); // <-- NUEVA IMPORTACIÓN
+const { exec } = require('child_process');
 
 const SECRETO = 'MiTiendaSegura2026_ClaveMaestraV1';
 const ENCRYPTION_KEY = crypto.scryptSync(SECRETO, 'sal', 32); 
@@ -85,7 +85,6 @@ function validarSuscripcionLocal(dbPath) {
     return { activo: false, error: 'Tu suscripción mensual ha vencido. Realiza tu pago y conéctate a internet para renovar el acceso.' };
   }
 
-  // NUEVO: Retornamos también la fecha para la vista de configuración
   return { activo: true, fechaVencimiento: estado.fechaVencimiento }; 
 }
 
@@ -277,6 +276,7 @@ function iniciarServidorLAN(tiendaId, deviceId) {
       }
     });
 
+    // CORREGIDO: Redirigir correctamente la solicitud de snapshot a la interfaz de React
     socket.on('solicitar-estado-inicial', () => {
       const wins = BrowserWindow.getAllWindows();
       if (wins.length > 0) {
@@ -435,7 +435,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // NUEVO: Ejecuta la reparación automática del Firewall solicitando permisos de administrador
   ipcMain.handle('reparar-firewall', async () => {
     return new Promise((resolve) => {
       const scriptElevado = [
@@ -465,8 +464,12 @@ app.whenReady().then(() => {
   ipcMain.handle('emitir-a-esclavos', (event, data) => {
     if (ioServidor) ioServidor.emit('accion-maestro', data);
   });
+  
+  // CORREGIDO: Confirmar el envío masivo (Snapshot) a través del socket solicitado
   ipcMain.handle('emitir-snapshot-a-cliente', (event, socketId, snapshot) => {
-    if (ioServidor) ioServidor.to(socketId).emit('estado-inicial-lan', snapshot);
+    if (ioServidor) {
+      ioServidor.to(socketId).emit('estado-inicial-lan', snapshot);
+    }
   });
 
   createWindow();

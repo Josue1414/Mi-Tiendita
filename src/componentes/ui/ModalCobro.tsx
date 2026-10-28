@@ -1,6 +1,6 @@
 // src/componentes/ui/ModalCobro.tsx
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser } from "lucide-react";
+import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser, Loader2 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { cn } from "../../utilidades/utils";
 
@@ -12,7 +12,7 @@ interface PropsModalCobro {
   total: number;
   cantidadArticulos: number;
   fiadosPermitidos: boolean;
-  alConfirmarVenta: (metodoPago: string) => void;
+  alConfirmarVenta: (metodoPago: string) => Promise<void> | void; // Modificado para permitir promesas
   teclaCobro: string;
   teclaEfectivo: string;
   teclaTarjeta: string;
@@ -20,13 +20,13 @@ interface PropsModalCobro {
   alCambiarMetodoPago: (metodoPago: MetodoPago) => void;
 }
 
-// NUEVO: Agregado FIADO a los tipos permitidos
 type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
 export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
   const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
   const [cantidadRecibida, setCantidadRecibida] = useState(() => total.toFixed(2));
+  const [procesando, setProcesando] = useState(false); // NUEVO ESTADO: Control de doble clic
   const entradaRecibidaRef = useRef<HTMLInputElement>(null);
 
   const seleccionarMetodo = useCallback((metodo: MetodoPago) => {
@@ -35,7 +35,10 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
   }, [alCambiarMetodoPago]);
 
   useEffect(() => {
-    if (!estaAbierto) return;
+    if (!estaAbierto) {
+      setProcesando(false); // Reiniciamos el estado al cerrar
+      return;
+    }
     const temporizador = window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
     return () => window.clearTimeout(temporizador);
   }, [estaAbierto]);
@@ -43,33 +46,38 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
   const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
   const cambio = recibidoNumerico - total;
   
-  // Validamos si es válido cobrar. Si es fiado, siempre es válido (no se pide cantidad de pago inmediato)
-  const esValido = metodoPago !== "EFECTIVO" || recibidoNumerico >= total;
+  const esValido = (metodoPago !== "EFECTIVO" || recibidoNumerico >= total) && !procesando;
+
+  const manejarVenta = async () => {
+    if (!esValido) return;
+    setProcesando(true); // Bloquea el botón inmediatamente
+    try {
+      await alConfirmarVenta(metodoPago);
+      alCerrar();
+    } catch (error) {
+      console.error("Error al procesar la venta", error);
+      setProcesando(false); // Libera el botón si falla
+    }
+  };
 
   useEffect(() => {
-    if (!estaAbierto) return;
+    if (!estaAbierto || procesando) return; // Bloquea atajos si está procesando
     const manejarTecla = (evento: KeyboardEvent) => {
       const objetivo = evento.target as HTMLElement | null;
       const tecla = evento.key.toLowerCase();
 
-      // Limpiar todo el campo con la tecla Delete (Suprimir)
       if (tecla === "delete") {
         evento.preventDefault();
         setCantidadRecibida("");
         return;
       }
 
-      // Validar tecla de confirmación general
       if (tecla === teclaCobro.toLowerCase()) {
         evento.preventDefault();
-        if (esValido) {
-          alConfirmarVenta(metodoPago);
-          alCerrar();
-        }
+        manejarVenta();
         return;
       }
       
-      // Validamos los atajos de método de pago ANTES de bloquear por el Input
       if (tecla === teclaEfectivo.toLowerCase()) {
         evento.preventDefault();
         seleccionarMetodo("EFECTIVO");
@@ -86,22 +94,14 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         return;
       }
 
-      // Si la tecla no fue ningún atajo, y estamos dentro del input de dinero, dejamos que el usuario escriba normal
       if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
     };
     
     window.addEventListener("keydown", manejarTecla);
     return () => window.removeEventListener("keydown", manejarTecla);
-  }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCerrar, seleccionarMetodo]);
+  }, [estaAbierto, procesando, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, seleccionarMetodo]);
 
   if (!estaAbierto) return null;
-
-  const manejarVenta = () => {
-    if (esValido) {
-      alConfirmarVenta(metodoPago);
-      alCerrar();
-    }
-  };
 
   const agregarDigito = (digito: string) => {
     setCantidadRecibida((actual) => {
@@ -134,10 +134,10 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
               metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
             )}
           >
-            <Check size={14} />
-            {metodoPago === "FIADO" ? "Fiado" : "Cobrar"}
+            {procesando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            {procesando ? "Procesando..." : metodoPago === "FIADO" ? "Fiado" : "Cobrar"}
           </button>
-          <button onClick={alCerrar} className="shrink-0 justify-self-end p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+          <button onClick={alCerrar} disabled={procesando} className="shrink-0 justify-self-end p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors disabled:opacity-50">
             <X size={18} />
           </button>
         </div>
@@ -169,22 +169,22 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
           <div className="flex flex-col gap-2">
             {/* Selección de Método de Pago */}
             <div className={cn("grid gap-1.5", fiadosPermitidos ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
-              <button onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+              <button disabled={procesando} onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
                 <Banknote size={20} />
                 <span className="text-xs font-semibold">Efectivo ({teclaEfectivo})</span>
               </button>
-              <button onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+              <button disabled={procesando} onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
                 <CreditCard size={20} />
                 <span className="text-xs font-semibold">Tarjeta ({teclaTarjeta})</span>
               </button>
-              <button onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+              <button disabled={procesando} onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
                 <ArrowRightLeft size={20} />
                 <span className="text-xs font-semibold">Transf. ({teclaTransferencia})</span>
               </button>
 
               {/* NUEVO BOTÓN DE FIADO */}
               {fiadosPermitidos && (
-                <button onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
+                <button disabled={procesando} onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-50", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800")}>
                   <BookUser size={20} />
                   <span className="text-xs font-semibold">Fiado</span>
                 </button>
@@ -208,10 +208,11 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
                       step="0.01"
                       min="0"
                       ref={entradaRecibidaRef}
+                      disabled={procesando}
                       autoFocus
                       value={cantidadRecibida}
                       onChange={(e) => setCantidadRecibida(e.target.value)}
-                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -220,8 +221,9 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
                   {[20, 50, 100, 200, 500].filter(b => b >= total).slice(0, 4).map((billete) => (
                     <button
                       key={billete}
+                      disabled={procesando}
                       onClick={() => setCantidadRecibida(billete.toString())}
-                      className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors"
+                      className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
                     >
                       ${billete}
                     </button>
@@ -232,8 +234,9 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
                   {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
                     <button
                       key={digito}
+                      disabled={procesando}
                       onClick={() => agregarDigito(digito)}
-                      className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40"
+                      className="h-7 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-emerald-950/40 disabled:opacity-50"
                     >
                       {digito === "C" ? "Limpiar" : digito}
                     </button>
@@ -276,8 +279,8 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
             metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
           )}
         >
-          <Check size={20} />
-          {metodoPago === "FIADO" ? "Continuar Fiado" : "Confirmar Venta"} ({teclaCobro})
+          {procesando ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+          {procesando ? "Procesando Venta..." : metodoPago === "FIADO" ? "Continuar Fiado" : "Confirmar Venta"} ({teclaCobro})
         </button>
 
       </div>

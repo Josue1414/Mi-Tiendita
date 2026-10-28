@@ -17,7 +17,6 @@ export interface PropsSeccionConfig {
 export default function VistaConfiguracion() {
   const { trabajadorActivo } = useEstadoTrabajadores();
   
-  // SOLUCIÓN: Extracción individual para evitar el bucle infinito (Maximum update depth exceeded)
   const planActivo = useEstadoPlan((estado) => estado.planActivo);
   const fechaVencimiento = useEstadoPlan((estado) => estado.fechaVencimiento);
   

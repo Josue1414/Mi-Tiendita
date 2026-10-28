@@ -6,6 +6,12 @@ import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { precioVenta, type Producto } from "../tipos/producto";
 import ModalQRCliente from "../componentes/ui/ModalQRCliente";
 
+// IMPORTACIONES PARA SINCRONIZACIÓN DE IMÁGENES LAN Y LIMPIEZA
+import { conectarLAN } from "../servicios/socketCliente";
+import { aplicarAccionLANRecibida, hidratarDesdeLAN } from "../servicios/appLAN";
+import { useEstadoRed } from "../estado/estadoRed";
+import { limpiarCacheImagenesLocales } from "../servicios/baseDatosLocal";
+
 type Densidad = "compacta" | "normal" | "amplia";
 type Tema = "verde" | "claro" | "oscuro" | "grafito";
 
@@ -26,9 +32,25 @@ export default function VistaPantallaCliente() {
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
   const [esPantallaCompleta, setEsPantallaCompleta] = useState(false);
 
-  // SOLUCIÓN: Obtenemos el nombre de la tienda extraído de los parámetros del link
   const params = new URLSearchParams(window.location.search);
   const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
+
+  // Conectar la pantalla cliente a la red principal del Cerebro en segundo plano para pedir imágenes
+  useEffect(() => {
+    const lanHost = params.get("lanHost") || (window.location.protocol === "http:" && ["4000", "4001"].includes(window.location.port) ? window.location.hostname : null);
+    
+    if (lanHost && lanHost !== "localhost") {
+      useEstadoRed.getState().setIpMaestro(lanHost);
+      conectarLAN(
+        lanHost,
+        aplicarAccionLANRecibida,
+        (snapshot) => {
+          hidratarDesdeLAN(snapshot).catch(console.error);
+        }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const actualizarHora = () => setHora(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
@@ -56,6 +78,17 @@ export default function VistaPantallaCliente() {
       }
     } catch (err) {
       console.error("Error al intentar cambiar a pantalla completa:", err);
+    }
+  };
+
+  const manejarLimpiezaImagenes = async () => {
+    try {
+      await limpiarCacheImagenesLocales();
+      alert("Caché de imágenes liberado. Las imágenes se volverán a descargar desde el Cerebro según se necesiten.");
+      window.location.reload();
+    } catch (error) {
+      console.error("Error al limpiar caché:", error);
+      alert("No se pudo limpiar el caché de imágenes.");
     }
   };
 
@@ -171,6 +204,7 @@ export default function VistaPantallaCliente() {
                   </button>
                 ))}
               </div>
+              
               <p className="mb-2 mt-3 text-[10px] font-bold uppercase tracking-wider opacity-60">Tema</p>
               <div className="grid grid-cols-2 gap-1">
                 {(["verde", "claro", "oscuro", "grafito"] as Tema[]).map((opcion) => (
@@ -179,6 +213,15 @@ export default function VistaPantallaCliente() {
                     {opcion}
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-4 border-t pt-3 opacity-80 hover:opacity-100 transition-opacity" style={{ borderColor: 'inherit' }}>
+                <button 
+                  onClick={manejarLimpiezaImagenes}
+                  className="w-full rounded-md bg-red-500/20 px-2 py-2 text-[10px] font-bold text-red-500 transition-colors hover:bg-red-500/30"
+                >
+                  Liberar Memoria de Imágenes
+                </button>
               </div>
             </div>
           </div>

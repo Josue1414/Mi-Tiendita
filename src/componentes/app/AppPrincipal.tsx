@@ -143,6 +143,7 @@ export default function AppPrincipal() {
     { id: "historial", icono: History, texto: "Historial" },
     { id: "caja", icono: Wallet, texto: "Corte de Caja" },
     { id: "pos", icono: ShoppingCart, texto: "Punto de Venta" },
+    { id: "perfil", icono: UserCircle, texto: "Mi Perfil" },
   ];
   if (puedeAccederFiados) {
     baseMenusMovilesOperativos.splice(3, 0, { id: "fiados", icono: BookUser, texto: "Fiados" });

@@ -1,10 +1,9 @@
 // src/servicios/baseDatosLocal.ts
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Producto } from "../tipos/producto";
-import type { Fiado } from "../estado/estadoFiados"; // <-- NUEVA IMPORTACIÓN
+import type { Fiado } from "../estado/estadoFiados";
 import type { Venta } from "../estado/estadoVentas";
 
-// Estructura de nuestra base de datos local
 interface BaseDatosMiTienda extends DBSchema {
   productos: {
     key: string; 
@@ -15,7 +14,7 @@ interface BaseDatosMiTienda extends DBSchema {
     key: string;
     value: Blob; 
   };
-  fiados: { // <-- NUEVO ALMACÉN
+  fiados: { 
     key: string;
     value: Fiado;
   };
@@ -28,9 +27,6 @@ interface BaseDatosMiTienda extends DBSchema {
 const dbPromises = new Map<string, Promise<IDBPDatabase<BaseDatosMiTienda>>>();
 
 export function inicializarDB() {
-  // En Android, IndexedDB usa el almacenamiento del origen de WebView dentro
-  // del espacio privado de datos de la aplicación; no guarda datos en una SD extraíble.
-  // Esto aplica a productos, fiados, ventas fiadas e imágenes almacenadas aquí.
   const tiendaId = typeof localStorage === "undefined" ? null : localStorage.getItem("tienda_id");
   const nombreDB = tiendaId ? `MiTiendaLocal_${encodeURIComponent(tiendaId)}` : "MiTiendaLocal_local";
   let dbPromise = dbPromises.get(nombreDB);
@@ -57,8 +53,6 @@ export function inicializarDB() {
   }
   return dbPromise;
 }
-
-// --- UTILIDADES PARA PRODUCTOS ---
 
 export async function guardarProductoLocal(producto: Producto) {
   const db = await inicializarDB();
@@ -90,7 +84,28 @@ export async function obtenerUrlImagenLocal(id: string): Promise<string | null> 
   return URL.createObjectURL(blob);
 }
 
-// --- UTILIDADES PARA FIADOS (DEUDORES LOCALES) ---
+// NUEVO: Funciones para compartir imágenes por LAN
+export async function obtenerImagenLocalBruta(id: string): Promise<Blob | undefined> {
+  const db = await inicializarDB();
+  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
+  return (await db.get("imagenes", id)) ?? (await db.get("imagenes", nombreArchivo));
+}
+
+export async function blobABase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function base64ABlob(base64: string): Promise<Blob> {
+  const respuesta = await fetch(base64);
+  return await respuesta.blob();
+}
+
+// --- UTILIDADES PARA FIADOS ---
 
 export async function guardarFiadoLocal(fiado: Fiado) {
   const db = await inicializarDB();
@@ -117,11 +132,16 @@ export async function obtenerVentasFiadoLocales(): Promise<Venta[]> {
   return await db.getAll("ventasFiado");
 }
 
-// --- LIMPIEZA TOTAL ---
 export async function limpiarBaseDatosLocal() {
   const db = await inicializarDB();
   await db.clear("productos");
   await db.clear("imagenes");
-  await db.clear("fiados"); // Limpiar también los fiados
+  await db.clear("fiados"); 
   await db.clear("ventasFiado");
+}
+
+export async function limpiarCacheImagenesLocales() {
+  const db = await inicializarDB();
+  await db.clear("imagenes");
+  console.log("Caché de imágenes liberado con éxito.");
 }

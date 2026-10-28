@@ -1,3 +1,4 @@
+// src/servicios/appLAN.ts
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
@@ -5,6 +6,9 @@ import { useEstadoFiados } from "../estado/estadoFiados";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoVentas } from "../estado/estadoVentas";
+import { useEstadoRed } from "../estado/estadoRed";
+import { enviarAccionLAN } from "./sincronizacionLAN";
+import { obtenerImagenLocalBruta, guardarImagenLocal, blobABase64, base64ABlob } from "./baseDatosLocal";
 
 export const crearSnapshotLAN = () => {
   const caja = useEstadoCaja.getState();
@@ -43,9 +47,47 @@ export const crearSnapshotLAN = () => {
   };
 };
 
-export const aplicarAccionLANRecibida = (accion: unknown) => {
+export const aplicarAccionLANRecibida = async (accion: unknown) => {
   if (typeof accion !== "object" || accion === null || !("tipo" in accion) || typeof accion.tipo !== "string") return;
-  const payload = "payload" in accion ? accion.payload : undefined;
+  const payload = "payload" in accion ? (accion as any).payload : undefined;
+  const { esMaestro } = useEstadoRed.getState();
+
+  // 1. NUEVO: Cambio de Cerebro en tiempo real
+  if (accion.tipo === "LAN_NUEVO_CEREBRO") {
+    const tiendaId = localStorage.getItem("tienda_id");
+    // Si yo era el maestro y alguien más dice serlo, me rindo y reinicio
+    if (esMaestro && tiendaId) {
+      console.log("Otro dispositivo reclamó ser el Cerebro. Cediendo el control...");
+      localStorage.setItem(`mi_tienda_es_cerebro:${tiendaId}`, "false");
+      useEstadoRed.getState().setEsMaestro(false);
+      window.location.reload(); 
+    }
+    return;
+  }
+
+  // 2. EL CEREBRO RECIBE SOLICITUD DE IMAGEN Y LA ENVÍA
+  if (accion.tipo === "LAN_SOLICITAR_IMAGEN") {
+    if (esMaestro && typeof payload === "string") {
+      const blob = await obtenerImagenLocalBruta(payload);
+      if (blob) {
+        const base64 = await blobABase64(blob);
+        enviarAccionLAN({ tipo: "LAN_ENVIAR_IMAGEN", payload: { archivo: payload, base64 } });
+      }
+    }
+    return;
+  }
+
+  // 3. EL ESCLAVO RECIBE LA IMAGEN Y LA GUARDA
+  if (accion.tipo === "LAN_ENVIAR_IMAGEN") {
+    if (!esMaestro && payload?.archivo && payload?.base64) {
+      const blob = await base64ABlob(payload.base64);
+      await guardarImagenLocal(payload.archivo, blob);
+      window.dispatchEvent(new CustomEvent("imagen-descargada", { detail: payload.archivo }));
+    }
+    return;
+  }
+
+  // 4. RESTO DE SINCRONIZACIONES
   if (accion.tipo === "LAN_VENTA_AGREGAR" || accion.tipo === "LAN_VENTA_CANCELAR") {
     void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_FIADO_")) {
@@ -66,11 +108,13 @@ export const aplicarAccionLANRecibida = (accion: unknown) => {
 };
 
 export const hidratarDesdeLAN = async (snapshot: ReturnType<typeof crearSnapshotLAN>) => {
-  await useEstadoInventario.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoVentas.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoTrabajadores.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoAsistencias.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoCaja.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoConfiguracion.getState().hidratarEstadoLAN(snapshot);
-  await useEstadoFiados.getState().hidratarEstadoLAN(snapshot);
+  await Promise.all([
+    useEstadoInventario.getState().hidratarEstadoLAN(snapshot),
+    useEstadoVentas.getState().hidratarEstadoLAN(snapshot),
+    useEstadoTrabajadores.getState().hidratarEstadoLAN(snapshot),
+    useEstadoAsistencias.getState().hidratarEstadoLAN(snapshot),
+    useEstadoCaja.getState().hidratarEstadoLAN(snapshot),
+    useEstadoConfiguracion.getState().hidratarEstadoLAN(snapshot),
+    useEstadoFiados.getState().hidratarEstadoLAN(snapshot)
+  ]);
 };

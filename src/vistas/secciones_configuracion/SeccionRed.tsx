@@ -1,6 +1,6 @@
 // src/vistas/secciones_configuracion/SeccionRed.tsx
 import { useState, useEffect, useMemo } from "react";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor as Cap } from "@capacitor/core"; 
 import { MonitorDown, CheckCircle2, Lock, Network, Server, Smartphone, AlertTriangle, Wifi, WifiOff, Laptop, Pencil, X, Trash2, QrCode } from "lucide-react";
 import QRCode from "react-qr-code";
 import { useEstadoTrabajadores } from "../../estado/estadoTrabajadores";
@@ -23,6 +23,9 @@ import { cn } from "../../utilidades/utils";
 import ModalConfirmacionDesvincularEquipo from "../../componentes/ui/ModalConfirmacionDesvincularEquipo";
 import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
+import PanelCamaraEscaner from "../../componentes/pos/PanelCamaraEscaner";
+import ModalConfirmacionPin from "../../componentes/ui/ModalConfirmacionPin";
+import { enviarAccionLAN } from "../../servicios/sincronizacionLAN";
 
 const obtenerTipoDispositivo = (hardwareId: string) => {
   if (hardwareId.startsWith("android-")) return "Android";
@@ -44,8 +47,8 @@ interface NavegadorExtendido {
   };
 }
 
-// URL DEL INSTALADOR DE GOOGLE DRIVE (Descarga directa)
 const URL_INSTALADOR_EXE = 'https://github.com/Josue1414/predicamap/releases/download/v1.4.0/Ahorra-Tiempo.MI.TIENDA.Setup.1.4.0.exe';
+const URL_APK_ANDROID = 'https://github.com/Josue1414/predicamap/releases/download/v1.4.0/Ahorra-Tiempo.MI.TIENDA-1.4.0.apk';
 
 export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();
@@ -65,23 +68,28 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const win = window as unknown as NavegadorExtendido;
   const esAppEscritorio = typeof window !== 'undefined' && !!win.apiLocal;
-  const esAppAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const esAppAndroid = Cap.isNativePlatform() && Cap.getPlatform() === "android";
   const puedeSerCerebro = esAppEscritorio || esAppAndroid;
   const puertoWebLAN = esAppAndroid ? 4001 : 4000;
   const suscripcionActiva = true;
 
   const [ipLocalPC, setIpLocalPC] = useState("");
-  const [inputIpConexion, setInputIpConexion] = useState(ipMaestro);
+  const [inputIpConexion, setInputIpConexion] = useState(ipMaestro || "");
   const [dispositivos, setDispositivos] = useState<DispositivoVinculado[]>([]);
   const [miHwid, setMiHwid] = useState<string>("");
   const [cerebroActual, setCerebroActual] = useState<DispositivoVinculado | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [mostrarQRLAN, setMostrarQRLAN] = useState(false);
   const [preparandoQRLAN, setPreparandoQRLAN] = useState(false);
+  const [escaneandoQR, setEscaneandoQR] = useState(false);
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
   const [confirmacionDesvincular, setConfirmacionDesvincular] = useState<{ abierto: boolean; equipo: DispositivoVinculado | null }>({ abierto: false, equipo: null });
+  
+  const [modalPinAbierto, setModalPinAbierto] = useState(false);
+  const [rolPendiente, setRolPendiente] = useState<boolean | null>(null);
+
   const enlaceWebLAN = useMemo(() => {
     if (!ipLocalPC) return "";
     const url = new URL(`http://${ipLocalPC}:${puertoWebLAN}/`);
@@ -154,25 +162,39 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     };
   }, [esDueño, esAppEscritorio, win.apiLocal, setAviso]);
 
-  const cambiarRolCerebro = async (nuevoRol: boolean) => {
+  const solicitarCambioRol = (nuevoRol: boolean) => {
     if (nuevoRol && dispositivos.length >= maxDispositivos && !dispositivos.find(d => d.hardware_id === miHwid)) {
       setAviso({ titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos vinculados.`});
       return;
     }
+    setRolPendiente(nuevoRol);
+    setModalPinAbierto(true);
+  };
 
+  const ejecutarCambioRol = async () => {
+    if (rolPendiente === null) return;
     setCambiandoRolCerebro(true);
+    const nuevoRol = rolPendiente;
+    
     try {
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) throw new Error("No se encontró la tienda activa.");
+      
       await establecerRolCerebro(tiendaId, nuevoRol);
       setEsMaestro(nuevoRol);
-      window.location.reload();
+      
+      if (nuevoRol) {
+        enviarAccionLAN({ tipo: "LAN_NUEVO_CEREBRO", payload: null });
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        window.location.reload();
+      }
+      
     } catch (error: unknown) {
       const mensaje = error instanceof Error ? error.message : "Verifica tu conexión y vuelve a intentarlo.";
       setAviso({ titulo: "No se pudo cambiar el cerebro", mensaje });
-    } finally {
       setCambiandoRolCerebro(false);
-    }
+    } 
   };
 
   const abrirDesvinculacion = (equipo: DispositivoVinculado, esMiEquipo: boolean) => {
@@ -313,7 +335,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
 
   const descargarInstalador = () => {
     setAviso({ titulo: "Iniciando descarga", mensaje: "El instalador se está descargando en tu equipo." });
-    
     const link = document.createElement('a');
     link.href = URL_INSTALADOR_EXE;
     link.setAttribute('download', 'MiTienda_Instalador.exe');
@@ -323,14 +344,75 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     document.body.removeChild(link);
   };
 
-  const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
+  const descargarApkAndroid = () => {
+    setAviso({ titulo: "Iniciando descarga", mensaje: "La aplicación para Android se está descargando." });
+    const link = document.createElement('a');
+    link.href = URL_APK_ANDROID;
+    link.setAttribute('download', 'MiTienda_Android.apk');
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-  const dispositivosFiltradosParaModal = useMemo(() => {
-    return dispositivos.filter(d => obtenerTipoDispositivo(d.hardware_id) === "PC");
-  }, [dispositivos]);
+  // NUEVO: Extracción de IP a prueba de fallos mediante Regex
+  const manejarEscaneoQR = (codigo: string) => {
+    try {
+      let ipExtraida = "";
+      
+      // 1. Buscamos el patrón exacto de una dirección IP (XXX.XXX.XXX.XXX)
+      const match = codigo.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
+      if (match) {
+        ipExtraida = match[0];
+      } else {
+        // 2. Si no hay IP directa, intentamos leerla como URL normal
+        const url = new URL(codigo);
+        ipExtraida = url.searchParams.get("lanHost") || url.hostname;
+      }
+
+      if (ipExtraida && ipExtraida !== "127.0.0.1" && ipExtraida !== "localhost") {
+        setIpMaestro(ipExtraida);
+        setEscaneandoQR(false);
+        window.location.reload();
+      } else {
+        setAviso({ titulo: "QR Inválido", mensaje: "El código escaneado no contiene una IP de red local válida." });
+      }
+    } catch (e) {
+      setAviso({ titulo: "Error", mensaje: "El formato del QR no es reconocido o no contiene una IP." });
+    }
+  };
+
+  const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
+  const dispositivosFiltradosParaModal = useMemo(() => dispositivos.filter(d => obtenerTipoDispositivo(d.hardware_id) === "PC"), [dispositivos]);
 
   return (
     <>
+      <ModalConfirmacionPin
+        abierto={modalPinAbierto}
+        titulo="Autorización Requerida"
+        mensaje="Para cambiar el rol de este equipo a Cerebro, confirma con tu PIN de Dueño."
+        labelPin="Ingresa tu PIN"
+        validarAutorizacion={true}
+        alConfirmar={ejecutarCambioRol}
+        alCerrar={() => {
+          setModalPinAbierto(false);
+          setRolPendiente(null);
+        }}
+      />
+
+      {escaneandoQR && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2"><QrCode size={18}/> Escanear QR del Cerebro</h3>
+              <button onClick={() => setEscaneandoQR(false)} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={16}/></button>
+            </div>
+            <PanelCamaraEscaner alDetectar={manejarEscaneoQR} />
+            <p className="text-xs text-slate-500 text-center">Apunta la cámara al código QR que muestra la pantalla de Red del Cerebro.</p>
+          </div>
+        </div>
+      )}
+
       <ModalConfirmacionDesvincularEquipo
         abierto={confirmacionDesvincular.abierto} 
         equipo={confirmacionDesvincular.equipo} 
@@ -341,6 +423,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           await desvincularEquipo(confirmacionDesvincular.equipo.id, confirmacionDesvincular.equipo.hardware_id === miHwid, nuevoCerebroId);
         }}
       />
+      
       {mostrarQRLAN && enlaceWebLAN && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={() => setMostrarQRLAN(false)}>
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900" onClick={(evento) => evento.stopPropagation()}>
@@ -358,11 +441,13 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           </div>
         </div>
       )}
+
+      {/* SECCIÓN SEGURIDAD Y APP NATIVA MODIFICADA (DOS BOTONES) */}
       <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex flex-col gap-4 lg:col-span-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-3">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <MonitorDown size={20} className="text-indigo-600 dark:text-indigo-400" /> Seguridad y Aplicación Nativa
-            <AyudaContextual etiqueta="Seguridad y aplicación nativa" texto="Muestra si esta sesión se ejecuta en la aplicación de escritorio y ofrece el instalador para Windows cuando se usa el navegador. La aplicación de escritorio resguarda localmente los datos del negocio." />
+            <AyudaContextual etiqueta="Seguridad y aplicación nativa" texto="Muestra si esta sesión se ejecuta en la aplicación nativa (Windows o Android). Estas versiones resguardan localmente los datos y permiten funcionar sin internet." />
           </h2>
           {suscripcionActiva && (
             <span className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800/50">
@@ -370,8 +455,8 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
             </span>
           )}
         </div>
-        <div className="mt-2 flex flex-col items-start gap-4">
-          {esAppEscritorio ? (
+        <div className="mt-2 flex flex-col items-start gap-4 w-full">
+          {esAppEscritorio || esAppAndroid ? (
             <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 w-full">
               <Lock size={24} className="shrink-0" />
               <div className="flex flex-col leading-tight">
@@ -380,12 +465,18 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
               </div>
             </div>
           ) : (
-            <>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Para máxima seguridad, te recomendamos descargar la versión nativa para Windows.</p>
-              <button onClick={descargarInstalador} type="button" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30 w-full sm:w-auto justify-center">
-                <MonitorDown size={20} /> Descargar Instalador (.exe)
-              </button>
-            </>
+            <div className="w-full flex flex-col gap-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Para máxima seguridad y funciones offline, te recomendamos descargar la versión nativa para tu dispositivo.</p>
+              
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <button onClick={descargarInstalador} type="button" className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-indigo-600/30">
+                  <MonitorDown size={20} /> Descargar Windows (.exe)
+                </button>
+                <button onClick={descargarApkAndroid} type="button" className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/30">
+                  <Smartphone size={20} /> Descargar Android (.apk)
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -422,14 +513,13 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
               {!puedeSerCerebro ? (
                 <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">Requiere app de Windows (.exe) o APK Android</span>
               ) : (
-                <button onClick={() => cambiarRolCerebro(true)} disabled={esMaestro || cambiandoRolCerebro || (!esMaestro && limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid))} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
+                <button onClick={() => solicitarCambioRol(true)} disabled={esMaestro || cambiandoRolCerebro || (!esMaestro && limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid))} className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50">
                   {esMaestro ? "Este dispositivo es el Cerebro" : cambiandoRolCerebro ? "Validando..." : "Convertir en Cerebro"}
                 </button>
               )}
               {esMaestro && (
                 <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50 flex flex-col gap-3">
                   
-                  {/* NUEVO BOTÓN DE HOTSPOT PARA ANDROID */}
                   {esAppAndroid && (
                     <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-indigo-200 dark:border-indigo-700/50">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-left">¿Sin internet?</p>
@@ -470,10 +560,20 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3"><Smartphone size={24} /></div>
               <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-1">{esRespaldo ? "Cerebro de respaldo" : "Equipo Conectado (Cliente)"}</h3>
               {esMaestro ? (
-                <button onClick={() => cambiarRolCerebro(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 disabled:opacity-50">Liberar cerebro</button>
+                <button onClick={() => solicitarCambioRol(false)} disabled={cambiandoRolCerebro} className="w-full py-2.5 rounded-xl text-sm font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 disabled:opacity-50">Liberar cerebro</button>
               ) : (
                 <div className="w-full flex flex-col gap-2">
-                  <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="Ej: 192.168.1.75" className="w-full text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-slate-900 dark:text-slate-100" />
+                  <div className="flex gap-2 w-full">
+                    <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="IP (Ej: 192.168.1.75)" className="flex-1 text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-slate-900 dark:text-slate-100 min-w-0" />
+                    <button 
+                      onClick={() => setEscaneandoQR(true)} 
+                      disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)}
+                      className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors disabled:opacity-50"
+                      title="Escanear QR del Cerebro"
+                    >
+                      <QrCode size={20} />
+                    </button>
+                  </div>
                   
                   <button onClick={() => { 
                       if(limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)) {

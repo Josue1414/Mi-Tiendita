@@ -59,7 +59,7 @@ export function useEmisorPantallaCliente(
     let listenerClienteAndroid: PluginListenerHandle | null = null;
     let cancelado = false;
 
-    // 1. INICIALIZAR PEERJS (P2P QR) SIEMPRE, EN TODAS LAS PLATAFORMAS (Corrige tu error de conexión)
+    // 1. INICIALIZAR PEERJS (P2P QR)
     const peer = new Peer(crearIdPeer(nombreCajaLocal));
     peerRef.current = peer;
     peer.on("error", (error) => {
@@ -93,18 +93,23 @@ export function useEmisorPantallaCliente(
       });
     }
 
-    // 3. CONEXIÓN SOCKET.IO (LAN LOCAL)
+    // 3. CONEXIÓN SOCKET.IO (LAN LOCAL FORZANDO WEBSOCKETS)
     const sirvePaginaDesdeLAN = window.location.protocol === "http:"
       && [4000, 4001].includes(Number(window.location.port));
     const hostMaestro = esMaestro
       ? "localhost"
       : ipMaestro || (sirvePaginaDesdeLAN ? window.location.hostname : "localhost");
+    
     socket = io(`http://${hostMaestro}:4000`, {
+      transports: ["websocket"],
+      upgrade: false,
       reconnection: true,
-      reconnectionAttempts: 5, // <-- Soluciona el "spam" de errores rojos en consola web
-      reconnectionDelay: 2000,
-      timeout: 10000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 5000,
     });
+    
     socketRef.current = socket;
     socket.on("connect", () => {
       const mensajePendiente = mensajePendienteSocketRef.current;
@@ -131,7 +136,7 @@ export function useEmisorPantallaCliente(
     bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
     bc.close();
 
-    // 2. P2P QR (Internet) - AHORA SE ENVÍA SIEMPRE Y NO SOLO EN ANDROID
+    // 2. P2P QR (Internet)
     const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
     conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
     mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
@@ -214,18 +219,22 @@ export function useReceptorPantallaCliente() {
       });
     }
 
-    // 2. Escuchar LAN (Tableta externa)
+    // 2. Escuchar LAN (Tableta externa forzando WebSockets)
     let socket: Socket | null = null;
     if (!peerObjetivo || usaConexionLAN) {
       const host = hostRelay
         || useEstadoRed.getState().ipMaestro
         || window.location.hostname
         || "localhost";
+        
       socket = io(`http://${host}:4000`, {
+        transports: ["websocket"],
+        upgrade: false,
         reconnection: true,
-        reconnectionAttempts: 5, // <-- Evita el spam infinito en consola
-        reconnectionDelay: 2000,
-        timeout: 10000,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 5000,
       });
 
       socket.on("connect", () => {

@@ -1,25 +1,29 @@
 // src/vistas/VistaPerfil.tsx
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoVentas } from "../estado/estadoVentas";
-import { UserCircle, Calendar, Activity, ShieldCheck, CalendarDays } from "lucide-react";
+import { useEstadoRed } from "../estado/estadoRed";
+import { UserCircle, Calendar, Activity, ShieldCheck, CalendarDays, Network, Wifi, WifiOff, Server, QrCode, X, Smartphone } from "lucide-react";
 import { cn } from "../utilidades/utils";
+import PanelCamaraEscaner from "../componentes/pos/PanelCamaraEscaner";
 
 export default function VistaPerfil() {
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { asistencias } = useEstadoAsistencias();
   const { ventas } = useEstadoVentas();
+  
+  const { esMaestro, conectadoLAN, ipMaestro, setIpMaestro } = useEstadoRed();
+  const [inputIpConexion, setInputIpConexion] = useState(ipMaestro || "");
+  const [escaneandoQR, setEscaneandoQR] = useState(false);
 
   if (!trabajadorActivo) return null;
 
   const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-  // Generar el historial de los últimos 14 días calculando Faltas, Retardos y Descansos
   const historialAsistencia = useMemo(() => {
     const historial = [];
     const hoy = new Date();
-    // Ajustar a medianoche para evitar problemas con la hora al comparar
     hoy.setHours(0, 0, 0, 0); 
 
     for (let i = 0; i < 14; i++) {
@@ -75,17 +79,13 @@ export default function VistaPerfil() {
     return historial;
   }, [asistencias, trabajadorActivo]);
 
-  // Calculamos las ventas de productos que requerían autorización por mes actual y pasado
   const metricasAutorizadas = useMemo(() => {
     const ventasDelTrabajador = ventas.filter((v) => v.trabajador === trabajadorActivo.nombre);
-    
     const hoy = new Date();
     const mesActual = hoy.getMonth();
     const añoActual = hoy.getFullYear();
-    
     const mesPasado = mesActual === 0 ? 11 : mesActual - 1;
     const añoMesPasado = mesActual === 0 ? añoActual - 1 : añoActual;
-
     let totalMesActual = 0;
     let totalMesPasado = 0;
     let cantidadTotal = 0;
@@ -94,7 +94,6 @@ export default function VistaPerfil() {
       const fechaVenta = new Date(v.fecha);
       const mesVenta = fechaVenta.getMonth();
       const añoVenta = fechaVenta.getFullYear();
-
       const articulosAutorizados = v.articulos.filter((a) => a.autorizacion_confirmada);
       
       if (articulosAutorizados.length > 0) {
@@ -127,10 +126,38 @@ export default function VistaPerfil() {
     ? trabajadorActivo.horarioSemanal.general
     : trabajadorActivo.horarioSemanal?.especifico[diaHoy];
 
+  const manejarEscaneoQR = (codigo: string) => {
+    try {
+      const url = new URL(codigo);
+      const ip = url.searchParams.get("lanHost") || url.hostname;
+      if (ip) {
+        setIpMaestro(ip);
+        setEscaneandoQR(false);
+        window.location.reload();
+      } else {
+        alert("El código escaneado no contiene la IP del Cerebro.");
+      }
+    } catch {
+      alert("Formato de QR no reconocido.");
+    }
+  };
+
   return (
-    <div className="w-full h-full flex flex-col gap-6 p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
+    <div className="w-full h-full min-w-0 flex flex-col gap-6 p-4 sm:p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
       
-      {/* Encabezado */}
+      {escaneandoQR && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2"><QrCode size={18}/> Escanear QR del Cerebro</h3>
+              <button onClick={() => setEscaneandoQR(false)} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={16}/></button>
+            </div>
+            <PanelCamaraEscaner alDetectar={manejarEscaneoQR} />
+            <p className="text-xs text-slate-500 text-center">Apunta la cámara al código QR que muestra la pantalla de Red del Cerebro (Dueño).</p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-2">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
           <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
@@ -143,10 +170,9 @@ export default function VistaPerfil() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Columna Izquierda: Info Personal y Horarios */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
+        <div className="min-w-0 lg:col-span-1 flex flex-col gap-6">
           <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10">
             <div className="flex flex-col items-center text-center border-b border-slate-200/50 dark:border-white/10 pb-6 mb-6">
               <div className="w-20 h-20 bg-emerald-600 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-lg mb-4">
@@ -166,8 +192,6 @@ export default function VistaPerfil() {
 
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-2"><CalendarDays size={14} /> Horario Semanal</span>
-                
-                {/* Resaltar el horario de hoy */}
                 <div className={cn("p-3 rounded-xl mb-3 border", trabajaHoy ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800/30" : "bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-white/5")}>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Horario de Hoy ({diasSemana[diaHoy]})</p>
                   {trabajaHoy ? (
@@ -179,14 +203,12 @@ export default function VistaPerfil() {
                   )}
                 </div>
 
-                {/* Lista de todos los días */}
                 <div className="flex flex-col gap-1.5">
                   {diasSemana.map((dia, index) => {
                     const labora = trabajadorActivo.horarioSemanal?.diasTrabajo.includes(index);
                     const hrs = trabajadorActivo.horarioSemanal?.tipo === "GENERAL" 
                       ? trabajadorActivo.horarioSemanal.general 
                       : trabajadorActivo.horarioSemanal?.especifico[index];
-
                     if (!labora) return null;
                     return (
                       <div key={dia} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-100 dark:border-white/5">
@@ -200,7 +222,6 @@ export default function VistaPerfil() {
             </div>
           </div>
 
-          {/* Resumen de Autorizaciones */}
           <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4"><ShieldCheck size={18} className="text-emerald-600" /> Rendimiento en Ventas Especiales</h3>
             <div className="flex flex-col gap-3">
@@ -224,15 +245,73 @@ export default function VistaPerfil() {
               </div>
             </div>
           </div>
+
+          <div className="efecto-cristal w-full min-w-0 p-4 sm:p-6 rounded-2xl border border-slate-200/50 dark:border-white/10">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+              <Network size={20} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
+              <span>Sincronización en Red Local (LAN)</span>
+            </h3>
+            {esMaestro ? (
+              <div className="flex min-w-0 items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                <Server className="text-indigo-600 dark:text-indigo-400 shrink-0" size={32} />
+                <div className="flex flex-col">
+                  <span className="font-bold text-indigo-800 dark:text-indigo-300">Este equipo es el Cerebro</span>
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 leading-tight">Los demás dispositivos se conectan y sincronizan automáticamente con este equipo.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-col gap-3 bg-slate-50 dark:bg-slate-900/40 p-3 sm:p-5 rounded-xl border border-slate-200 dark:border-white/10">
+                <div className="w-full min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Smartphone size={18} className="text-slate-500" />
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Conectarse al Cerebro</p>
+                  </div>
+                  <div className="flex min-w-0 flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={inputIpConexion}
+                      onChange={(e) => setInputIpConexion(e.target.value)}
+                      placeholder="IP (ej. 192.168.1.75)"
+                      className="w-full min-w-0 flex-1 sm:w-auto bg-white dark:bg-slate-950 font-mono border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                    />
+                    <button
+                      onClick={() => setEscaneandoQR(true)}
+                      className="shrink-0 px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors"
+                      title="Escanear QR del Cerebro"
+                    >
+                      <QrCode size={18} />
+                    </button>
+                    <button
+                      onClick={() => { setIpMaestro(inputIpConexion); window.location.reload(); }}
+                      className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"
+                    >
+                      Conectar
+                    </button>
+                  </div>
+                </div>
+                <div className="flex w-full min-w-0 items-center justify-center gap-2 border-t border-slate-200 p-3 dark:border-white/10">
+                  {conectadoLAN ? (
+                    <>
+                      <Wifi size={20} className="text-emerald-500" />
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-600">Conectado</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff size={20} className="text-red-500" />
+                      <span className="text-xs font-black uppercase tracking-wider text-red-600">Desconectado</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Columna Derecha: Asistencias (Calendario/Historial) */}
-        <div className="lg:col-span-2">
-          <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 h-full">
+        <div className="min-w-0 lg:col-span-2 flex flex-col gap-6">
+          <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex-1">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-6">
               <Activity size={20} className="text-emerald-600" /> Calendario de Asistencia (Últimos 14 días)
             </h3>
-
             <div className="overflow-x-auto rounded-xl border border-slate-200/50 dark:border-white/10">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-xs">
@@ -273,6 +352,7 @@ export default function VistaPerfil() {
               </table>
             </div>
           </div>
+
         </div>
 
       </div>
