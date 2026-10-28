@@ -7,6 +7,7 @@ import { useEstadoRed } from "../estado/estadoRed";
 import type { ItemCarrito } from "../estado/estadoCarrito";
 import type { Producto } from "../tipos/producto";
 import { androidLan } from "../servicios/androidLan";
+import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 export type MensajePantalla = 
   | { tipo: "ACTUALIZAR_CARRITO"; items: ItemCarrito[]; total: number; descuento: number }
@@ -24,9 +25,20 @@ export interface DatosTransferencia {
 
 const CANAL = "pantalla_cliente_mi_tienda";
 
-const crearIdPeer = (nombreCaja: string) => {
-  const tiendaId = localStorage.getItem("tienda_id_cache") || "tienda-demo";
-  return `pos-${tiendaId}-${nombreCaja}`.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+export const crearIdPeer = (nombreCaja: string) => {
+  const tiendaId = localStorage.getItem("tienda_id_cache")
+    || localStorage.getItem("tienda_id")
+    || "tienda-demo";
+  const clavePeer = `peer_id_pantalla_cliente:${tiendaId}`;
+  let idDispositivo = localStorage.getItem(clavePeer);
+  if (!idDispositivo) {
+    idDispositivo = crearIdentificadorUnico().replace(/-/g, "");
+    localStorage.setItem(clavePeer, idDispositivo);
+  }
+  return `pos-${tiendaId}-${idDispositivo}-${nombreCaja}`
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase()
+    .slice(0, 120);
 };
 
 export function useEmisorPantallaCliente(
@@ -82,7 +94,11 @@ export function useEmisorPantallaCliente(
     }
 
     // 3. CONEXIÓN SOCKET.IO (LAN LOCAL)
-    const hostMaestro = esMaestro ? "localhost" : ipMaestro || "localhost";
+    const sirvePaginaDesdeLAN = window.location.protocol === "http:"
+      && [4000, 4001].includes(Number(window.location.port));
+    const hostMaestro = esMaestro
+      ? "localhost"
+      : ipMaestro || (sirvePaginaDesdeLAN ? window.location.hostname : "localhost");
     socket = io(`http://${hostMaestro}:4000`, {
       reconnection: true,
       reconnectionAttempts: 5, // <-- Soluciona el "spam" de errores rojos en consola web

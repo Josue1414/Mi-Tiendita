@@ -679,7 +679,7 @@ export default function VistaPOS() {
         }}
       />
       
-      <ModalCobro 
+      {modalCobroAbierto && <ModalCobro
         estaAbierto={modalCobroAbierto} 
         alCerrar={() => setModalCobroAbierto(false)} 
         subtotal={subtotal}
@@ -693,7 +693,7 @@ export default function VistaPOS() {
         teclaTarjeta={teclaTarjeta}
         teclaTransferencia={teclaTransferencia}
         alCambiarMetodoPago={(metodoPago) => enviarMensaje({ tipo: "ACTUALIZAR_PAGO", metodoPago, datosTransferencia: metodoPago === "TRANSFERENCIA" ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia } : undefined })}
-      />
+      />}
 
       <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
         <div className="flex gap-2 relative">

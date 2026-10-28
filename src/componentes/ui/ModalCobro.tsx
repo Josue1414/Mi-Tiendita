@@ -1,6 +1,7 @@
 // src/componentes/ui/ModalCobro.tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Check, X, Banknote, CreditCard, ArrowRightLeft, BookUser } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { cn } from "../../utilidades/utils";
 
 interface PropsModalCobro {
@@ -23,18 +24,21 @@ interface PropsModalCobro {
 type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
 export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
-  const [cantidadRecibida, setCantidadRecibida] = useState<string>("");
+  const [cantidadRecibida, setCantidadRecibida] = useState(() => total.toFixed(2));
   const entradaRecibidaRef = useRef<HTMLInputElement>(null);
 
+  const seleccionarMetodo = useCallback((metodo: MetodoPago) => {
+    setMetodoPago(metodo);
+    alCambiarMetodoPago(metodo);
+  }, [alCambiarMetodoPago]);
+
   useEffect(() => {
-    if (estaAbierto) {
-      setMetodoPago("EFECTIVO");
-      // Forzar exactamente 2 decimales para evitar números largos
-      setCantidadRecibida(total.toFixed(2));
-      window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
-    }
-  }, [estaAbierto, total]);
+    if (!estaAbierto) return;
+    const temporizador = window.setTimeout(() => entradaRecibidaRef.current?.focus(), 0);
+    return () => window.clearTimeout(temporizador);
+  }, [estaAbierto]);
 
   const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
   const cambio = recibidoNumerico - total;
@@ -88,7 +92,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
     
     window.addEventListener("keydown", manejarTecla);
     return () => window.removeEventListener("keydown", manejarTecla);
-  }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCambiarMetodoPago]);
+  }, [estaAbierto, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, alConfirmarVenta, alCerrar, seleccionarMetodo]);
 
   if (!estaAbierto) return null;
 
@@ -107,24 +111,33 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
     });
   };
 
-  const seleccionarMetodo = (metodo: MetodoPago) => {
-    setMetodoPago(metodo);
-    alCambiarMetodoPago(metodo);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden p-4 sm:p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[calc(100vh-32px)] overflow-hidden rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col gap-2">
         
         {/* Encabezado */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Confirmar Cobro</h2>
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">Confirmar Cobro</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               {cantidadArticulos} artículo(s)
             </p>
           </div>
-          <button onClick={alCerrar} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+          <button
+            onClick={manejarVenta}
+            disabled={!esValido}
+            aria-label={metodoPago === "FIADO" ? "Continuar fiado" : "Confirmar venta"}
+            title={`${metodoPago === "FIADO" ? "Continuar fiado" : "Confirmar venta"} (${teclaCobro})`}
+            className={cn(
+              "shrink-0 items-center justify-center gap-1 justify-self-center rounded-lg px-2 py-1.5 text-xs font-bold leading-none text-white shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50",
+              esAndroid ? "flex" : "hidden",
+              metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+            )}
+          >
+            <Check size={14} />
+            {metodoPago === "FIADO" ? "Fiado" : "Cobrar"}
+          </button>
+          <button onClick={alCerrar} className="shrink-0 justify-self-end p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -258,7 +271,8 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
           onClick={manejarVenta}
           disabled={!esValido}
           className={cn(
-            "w-full mt-2 flex justify-center items-center gap-2 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed",
+            "w-full mt-2 justify-center items-center gap-2 text-white py-2.5 rounded-xl font-bold text-base transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed",
+            esAndroid ? "hidden" : "flex",
             metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
           )}
         >

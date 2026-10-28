@@ -5,29 +5,90 @@ import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendiente
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
+import { useEstadoPlan } from "./estadoPlan";
 
-const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
+interface VentaSupabase {
+  id: string;
+  created_at: string;
+  trabajador_nombre: string;
+  vendedor_id: string | null;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodo_pago: string;
+  cancelada: boolean | null;
+  venta_detalles: DetalleVentaSupabase[] | null;
+}
 
-const mapearVentaDesdeSupabase = (v: any): Venta => ({
+interface DetalleVentaSupabase {
+  producto_id: string | null;
+  nombre_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  costo_unitario: number | null;
+  subtotal: number;
+  autorizacion_confirmada: boolean | null;
+}
+
+type Registro = Record<string, unknown>;
+
+interface EventoVentaSupabase {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  new: Registro;
+  old: Registro;
+  table: string;
+}
+
+const esEscritorio = typeof window !== "undefined" && window.apiLocal !== undefined;
+
+const mapearVentaDesdeSupabase = (v: VentaSupabase): Venta => ({
   id: v.id,
   fecha: v.created_at,
   trabajador: v.trabajador_nombre,
-  vendedor_id: v.vendedor_id,
+  vendedor_id: v.vendedor_id ?? undefined,
   subtotal: v.subtotal,
   descuento: v.descuento,
   total: v.total,
   metodoPago: v.metodo_pago,
-  cancelada: v.cancelada,
-  articulos: (v.venta_detalles ?? []).map((d: any) => ({
-    producto_id: d.producto_id,
+  cancelada: v.cancelada ?? undefined,
+  articulos: (v.venta_detalles ?? []).map((d, index) => ({
+    id: `${v.id}-${index}`,
+    producto_id: d.producto_id ?? "",
     nombre: d.nombre_producto,
     cantidad: d.cantidad,
     precio: d.precio_unitario,
     costo: d.costo_unitario || 0, // NUEVO: Mapeo del costo unitario
+    unidad: "PIEZA",
     subtotal: d.subtotal,
-    autorizacion_confirmada: d.autorizacion_confirmada
+    autorizacion_confirmada: d.autorizacion_confirmada ?? undefined
   }))
 });
+
+const esRegistro = (valor: unknown): valor is Registro =>
+  typeof valor === "object" && valor !== null && !Array.isArray(valor);
+
+const esVenta = (valor: unknown): valor is Venta => {
+  if (!esRegistro(valor)) return false;
+  return typeof valor.id === "string"
+    && typeof valor.fecha === "string"
+    && typeof valor.trabajador === "string"
+    && Array.isArray(valor.articulos)
+    && typeof valor.subtotal === "number"
+    && typeof valor.descuento === "number"
+    && typeof valor.total === "number"
+    && typeof valor.metodoPago === "string";
+};
+
+const esEventoVentaSupabase = (valor: unknown): valor is EventoVentaSupabase => {
+  if (!esRegistro(valor)) return false;
+  return (valor.eventType === "INSERT" || valor.eventType === "UPDATE" || valor.eventType === "DELETE")
+    && typeof valor.table === "string"
+    && esRegistro(valor.new)
+    && esRegistro(valor.old);
+};
+
+const obtenerVentasLocales = async (): Promise<Venta[]> =>
+  (await obtenerRegistros("ventas")).filter(esVenta);
 
 export interface Venta {
   id: string;
@@ -44,7 +105,7 @@ export interface Venta {
 
 const obtenerVentasFiadasLocales = async () => {
   const ventasFiadas = new Map((await obtenerVentasFiadoLocales()).map(venta => [venta.id, venta]));
-  const ventasEnAlmacenGeneral = await obtenerRegistros("ventas") as Venta[];
+  const ventasEnAlmacenGeneral = await obtenerVentasLocales();
 
   for (const venta of ventasEnAlmacenGeneral.filter(venta => venta.metodoPago === "FIADO")) {
     if (!ventasFiadas.has(venta.id)) {
@@ -62,9 +123,9 @@ interface EstadoVentas {
   cargarVentas: () => Promise<void>;
   agregarVenta: (venta: Venta, propagado?: boolean) => Promise<void>;
   cancelarVenta: (id: string, propagado?: boolean) => Promise<void>;
-  aplicarAccionLAN: (tipo: string, payload: any) => Promise<void>;
-  hidratarEstadoLAN: (snapshot: any) => Promise<void>;
-  sincronizarVenta: (payload: any) => Promise<void>;
+  aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
+  hidratarEstadoLAN: (snapshot: unknown) => Promise<void>;
+  sincronizarVenta: (payload: unknown) => Promise<void>;
   purgarVentasLocales: (fechaInicio: string, fechaFin: string) => Promise<void>;
 }
 
@@ -75,10 +136,10 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   cargarVentas: async () => {
     set({ cargando: true });
     try {
-      const puedeSincronizarNube = debeSincronizarConNube();
-      const tiendaId = puedeSincronizarNube ? await obtenerTiendaIdActual() : null;
+      const puedeConsultarNube = useEstadoPlan.getState().permiteNube;
+      const tiendaId = puedeConsultarNube ? await obtenerTiendaIdActual() : null;
 
-      if (puedeSincronizarNube && navigator.onLine && tiendaId) {
+      if (puedeConsultarNube && navigator.onLine && tiendaId) {
         const { data: ventasNube, error } = await supabase
           .from('ventas')
           .select('*, venta_detalles(*)')
@@ -88,34 +149,37 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
         if (!error && ventasNube) {
           const ventasMapeadas: Venta[] = ventasNube
-            .filter((venta: any) => venta.metodo_pago !== "FIADO")
-            .map(mapearVentaDesdeSupabase);
+            .filter((venta: VentaSupabase) => venta.metodo_pago !== "FIADO")
+            .map((venta: VentaSupabase) => mapearVentaDesdeSupabase(venta));
           const ventasFiadasLocales = await obtenerVentasFiadasLocales();
 
           if (esEscritorio) {
             for (const v of ventasMapeadas) {
               await guardarRegistro("ventas", v);
             }
-
-            const dataLocal = await obtenerRegistros("ventas");
-            const ventasLocales = [...(dataLocal as Venta[]).filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
-            const estadoVentas = ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-            set({ ventas: estadoVentas, cargando: false });
-          } else {
-            const ventasCombinadas = new Map(ventasMapeadas.map(venta => [venta.id, venta]));
-            ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
-            set({
-              ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
-              cargando: false
-            });
           }
+
+          const datosLocales = await obtenerVentasLocales();
+          const ventasCombinadas = new Map(
+            datosLocales
+              .filter(venta => venta.metodoPago !== "FIADO")
+              .map(venta => [venta.id, venta])
+          );
+          ventasMapeadas.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
+          set({
+            ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+            cargando: false
+          });
           return;
         }
+
+        if (error) console.error("Error al consultar el historial de ventas en Supabase:", error);
       }
 
-      const dataLocal = await obtenerRegistros("ventas");
+      const dataLocal = await obtenerVentasLocales();
       const ventasFiadasLocales = await obtenerVentasFiadasLocales();
-      const ventasLocales = [...(dataLocal as Venta[]).filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
+      const ventasLocales = [...dataLocal.filter(v => v.metodoPago !== "FIADO"), ...ventasFiadasLocales];
       const estadoVentas = ventasLocales.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       set({ ventas: estadoVentas, cargando: !navigator.onLine && !esEscritorio });
 
@@ -250,8 +314,8 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   },
 
   purgarVentasLocales: async (fechaInicio: string, fechaFin: string) => {
-    const todasLocales = await obtenerRegistros("ventas");
-    const aBorrar = (todasLocales as Venta[]).filter(v => {
+    const todasLocales = await obtenerVentasLocales();
+    const aBorrar = todasLocales.filter(v => {
       if (v.metodoPago === "FIADO") return false;
       const fechaVenta = v.fecha.slice(0, 10);
       return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
@@ -270,14 +334,16 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }));
   },
 
-  sincronizarVenta: async (payload: any) => {
+  sincronizarVenta: async (payload: unknown) => {
     if (!debeSincronizarConNube()) return;
+    if (!esEventoVentaSupabase(payload)) return;
 
     const { eventType, new: nuevo, old: viejo, table } = payload;
     const { ventas } = get();
 
     if (table === 'venta_detalles') {
       const ventaId = eventType === 'DELETE' ? viejo.venta_id : nuevo.venta_id;
+      if (typeof ventaId !== "string") return;
       const tiendaId = await obtenerTiendaIdActual();
       if (!tiendaId) return;
 
@@ -305,13 +371,18 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }
 
     if (eventType === 'DELETE') {
-      if (viejo?.metodo_pago === "FIADO" || ventas.some(v => v.id === viejo.id && v.metodoPago === "FIADO")) return;
+      if (viejo.metodo_pago === "FIADO" || (typeof viejo.id === "string" && ventas.some(v => v.id === viejo.id && v.metodoPago === "FIADO"))) return;
       if (!esEscritorio) {
-        set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
+        if (typeof viejo.id === "string") set({ ventas: ventas.filter((v) => v.id !== viejo.id) });
       }
     } else if (eventType === 'UPDATE') {
-      if (nuevo?.metodo_pago === "FIADO" || ventas.some(v => v.id === nuevo.id && v.metodoPago === "FIADO")) return;
-      const actualizadas = ventas.map(v => v.id === nuevo.id ? { ...v, cancelada: nuevo.cancelada } : v);
+      if (typeof nuevo.id !== "string") return;
+      if (nuevo.metodo_pago === "FIADO" || ventas.some(v => v.id === nuevo.id && v.metodoPago === "FIADO")) return;
+      const actualizadas = ventas.map(v =>
+        v.id === nuevo.id && typeof nuevo.cancelada === "boolean"
+          ? { ...v, cancelada: nuevo.cancelada }
+          : v
+      );
       if (esEscritorio) {
         const modificada = actualizadas.find(v => v.id === nuevo.id);
         if (modificada) await guardarRegistro("ventas", modificada);
@@ -325,6 +396,7 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         });
       }
     } else if (eventType === 'INSERT') {
+      if (typeof nuevo.id !== "string") return;
       try {
         const tiendaId = await obtenerTiendaIdActual();
         const { data: ventaNube, error } = await supabase
@@ -351,26 +423,22 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
 
   aplicarAccionLAN: async (tipo, payload) => {
     if (tipo === "LAN_VENTA_AGREGAR") {
-      const venta = payload as Venta;
-      if (venta) {
-        await get().agregarVenta(venta, true);
-      }
+      if (esVenta(payload)) await get().agregarVenta(payload, true);
     } else if (tipo === "LAN_VENTA_CANCELAR") {
-      const id = typeof payload === "string" ? payload : payload?.id;
-      if (typeof id === "string") await get().cancelarVenta(id, true);
+      const id = typeof payload === "string"
+        ? payload
+        : esRegistro(payload) && typeof payload.id === "string" ? payload.id : null;
+      if (id) await get().cancelarVenta(id, true);
     }
   },
 
   hidratarEstadoLAN: async (snapshot) => {
-    if (!Array.isArray(snapshot?.ventas)) return;
+    if (!esRegistro(snapshot) || !Array.isArray(snapshot.ventas)) return;
 
-    const ventasLAN = (snapshot.ventas as Venta[]).filter(
-      venta => venta && typeof venta.id === "string"
-    );
+    const ventasLAN = snapshot.ventas.filter(esVenta);
     const ventasNormalesLAN = ventasLAN.filter(venta => venta.metodoPago !== "FIADO");
     const ventasFiadasLAN = ventasLAN.filter(venta => venta.metodoPago === "FIADO");
-    const registrosLocales = await obtenerRegistros("ventas");
-    const locales = Array.isArray(registrosLocales) ? registrosLocales as Venta[] : [];
+    const locales = await obtenerVentasLocales();
     const ventasFiadasLocales = await obtenerVentasFiadasLocales();
     const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
 

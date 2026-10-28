@@ -120,9 +120,8 @@ export default function AppPrincipal() {
     if (esEscritorio || !esDispositivoMovil) {
       const rutaBase = window.location.href.split("?")[0];
       window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
-    } else {
-      setModalQRAbierto(true);
     }
+    setModalQRAbierto(true);
   };
 
   const baseMenusOperativos: ItemMenuApp[] = [
