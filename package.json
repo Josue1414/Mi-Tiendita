@@ -1,7 +1,7 @@
 {
   "name": "AhorraTiempo-mitienda",
   "private": true,
-  "version": "1.5.1",
+  "version": "1.5.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -86,7 +86,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Ahorra-Tiempo MI TIENDA"
+      "shortcutName": "Ahorra-Tiempo MI TIENDA",
+      "include": "build/installer.nsh"
     }
   }
 }

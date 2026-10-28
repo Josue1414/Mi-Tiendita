@@ -772,7 +772,7 @@ export default function VistaLogin() {
         )}
       </div>
       <p className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-medium z-10 text-center">&copy; {new Date().getFullYear()} Mi Tienda Software. <br className="sm:hidden" /> Todos los derechos reservados.</p>
-      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.4.8</p>
+      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.5.3</p>
     </div>
   );
 }

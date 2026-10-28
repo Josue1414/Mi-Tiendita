@@ -213,6 +213,28 @@ public class AndroidLanPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void openHotspotSettings(PluginCall call) {
+        try {
+            // Intenta abrir la pantalla específica de Zona Wi-Fi / Tethering
+            Intent intent = new Intent();
+            intent.setClassName("com.android.settings", "com.android.settings.TetherSettings");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            try {
+                // Respaldo seguro si el fabricante del celular ocultó esa pantalla
+                Intent fallback = new Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
+                fallback.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(fallback);
+                call.resolve();
+            } catch (Exception ex) {
+                call.reject("No se pudo abrir la configuración de red.", ex);
+            }
+        }
+    }
+
     @Override
     protected void handleOnDestroy() {
         detenerServidores();

@@ -311,7 +311,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     }
   };
 
-  // CORREGIDO: Se eliminó el IF de validación de Typescript ya que el enlace ya es real y definitivo
   const descargarInstalador = () => {
     setAviso({ titulo: "Iniciando descarga", mensaje: "El instalador se está descargando en tu equipo." });
     
@@ -427,18 +426,41 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                   {esMaestro ? "Este dispositivo es el Cerebro" : cambiandoRolCerebro ? "Validando..." : "Convertir en Cerebro"}
                 </button>
               )}
-              {esMaestro && ipLocalPC && (
-                <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+              {esMaestro && (
+                <div className="mt-4 w-full bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/50 flex flex-col gap-3">
+                  
+                  {/* NUEVO BOTÓN DE HOTSPOT PARA ANDROID */}
+                  {esAppAndroid && (
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-indigo-200 dark:border-indigo-700/50">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-left">¿Sin internet?</p>
+                      <button 
+                        onClick={() => androidLan.openHotspotSettings()} 
+                        className="w-full flex items-center justify-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/50 dark:hover:bg-indigo-900/80 dark:text-indigo-300 py-2 px-3 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        <Wifi size={16} /> Encender Zona Wi-Fi (Hotspot)
+                      </button>
+                      <p className="text-[10px] text-slate-500 mt-2 leading-tight">Si no tienes un router local, enciende la Zona Wi-Fi y conecta los demás celulares a esta red.</p>
+                    </div>
+                  )}
+                  {esAppEscritorio && (
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-indigo-200 dark:border-indigo-700/50">
+                      <p className="text-[10px] text-slate-500 leading-tight">Si no hay internet, asegúrate de que todos los equipos estén conectados al mismo módem local por cable o Wi-Fi.</p>
+                    </div>
+                  )}
+
                   {ipLocalPC === "127.0.0.1" ? (
-                    <div className="mt-2 text-xs font-bold text-red-600 flex flex-col items-center gap-1 bg-red-100/50 p-2 rounded-lg"><AlertTriangle size={16} /><span>Conéctate a Wi-Fi local.</span></div>
+                    <div className="mt-2 text-xs font-bold text-red-600 flex flex-col items-center gap-1 bg-red-100/50 p-2 rounded-lg">
+                      <AlertTriangle size={16} /><span>Red local inactiva. Enciende el Wi-Fi.</span>
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <span className="text-xl font-mono font-bold text-indigo-700 dark:text-indigo-400 select-all">{ipLocalPC}</span>
-                      <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 dark:border-indigo-700/50 px-3 py-1 text-[10px] font-black text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">{copiado ? "Copiado" : "Copiar Enlace"}</button>
-                      <button onClick={() => void abrirQRLAN()} disabled={preparandoQRLAN} className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60">
-                        <QrCode size={15} /> {preparandoQRLAN ? "Verificando servidor..." : "Mostrar QR para entrar por LAN"}
+                      <button onClick={copiarEnlaceLocal} className="rounded-lg border border-indigo-300 dark:border-indigo-700/50 px-3 py-1 text-[10px] font-black text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                        {copiado ? "Copiado" : "Copiar IP de Conexión"}
                       </button>
-                      <span className="text-[10px] text-slate-600 dark:text-slate-400">Escanéalo desde un móvil conectado a la misma Wi-Fi.</span>
+                      <button onClick={() => void abrirQRLAN()} disabled={preparandoQRLAN} className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60 transition-colors">
+                        <QrCode size={15} /> {preparandoQRLAN ? "Verificando servidor..." : "Mostrar QR para los clientes"}
+                      </button>
                     </div>
                   )}
                 </div>

@@ -9,6 +9,7 @@ export interface EstadoServidorAndroid {
 
 interface PluginLANAndroid {
   getLaunchUrl(): Promise<{ url: string | null }>;
+  openHotspotSettings(): Promise<void>;
   startServer(options?: { tiendaId: string; deviceId: string }): Promise<EstadoServidorAndroid>;
   getServerStatus(): Promise<EstadoServidorAndroid>;
   stopServer(): Promise<EstadoServidorAndroid>;
