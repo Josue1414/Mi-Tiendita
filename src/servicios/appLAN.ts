@@ -52,7 +52,7 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
   const payload = "payload" in accion ? (accion as any).payload : undefined;
   const { esMaestro } = useEstadoRed.getState();
 
-  // 1. NUEVO: Cambio de Cerebro en tiempo real
+  // 1. Cambio de Cerebro en tiempo real
   if (accion.tipo === "LAN_NUEVO_CEREBRO") {
     const tiendaId = localStorage.getItem("tienda_id");
     // Si yo era el maestro y alguien más dice serlo, me rindo y reinicio
@@ -87,7 +87,24 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
     return;
   }
 
-  // 4. RESTO DE SINCRONIZACIONES
+  // 4. NUEVO: EL CEREBRO RECIBE VENTAS PENDIENTES DE UN ESCLAVO RECONECTADO
+  if (accion.tipo === "LAN_SYNC_VENTAS_ESCLAVO") {
+    if (esMaestro && Array.isArray(payload)) {
+      console.log("Recibiendo sincronización de ventas retrasadas de un esclavo...");
+      const { ventas, agregarVenta } = useEstadoVentas.getState();
+      const idsConocidos = new Set(ventas.map(v => v.id));
+      
+      for (const ventaEsclavo of payload) {
+        if (!idsConocidos.has(ventaEsclavo.id)) {
+          // Guardamos la venta en el Cerebro de forma silenciosa para la red
+          await agregarVenta(ventaEsclavo, true);
+        }
+      }
+    }
+    return;
+  }
+
+  // 5. RESTO DE SINCRONIZACIONES
   if (accion.tipo === "LAN_VENTA_AGREGAR" || accion.tipo === "LAN_VENTA_CANCELAR") {
     void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, payload);
   } else if (accion.tipo.startsWith("LAN_FIADO_")) {

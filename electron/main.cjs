@@ -233,6 +233,12 @@ function iniciarServidorLAN(tiendaId, deviceId) {
   
   const distPath = path.join(__dirname, '../dist');
   appExpress.use(express.static(distPath));
+
+  // NUEVO: Servidor estático para servir imágenes físicas por red LAN a la Pantalla Cliente
+  const carpetaImagenesSeguras = path.join(app.getPath('userData'), 'datos_seguros', 'imagenes_brutas');
+  if (!fs.existsSync(carpetaImagenesSeguras)) fs.mkdirSync(carpetaImagenesSeguras, { recursive: true });
+  appExpress.use('/imagenes_lan', express.static(carpetaImagenesSeguras));
+
   appExpress.get(/.*/, (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
   ioServidor = new Server(server, {
@@ -276,7 +282,6 @@ function iniciarServidorLAN(tiendaId, deviceId) {
       }
     });
 
-    // CORREGIDO: Redirigir correctamente la solicitud de snapshot a la interfaz de React
     socket.on('solicitar-estado-inicial', () => {
       const wins = BrowserWindow.getAllWindows();
       if (wins.length > 0) {
@@ -411,6 +416,19 @@ app.whenReady().then(() => {
     }
   });
 
+  // NUEVO: Guardar la imagen física en disco para que el celular la pueda descargar
+  ipcMain.handle('guardar-imagen-bruta', (event, nombreArchivo, base64Data) => {
+    try {
+      const carpeta = path.join(app.getPath('userData'), 'datos_seguros', 'imagenes_brutas');
+      if (!fs.existsSync(carpeta)) fs.mkdirSync(carpeta, { recursive: true });
+      fs.writeFileSync(path.join(carpeta, nombreArchivo), base64Data, { encoding: 'base64' });
+      return { exito: true };
+    } catch (error) {
+      console.error("Error guardando imagen bruta para LAN:", error);
+      return { exito: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('leer-datos', async (event, nombreTabla) => {
     try {
       const archivoRuta = path.join(dbPath, `${nombreTabla}.enc`);
@@ -465,7 +483,6 @@ app.whenReady().then(() => {
     if (ioServidor) ioServidor.emit('accion-maestro', data);
   });
   
-  // CORREGIDO: Confirmar el envío masivo (Snapshot) a través del socket solicitado
   ipcMain.handle('emitir-snapshot-a-cliente', (event, socketId, snapshot) => {
     if (ioServidor) {
       ioServidor.to(socketId).emit('estado-inicial-lan', snapshot);

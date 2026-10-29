@@ -69,28 +69,6 @@ export async function buscarProductoPorCodigoLocal(codigo: string): Promise<Prod
   return await db.getFromIndex("productos", "por-codigo", codigo);
 }
 
-// --- UTILIDADES PARA IMÁGENES ---
-
-export async function guardarImagenLocal(id: string, archivo: Blob) {
-  const db = await inicializarDB();
-  await db.put("imagenes", archivo, id);
-}
-
-export async function obtenerUrlImagenLocal(id: string): Promise<string | null> {
-  const db = await inicializarDB();
-  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
-  const blob = await db.get("imagenes", id) ?? await db.get("imagenes", nombreArchivo);
-  if (!blob) return null;
-  return URL.createObjectURL(blob);
-}
-
-// NUEVO: Funciones para compartir imágenes por LAN
-export async function obtenerImagenLocalBruta(id: string): Promise<Blob | undefined> {
-  const db = await inicializarDB();
-  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
-  return (await db.get("imagenes", id)) ?? (await db.get("imagenes", nombreArchivo));
-}
-
 export async function blobABase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -103,6 +81,46 @@ export async function blobABase64(blob: Blob): Promise<string> {
 export async function base64ABlob(base64: string): Promise<Blob> {
   const respuesta = await fetch(base64);
   return await respuesta.blob();
+}
+
+// --- UTILIDADES PARA IMÁGENES CON RESPALDO FÍSICO PARA LAN ---
+
+export async function guardarImagenLocal(id: string, archivo: Blob) {
+  const db = await inicializarDB();
+  await db.put("imagenes", archivo, id);
+
+  // NUEVO: Si somos el Cerebro (.exe), guardamos la imagen en una carpeta accesible por HTTP
+  // para que los celulares de Pantalla Cliente puedan descargarla
+  if (typeof window !== "undefined" && window.apiLocal) {
+    try {
+      const base64 = await blobABase64(archivo);
+      // Extraemos solo el contenido crudo Base64 (quitamos el "data:image/jpeg;base64,")
+      const base64Data = base64.split(';base64,').pop();
+      if (base64Data) {
+        // Ejecutamos la función asíncrona pero no esperamos su resultado para no bloquear la UI
+        (window.apiLocal as any).guardarImagenBruta(id, base64Data).catch((e: unknown) => {
+          console.warn("Fallo secundario al guardar imagen bruta por IPC:", e);
+        });
+      }
+    } catch (e) {
+      console.warn("No se pudo respaldar la imagen bruta para acceso LAN de Pantalla Cliente:", e);
+    }
+  }
+}
+
+export async function obtenerUrlImagenLocal(id: string): Promise<string | null> {
+  const db = await inicializarDB();
+  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
+  const blob = await db.get("imagenes", id) ?? await db.get("imagenes", nombreArchivo);
+  if (!blob) return null;
+  return URL.createObjectURL(blob);
+}
+
+// Funciones para compartir imágenes por LAN entre Esclavos (Inventario/POS)
+export async function obtenerImagenLocalBruta(id: string): Promise<Blob | undefined> {
+  const db = await inicializarDB();
+  const nombreArchivo = id.includes("__") ? id.slice(id.indexOf("__") + 2) : id;
+  return (await db.get("imagenes", id)) ?? (await db.get("imagenes", nombreArchivo));
 }
 
 // --- UTILIDADES PARA FIADOS ---

@@ -171,7 +171,7 @@ export default function VistaStockBajo() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-6 animate-in fade-in duration-300">
+    <div className="flex h-full w-full flex-col p-3 sm:p-6 animate-in fade-in duration-300">
       {promptStock.abierto && promptStock.producto && (
         <ModalAjusteStock
           key={promptStock.producto.id}
@@ -181,7 +181,7 @@ export default function VistaStockBajo() {
         />
       )}
 
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-8">
+      <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:mb-8 xl:flex-row xl:items-center">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
             <div className="p-2 bg-red-500/10 dark:bg-red-500/20 rounded-xl text-red-600 dark:text-red-400">
@@ -194,7 +194,7 @@ export default function VistaStockBajo() {
           </p>
         </div>
 
-        <div role="tablist" aria-label="Monitoreo de inventario" className="flex w-full xl:w-auto rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900">
+        <div role="tablist" aria-label="Monitoreo de inventario" className="flex w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900 xl:w-auto">
           <button 
             type="button"
             role="tab"
@@ -203,7 +203,7 @@ export default function VistaStockBajo() {
               limpiarLoteCaducidad();
               setPestana("stock");
             }}
-            className={cn("flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors xl:flex-none", pestanaActual === "stock" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800")}
+            className={cn("flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-xs font-bold transition-colors sm:gap-2 sm:px-4 sm:text-sm xl:flex-none", pestanaActual === "stock" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800")}
           >
             <Layers size={16} /> Vista de Stock
             <span className="flex items-center gap-1" aria-label={`${criticos.length} alertas agotadas y ${porTerminar.length} alertas de stock bajo`}>
@@ -216,7 +216,7 @@ export default function VistaStockBajo() {
             role="tab"
             aria-selected={pestanaActual === "caducidad"}
             onClick={() => setPestana("caducidad")}
-            className={cn("flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors xl:flex-none", pestanaActual === "caducidad" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800")}
+            className={cn("flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-xs font-bold transition-colors sm:gap-2 sm:px-4 sm:text-sm xl:flex-none", pestanaActual === "caducidad" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800")}
           >
             <CalendarDays size={16} /> Fechas de Caducidad
             <span className="flex items-center gap-1" aria-label={`${lotesVencidos.length} alertas vencidas y ${lotesProximos.length} alertas próximas a vencer`}>
@@ -240,19 +240,19 @@ export default function VistaStockBajo() {
             type="button"
             onClick={() => setFiltro(valor)}
             className={cn(
-              "flex min-w-28 flex-1 flex-col items-end rounded-xl border px-4 py-2.5 transition-all xl:flex-none",
+              "flex min-w-0 flex-1 flex-col items-start rounded-xl border px-2 py-2.5 text-left transition-all sm:items-end sm:px-4 xl:flex-none",
               filtro === valor
                 ? valor === "agotados" ? "border-red-700 bg-red-600 text-white shadow-lg" : valor === "por-terminar" ? "border-amber-600 bg-amber-500 text-white shadow-lg" : "border-slate-900 bg-slate-800 text-white shadow-lg dark:border-white dark:bg-slate-100 dark:text-slate-900"
                 : valor === "agotados" ? "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/20" : valor === "por-terminar" ? "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/20" : "border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900/30"
             )}
           >
-            <span className="text-[11px] font-bold uppercase tracking-wider">{texto}</span>
-            <span className="mt-0.5 text-2xl font-black">{total}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide sm:text-[11px] sm:tracking-wider">{texto}</span>
+            <span className="mt-0.5 text-xl font-black sm:text-2xl">{total}</span>
           </button>
         ))}
       </div>
-      <div className="efecto-cristal rounded-2xl overflow-hidden flex-1 flex flex-col border border-slate-200/50 dark:border-white/10">
-        <div className="overflow-x-auto flex-1">
+      <div className="efecto-cristal flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/50 dark:border-white/10">
+        <div className="hidden flex-1 overflow-x-auto md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200/50 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/50 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -314,17 +314,70 @@ export default function VistaStockBajo() {
             </tbody>
           </table>
         </div>
+        <div className="flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
+          {productosFiltrados.length === 0 ? (
+            <div className="py-10 text-center text-slate-500">
+              <PackageOpen size={40} className="mx-auto mb-3 opacity-20" />
+              <p className="font-medium">Todo en orden</p>
+              <p className="mt-1 text-sm">No hay productos en esta categoría de alerta.</p>
+            </div>
+          ) : (
+            productosFiltrados.map((producto) => {
+              const esCritico = producto.stock_actual === 0;
+              return (
+                <article key={producto.id} className="rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="h-12 w-12 shrink-0 rounded-lg object-cover text-sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-semibold text-slate-900 dark:text-slate-100">{producto.nombre}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{producto.categoria || "Sin categoría"}</p>
+                    </div>
+                    <span className={cn(
+                      "shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide",
+                      esCritico
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    )}>
+                      {esCritico ? "Agotado" : "Bajo"}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm dark:border-white/10">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Nivel actual</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">
+                        {producto.stock_actual} <span className="text-xs font-normal text-slate-400">{producto.unidad.toLowerCase()}</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Mínimo requerido</p>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{producto.stock_minimo}</p>
+                    </div>
+                  </div>
+                  {(puedeEditar || puedeAjustarStock) && (
+                    <button
+                      type="button"
+                      onClick={() => setPromptStock({ abierto: true, producto })}
+                      className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+                    >
+                      <ArrowUp size={16} /> Ajustar Stock
+                    </button>
+                  )}
+                </article>
+              );
+            })
+          )}
+        </div>
       </div>
       </>
       ) : (
-        <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200/50 bg-white/60 p-4 dark:border-white/10 dark:bg-slate-900/30">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200/50 bg-white/60 p-3 sm:p-4 dark:border-white/10 dark:bg-slate-900/30">
           <div className="mb-4 flex flex-col gap-3">
-            <div className="flex flex-wrap gap-3">
-              <div className="flex min-w-36 items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="flex gap-2 sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 sm:px-4 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
                 <span className="text-xs font-bold uppercase">Próximos</span>
                 <span className="text-xl font-black">{lotesProximos.length}</span>
               </div>
-              <div className="flex min-w-36 items-center justify-between gap-4 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2 text-purple-800 dark:border-purple-900/50 dark:bg-purple-950/30 dark:text-purple-200">
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-purple-800 sm:px-4 dark:border-purple-900/50 dark:bg-purple-950/30 dark:text-purple-200">
                 <span className="text-xs font-bold uppercase">Vencidos</span>
                 <span className="text-xl font-black">{lotesVencidos.length}</span>
               </div>
