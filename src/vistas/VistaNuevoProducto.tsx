@@ -1,43 +1,40 @@
 // src/vistas/VistaNuevoProducto.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { ArrowLeft, Save, Info, ImagePlus, X, Printer, FolderPlus, Pencil, PackagePlus, ShieldCheck, Camera, Lock, CalendarDays, Check, CircleHelp } from "lucide-react";
+import { ArrowLeft, Lock, PackagePlus, Pencil } from "lucide-react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { precioVenta, type Producto } from "../tipos/producto";
-import { cn } from "../utilidades/utils";
-import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, imprimirEtiqueta, svgCodigoBarras } from "../utilidades/codigoBarras";
-import { colorConAlpha } from "../utilidades/coloresCategoria";
+import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, svgCodigoBarras } from "../utilidades/codigoBarras";
 import ModalCategoria from "../componentes/ui/ModalCategoria";
 import ModalAviso from "../componentes/ui/ModalAviso";
-import CampoFecha from "../componentes/ui/CampoFecha";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
-import AyudaContextual from "../componentes/ui/AyudaContextual";
-import { ajustarLotes, estadoCaducidad } from "../utilidades/lotes";
+import { ajustarLotes } from "../utilidades/lotes";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 import { guardarImagenLocal, obtenerUrlImagenLocal } from "../servicios/baseDatosLocal";
+import SeccionInformacionProducto from "./nuevo_producto/SeccionInformacionProducto";
+import SeccionInventarioProducto from "./nuevo_producto/SeccionInventarioProducto";
+import SeccionImagenProducto from "./nuevo_producto/SeccionImagenProducto";
+import SeccionPreciosEtiqueta from "./nuevo_producto/SeccionPreciosEtiqueta";
 
 export default function VistaNuevoProducto() {
   const { productos, categorias, agregarProducto, actualizarProducto, agregarCategoria } = useEstadoInventario();
   const { setSeccionActual, productoEditandoId, abrirLoteCaducidad } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
   const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
-  
-  const productoExistente = productos.find((p) => p.id === productoEditandoId);
-  const editando = Boolean(productoExistente);
 
-  // Permisos
+  const productoExistente = productos.find((producto) => producto.id === productoEditandoId);
+  const editando = Boolean(productoExistente);
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
-  
   const puedeEditar = esDueño || esSupervisor || trabajadorActivo?.permisos?.editarProductos;
   const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
-  
-  // Permiso específico: Si es supervisor, necesita el checkbox de "cambiarPrecios". El Dueño siempre puede.
-  const puedeEditarPrecio = esDueño || (esSupervisor && trabajadorActivo?.permisos?.cambiarPrecios) || (trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo?.permisos?.editarProductos);
+  const puedeEditarPrecio = esDueño
+    || (esSupervisor && trabajadorActivo?.permisos?.cambiarPrecios)
+    || (trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo?.permisos?.editarProductos);
 
   const [nombre, setNombre] = useState("");
   const [codigo, setCodigo] = useState(() => {
@@ -49,18 +46,18 @@ export default function VistaNuevoProducto() {
   const [categoria, setCategoria] = useState("");
   const [ubicacion, setUbicacion] = useState("");
   const [paquete, setPaquete] = useState("");
-  const [controlaStock, setControlaStock] = useState<boolean>(true);
-  const [stockActual, setStockActual] = useState<number>(0);
-  const [cantidadNuevoLote, setCantidadNuevoLote] = useState<number>(0);
+  const [controlaStock, setControlaStock] = useState(true);
+  const [stockActual, setStockActual] = useState(0);
+  const [cantidadNuevoLote, setCantidadNuevoLote] = useState(0);
   const [mostrarAyudaLotes, setMostrarAyudaLotes] = useState(false);
   const [fechaCaducidadNuevoLote, setFechaCaducidadNuevoLote] = useState("");
   const [loteCaducidadEditando, setLoteCaducidadEditando] = useState<string | null>(null);
   const [fechaCaducidadEditada, setFechaCaducidadEditada] = useState("");
-  const [stockMinimo, setStockMinimo] = useState<number>(5);
+  const [stockMinimo, setStockMinimo] = useState(5);
   const [unidad, setUnidad] = useState<Producto["unidad"]>("PIEZA");
-  const [precio, setPrecio] = useState<number>(0);
-  const [costo, setCosto] = useState<number>(0);
-  const [descuento, setDescuento] = useState<number>(0);
+  const [precio, setPrecio] = useState(0);
+  const [costo, setCosto] = useState(0);
+  const [descuento, setDescuento] = useState(0);
   const [requiereAutorizacion, setRequiereAutorizacion] = useState(false);
   const [mensajeAutorizacion, setMensajeAutorizacion] = useState("Se requiere receta o autorización para vender este producto.");
   const [permiteFotoAutorizacion, setPermiteFotoAutorizacion] = useState(false);
@@ -68,12 +65,9 @@ export default function VistaNuevoProducto() {
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previewImagen, setPreviewImagen] = useState<string | null>(null);
   const [imagenEliminada, setImagenEliminada] = useState(false);
-  
-  // NUEVO: Estado consolidado para alertas personalizadas
   const [avisoGenerico, setAvisoGenerico] = useState<{ titulo: string; mensaje: string } | null>(null);
-  
   const [escanerCamaraAbierto, setEscanerCamaraAbierto] = useState(false);
-  
+
   const cerrarEscanerCamara = useCallback(() => setEscanerCamaraAbierto(false), []);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
   const inputCamaraRef = useRef<HTMLInputElement>(null);
@@ -142,30 +136,29 @@ export default function VistaNuevoProducto() {
     }
     setCodigo(codigoGenerado);
   };
-  
+
   const precioFinal = precioVenta({ precio, descuento_porcentaje: descuento });
   const margen = precioFinal > 0 && costo > 0 ? ((precioFinal - costo) / precioFinal) * 100 : 0;
   const previewCodigo = useMemo(() => (codigo ? svgCodigoBarras(codigo) : ""), [codigo]);
-  const colorCategoria = categorias.find((c) => c.nombre === categoria)?.color;
+  const colorCategoria = categorias.find((item) => item.nombre === categoria)?.color;
 
   const alEscanearCodigo = useCallback((codigoEscaneado: string) => {
     if (puedeEditar || puedeAjustarStock) setCodigo(codigoEscaneado);
   }, [puedeEditar, puedeAjustarStock]);
-
   useEscanerCodigoBarras(alEscanearCodigo);
 
-  const manejarSeleccionImagen = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const manejarSeleccionImagen = (evento: React.ChangeEvent<HTMLInputElement>) => {
     if (!puedeEditar) return;
-    const file = e.target.files?.[0];
-    if (file) {
+    const archivo = evento.target.files?.[0];
+    if (archivo) {
       if (urlImagenTemporalRef.current) URL.revokeObjectURL(urlImagenTemporalRef.current);
-      const preview = URL.createObjectURL(file);
+      const preview = URL.createObjectURL(archivo);
       urlImagenTemporalRef.current = preview;
-      setArchivoImagen(file);
+      setArchivoImagen(archivo);
       setPreviewImagen(preview);
       setImagenEliminada(false);
     }
-    e.target.value = "";
+    evento.target.value = "";
   };
 
   const removerImagen = () => {
@@ -206,11 +199,10 @@ export default function VistaNuevoProducto() {
       reader.onerror = (error) => reject(error);
     });
 
-  const manejarGuardado = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const manejarGuardado = async (evento?: React.FormEvent) => {
+    evento?.preventDefault();
     if (!puedeEditar && !puedeAjustarStock) return;
 
-    // SOLUCIÓN: Reemplazo de alerta nativa por ModalAviso
     if (!nombre || !codigo || precio <= 0) {
       setAvisoGenerico({
         titulo: "Información Incompleta",
@@ -296,23 +288,27 @@ export default function VistaNuevoProducto() {
 
   return (
     <div className="w-full h-full flex flex-col p-5 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
-      
-      {/* NUEVO: Modal de alertas generales */}
-      <ModalAviso 
-        abierto={Boolean(avisoGenerico)} 
-        titulo={avisoGenerico?.titulo ?? "Aviso"} 
-        mensaje={avisoGenerico?.mensaje ?? ""} 
-        tipo="advertencia" 
-        alCerrar={() => setAvisoGenerico(null)} 
+      <ModalAviso
+        abierto={Boolean(avisoGenerico)}
+        titulo={avisoGenerico?.titulo ?? "Aviso"}
+        mensaje={avisoGenerico?.mensaje ?? ""}
+        tipo="advertencia"
+        alCerrar={() => setAvisoGenerico(null)}
       />
 
-      <ModalEscanerCodigo abierto={escanerCamaraAbierto} alCerrar={cerrarEscanerCamara} alDetectar={(cod) => { if(puedeEditar || puedeAjustarStock) setCodigo(cod); }} />
+      <ModalEscanerCodigo
+        abierto={escanerCamaraAbierto}
+        alCerrar={cerrarEscanerCamara}
+        alDetectar={(codigoEscaneado) => {
+          if (puedeEditar || puedeAjustarStock) setCodigo(codigoEscaneado);
+        }}
+      />
       <ModalCategoria
         abierto={modalCategoria}
-        coloresUsados={categorias.map((c) => c.color)}
+        coloresUsados={categorias.map((item) => item.color)}
         alCerrar={() => setModalCategoria(false)}
-        alGuardar={async (nombreCat, color) => {
-          const creada = await agregarCategoria(nombreCat, color);
+        alGuardar={async (nombreCategoria, color) => {
+          const creada = await agregarCategoria(nombreCategoria, color);
           if (creada) setCategoria(creada.nombre);
         }}
       />
@@ -330,7 +326,7 @@ export default function VistaNuevoProducto() {
             <p className="text-xs text-slate-500">{editando ? "Modifica los datos del producto." : "Captura los datos para el inventario."}</p>
           </div>
         </div>
-        <button onClick={() => setSeccionActual("inventario")} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+        <button type="button" onClick={() => setSeccionActual("inventario")} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
           <ArrowLeft size={14} />
           Volver
         </button>
@@ -338,384 +334,94 @@ export default function VistaNuevoProducto() {
 
       <form onSubmit={manejarGuardado} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex justify-between items-center">
-              Información General
-              {!puedeEditar && <Lock size={14} className="text-slate-400" />}
-            </h2>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Nombre del producto *</label>
-              <input type="text" required disabled={!puedeEditar} value={nombre} onChange={(e) => setNombre(e.target.value)} className={campo} placeholder="Ej: Pasta blanca" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Código de barras *</label>
-              <div className="flex gap-2">
-                <input type="text" required disabled={!puedeEditar && !puedeAjustarStock} data-escaner="true" value={codigo} onChange={(e) => setCodigo(e.target.value)} className={cn(campo, "flex-1 font-mono")} placeholder="Escanea o genera un código" />
-                <select disabled={!puedeEditar && !puedeAjustarStock} onChange={(evento) => generarCodigo(evento.target.value as "EAN13" | "CORTO" | "NUMERICO")} defaultValue="" className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-950 sm:flex-none sm:px-2">
-                  <option value="" disabled>Generar...</option>
-                  <option value="EAN13">EAN-13</option>
-                  <option value="CORTO">Corto (5 dígitos)</option>
-                  <option value="NUMERICO">Numérico (8 dígitos)</option>
-                </select>
-                <button type="button" disabled={!puedeEditar && !puedeAjustarStock} onClick={() => setEscanerCamaraAbierto(true)} title="Escanear con cámara" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 text-emerald-700 dark:border-emerald-900/50 dark:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"><Camera size={14} /></button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Descripción</label>
-              <textarea disabled={!puedeEditar} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2} className={cn(campo, "resize-none")} placeholder="Ej: Pasta dental" />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Categoría</label>
-                <div className="flex gap-2">
-                  <select disabled={!puedeEditar} value={categoria} onChange={(e) => setCategoria(e.target.value)} className={cn(campo, "flex-1")}>
-                    <option value="">Seleccionar</option>
-                    {categorias.map((c) => (
-                      <option key={c.id} value={c.nombre}>{c.nombre}</option>
-                    ))}
-                  </select>
-                  {puedeEditar && (
-                    <button type="button" onClick={() => setModalCategoria(true)} className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 inline-flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0 hover:bg-slate-50 dark:hover:bg-slate-800" title="Nueva categoría">
-                      <FolderPlus size={14} />
-                    </button>
-                  )}
-                </div>
-                {categoria && colorCategoria && (
-                  <span className="inline-flex mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: colorConAlpha(colorCategoria, 0.16), color: colorCategoria }}>
-                    {categoria}
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Ubicación en tienda</label>
-                <input type="text" disabled={!puedeEditar} value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} className={campo} placeholder="Ej: Refrigerador 2" />
-                <p className="text-[10px] text-slate-400 mt-1">Estante, pasillo o refrigerador.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <ShieldCheck size={18} className="shrink-0 text-amber-600" /> Requiere autorización
-                    {!puedeEditar && <Lock size={14} className="text-slate-400" />}
-                  </span>
-                  <input type="checkbox" disabled={!puedeEditar} checked={requiereAutorizacion} onChange={(evento) => setRequiereAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
-                </label>
-                <AyudaContextual
-                  etiqueta="Requiere autorización"
-                  texto="Activa esta opción para que, antes de vender el producto, el personal tenga que solicitar autorización de un supervisor o dueño. Puedes indicar el motivo o requisito y permitir que se adjunte una foto como evidencia."
-                />
-              </div>
-            </div>
-            {requiereAutorizacion && (
-              <>
-                <input disabled={!puedeEditar} value={mensajeAutorizacion} onChange={(evento) => setMensajeAutorizacion(evento.target.value)} className={campo} placeholder="Ej: Requiere receta médica" />
-                <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                  <input type="checkbox" disabled={!puedeEditar} checked={permiteFotoAutorizacion} onChange={(evento) => setPermiteFotoAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
-                  Permitir foto de receta o evidencia
-                </label>
-              </>
-            )}
-          </div>
-
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <div className="flex justify-between items-center">
-              <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                Detalles de Inventario
-              </h2>
-              <label className={cn("flex items-center gap-2", puedeEditar ? "cursor-pointer" : "cursor-not-allowed opacity-70")}>
-                <span className="text-xs text-slate-500">Controlar stock</span>
-                <div className="relative">
-                  <input type="checkbox" className="sr-only" disabled={!puedeEditar} checked={controlaStock} onChange={() => setControlaStock(!controlaStock)} />
-                  <div className={cn("block w-9 h-5 rounded-full", controlaStock ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700")} />
-                  <div className={cn("absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform", controlaStock ? "translate-x-4" : "")} />
-                </div>
-              </label>
-            </div>
-
-            {!controlaStock && (
-              <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg text-xs">
-                <Info size={14} className="shrink-0 mt-0.5" />
-                No descuenta existencias al venderse.
-              </div>
-            )}
-
-            <div className={cn("grid grid-cols-1 sm:grid-cols-3 gap-3", !controlaStock && "opacity-50 pointer-events-none")}>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">{editando ? "Cantidad actual" : "Cantidad inicial"}</label>
-                {editando ? (
-                  <div className={cn(campo, "font-bold")}>{productoExistente?.stock_actual ?? 0}</div>
-                ) : (
-                  <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Stock mínimo {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
-                <input type="number" min="0" disabled={!puedeEditar} placeholder="0" value={stockMinimo === 0 ? "" : stockMinimo} onChange={(e) => setStockMinimo(e.target.value ? Number(e.target.value) : 0)} className={campo} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center justify-between">Contiene: {!puedeEditar && <Lock size={10} className="text-slate-400" />}</label>
-                <input type="text" disabled={!puedeEditar} value={paquete} onChange={(e) => setPaquete(e.target.value)} className={campo} placeholder="Ej: 1 kg" />
-              </div>
-            </div>
-
-            {controlaStock && (!editando && puedeAjustarStock || editando && puedeAjustarStock) && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                {editando && (
-                  <div className="mb-3 flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Agregar nueva cantidad o lote</label>
-                    <button
-                      type="button"
-                      onClick={() => setMostrarAyudaLotes((mostrar) => !mostrar)}
-                      aria-label="Ayuda sobre agregar lotes"
-                      aria-expanded={mostrarAyudaLotes}
-                      className="rounded-full text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:hover:bg-purple-900/30"
-                    >
-                      <CircleHelp size={16} />
-                    </button>
-                    {mostrarAyudaLotes && (
-                      <span className="text-xs text-slate-600 dark:text-slate-300">
-                        Añade unidades a la cantidad actual como un lote nuevo. La fecha de caducidad es opcional y se usa para alertas y para descontar primero los lotes que vencen antes.
-                      </span>
-                    )}
-                  </div>
-                )}
-                {editando && (
-                  <div className="mb-3">
-                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Cantidad que agregas</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={cantidadNuevoLote || ""}
-                      onChange={(evento) => setCantidadNuevoLote(Math.max(0, Number(evento.target.value) || 0))}
-                      className={campo}
-                      placeholder="0"
-                    />
-                  </div>
-                )}
-                {(!editando || cantidadNuevoLote > 0) && (
-                  <div>
-                  <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-                    <CalendarDays size={13} /> Caducidad del stock que agregas (opcional)
-                  </label>
-                  <CampoFecha
-                    value={fechaCaducidadNuevoLote}
-                    onChange={setFechaCaducidadNuevoLote}
-                    className={campo}
-                    aria-label="Fecha de caducidad del stock agregado"
-                  />
-                  </div>
-                )}
-                {editando && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">El stock actual no cambia; la cantidad agregada se registra por separado.</p>}
-              </div>
-            )}
-
-            {editando && lotesRecientes.length > 0 && (
-              <div className="border-t border-slate-200 pt-3 dark:border-white/10">
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Últimas fechas de caducidad</h3>
-                <div className="flex flex-wrap gap-2">
-                  {lotesRecientes.map((lote) => {
-                    const estado = estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta);
-                    const claseFecha = lote.cantidad <= 0
-                      ? "bg-slate-100 text-slate-500 opacity-60 dark:bg-slate-800 dark:text-slate-400"
-                      : estado === "vencido"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
-                        : estado === "proximo"
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
-                    return (
-                      <button
-                        key={lote.id}
-                        type="button"
-                        onClick={() => abrirLoteCaducidad(lote.id)}
-                        className={cn("rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors hover:ring-2 hover:ring-emerald-500", claseFecha)}
-                        title={`Ir al lote ${lote.id} en Fechas de Caducidad`}
-                      >
-                        <span className="block">{lote.fecha_caducidad || "Sin fecha"}</span>
-                        <span className="mt-0.5 block text-[10px] font-normal">Ingreso {lote.fecha_ingreso} · {lote.cantidad} {unidad.toLowerCase()}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {editando && (productoExistente?.lotes?.length ?? 0) > 0 && (
-              <div className="border-t border-slate-200 pt-3 dark:border-white/10">
-                <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                  <CalendarDays size={14} /> Lotes registrados
-                </h3>
-                <div className="space-y-2">
-                  {productoExistente?.lotes?.map((lote) => (
-                    <div key={lote.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900">
-                      <div className="text-xs">
-                        <span className="font-bold text-slate-800 dark:text-slate-100">{lote.cantidad} {unidad.toLowerCase()}</span>
-                        <span className="ml-2 text-slate-500">Ingresó {lote.fecha_ingreso} · {lote.agregado_por}</span>
-                        {lote.editado_por && <span className="ml-2 text-purple-700 dark:text-purple-300">Editó {lote.editado_por}</span>}
-                      </div>
-                      {loteCaducidadEditando === lote.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <CampoFecha
-                            aria-label="Corregir fecha de caducidad"
-                            value={fechaCaducidadEditada}
-                            onChange={setFechaCaducidadEditada}
-                            className={cn(campo, "w-auto")}
-                          />
-                          <button type="button" onClick={() => void guardarCaducidadLote(lote.id)} aria-label="Guardar fecha" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"><Check size={15} /></button>
-                          <button type="button" onClick={() => setLoteCaducidadEditando(null)} aria-label="Cancelar edición" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={15} /></button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{lote.fecha_caducidad || "Sin fecha de caducidad"}</span>
-                          {puedeEditar && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLoteCaducidadEditando(lote.id);
-                                setFechaCaducidadEditada(lote.fecha_caducidad ?? "");
-                              }}
-                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
-                            >
-                              <Pencil size={12} /> Editar
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 flex justify-between">Tipo de unidad {!puedeEditar && <Lock size={12} className="text-slate-400" />}</label>
-              <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value as Producto["unidad"])} className={campo}>
-                <option value="PIEZA">Pieza</option>
-                <option value="KG">Kilogramos</option>
-                <option value="GRAMO">Gramos</option>
-                <option value="LITRO">Litros</option>
-                <option value="MILILITRO">Mililitros</option>
-                <option value="MILIGRAMO">Miligramos</option>
-                <option value="PAQUETE">Paquete</option>
-                <option value="SOBRE">Sobre</option>
-                <option value="DOCENA">Docena</option>
-              </select>
-            </div>
-          </div>
+          <SeccionInformacionProducto
+            nombre={nombre}
+            setNombre={setNombre}
+            codigo={codigo}
+            setCodigo={setCodigo}
+            descripcion={descripcion}
+            setDescripcion={setDescripcion}
+            categoria={categoria}
+            setCategoria={setCategoria}
+            ubicacion={ubicacion}
+            setUbicacion={setUbicacion}
+            categorias={categorias}
+            colorCategoria={colorCategoria}
+            puedeEditar={puedeEditar}
+            puedeEditarCodigo={puedeEditar || puedeAjustarStock}
+            onGenerarCodigo={generarCodigo}
+            onAbrirEscaner={() => setEscanerCamaraAbierto(true)}
+            onAbrirCategorias={() => setModalCategoria(true)}
+            campo={campo}
+            requiereAutorizacion={requiereAutorizacion}
+            setRequiereAutorizacion={setRequiereAutorizacion}
+            mensajeAutorizacion={mensajeAutorizacion}
+            setMensajeAutorizacion={setMensajeAutorizacion}
+            permiteFotoAutorizacion={permiteFotoAutorizacion}
+            setPermiteFotoAutorizacion={setPermiteFotoAutorizacion}
+          />
+          <SeccionInventarioProducto
+            controlaStock={controlaStock}
+            setControlaStock={setControlaStock}
+            puedeEditar={puedeEditar}
+            puedeAjustarStock={puedeAjustarStock}
+            editando={editando}
+            productoExistente={productoExistente}
+            stockActual={stockActual}
+            setStockActual={setStockActual}
+            stockMinimo={stockMinimo}
+            setStockMinimo={setStockMinimo}
+            paquete={paquete}
+            setPaquete={setPaquete}
+            cantidadNuevoLote={cantidadNuevoLote}
+            setCantidadNuevoLote={setCantidadNuevoLote}
+            mostrarAyudaLotes={mostrarAyudaLotes}
+            setMostrarAyudaLotes={setMostrarAyudaLotes}
+            fechaCaducidadNuevoLote={fechaCaducidadNuevoLote}
+            setFechaCaducidadNuevoLote={setFechaCaducidadNuevoLote}
+            unidad={unidad}
+            setUnidad={setUnidad}
+            lotesRecientes={lotesRecientes}
+            loteCaducidadEditando={loteCaducidadEditando}
+            setLoteCaducidadEditando={setLoteCaducidadEditando}
+            fechaCaducidadEditada={fechaCaducidadEditada}
+            setFechaCaducidadEditada={setFechaCaducidadEditada}
+            onGuardarCaducidadLote={(loteId) => void guardarCaducidadLote(loteId)}
+            onAbrirLoteCaducidad={abrirLoteCaducidad}
+            campo={campo}
+          />
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex justify-between items-center">
-              Imagen {!puedeEditar && <Lock size={14} className="text-slate-400" />}
-            </h2>
-            <input type="file" disabled={!puedeEditar} accept="image/png, image/jpeg, image/webp" className="hidden" ref={inputArchivoRef} onChange={manejarSeleccionImagen} />
-            {esAndroid && (
-              <input type="file" disabled={!puedeEditar} accept="image/*" capture="environment" className="hidden" ref={inputCamaraRef} onChange={manejarSeleccionImagen} />
-            )}
-            <input type="file" disabled={!puedeEditar} accept="image/png, image/jpeg, image/webp" className="hidden" ref={inputGaleriaRef} onChange={manejarSeleccionImagen} />
-            {previewImagen ? (
-              <div className="relative w-full h-28 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
-                <img src={previewImagen} alt="Vista previa" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-1 text-slate-400 text-xs">
-                <ImagePlus size={18} />
-                Agrega una foto del producto
-              </div>
-            )}
-            {puedeEditar && (
-              <div className="flex flex-wrap gap-2">
-                {esAndroid && (
-                  <button type="button" onClick={() => inputCamaraRef.current?.click()} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/20">
-                    <Camera size={14} /> Tomar foto
-                  </button>
-                )}
-                <button type="button" onClick={() => (esAndroid ? inputGaleriaRef.current : inputArchivoRef.current)?.click()} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">
-                  <ImagePlus size={14} /> {esAndroid ? "Elegir de galería" : previewImagen ? "Cambiar imagen" : "Elegir imagen"}
-                </button>
-                {previewImagen && (
-                  <button type="button" onClick={removerImagen} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-900/20">
-                    <X size={14} /> Quitar
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-            <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex justify-between items-center">
-              Precios {!puedeEditarPrecio && <Lock size={14} className="text-slate-400" />}
-            </h2>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Precio de venta *</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                {/* 
-                   NOTA DE DISEÑO: Aquí removimos la validación nativa 'required' y 'min' del input.
-                   Con esto, el navegador no disparará su alerta fea. 
-                   Nosotros lo validamos en JS con nuestro ModalAviso. 
-                */}
-                <input type="number" disabled={!puedeEditarPrecio} step="0.01" placeholder="0.00" value={precio === 0 ? "" : precio} onChange={(e) => setPrecio(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7 font-semibold")} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Costo</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input type="number" disabled={!puedeEditarPrecio} step="0.01" min="0" placeholder="0.00" value={costo === 0 ? "" : costo} onChange={(e) => setCosto(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pl-7")} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Descuento (%)</label>
-              <div className="relative">
-                <input type="number" disabled={!puedeEditarPrecio} step="0.5" min="0" max="100" placeholder="0" value={descuento === 0 ? "" : descuento} onChange={(e) => setDescuento(e.target.value ? Number(e.target.value) : 0)} className={cn(campo, "pr-8")} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">%</span>
-              </div>
-            </div>
-            {descuento > 0 && (
-              <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-2">
-                Precio final: <span className="font-bold">${precioFinal.toFixed(2)}</span>{" "}
-                <span className="line-through opacity-60">${Number(precio).toFixed(2)}</span>
-              </p>
-            )}
-            
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-xs text-slate-500">
-              Margen de ganancia: <span className="font-bold text-emerald-600">{margen > 0 ? `${margen.toFixed(1)}%` : "—"}</span>
-            </div>
-          </div>
-
-          <div className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-2 border border-slate-200 dark:border-white/10">
-            <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Vista previa del código</h2>
-            {previewCodigo ? (
-              <>
-                <div className="bg-white rounded-lg p-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: previewCodigo }} />
-                <p className="text-[10px] text-center text-slate-400">{unidad} — {unidad.toLowerCase()}(s)</p>
-                <button
-                  type="button"
-                  onClick={() => imprimirEtiqueta({ nombre: nombre || "Producto", codigo, precio: precioFinal })}
-                  className="h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
-                >
-                  <Printer size={14} /> Imprimir etiqueta
-                </button>
-              </>
-            ) : (
-              <p className="text-xs text-slate-400">Genera o escribe un código para ver la etiqueta.</p>
-            )}
-          </div>
-
-          {/* SOLUCIÓN: Eliminamos el comportamiento nativo de submit para manejarlo nosotros */}
-          <button type="button" onClick={manejarGuardado} disabled={!puedeEditar && !puedeAjustarStock} className="w-full h-10 inline-flex justify-center items-center gap-2 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 text-white dark:text-slate-900 text-sm font-semibold transition-all shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed">
-            <Save size={16} />
-            {editando ? "Guardar Cambios" : "Guardar Producto"}
-          </button>
+          <SeccionImagenProducto
+            puedeEditar={puedeEditar}
+            esAndroid={esAndroid}
+            previewImagen={previewImagen}
+            inputArchivoRef={inputArchivoRef}
+            inputCamaraRef={inputCamaraRef}
+            inputGaleriaRef={inputGaleriaRef}
+            onSeleccionarImagen={manejarSeleccionImagen}
+            onRemoverImagen={removerImagen}
+          />
+          <SeccionPreciosEtiqueta
+            puedeEditarPrecio={Boolean(puedeEditarPrecio)}
+            precio={precio}
+            setPrecio={setPrecio}
+            costo={costo}
+            setCosto={setCosto}
+            descuento={descuento}
+            setDescuento={setDescuento}
+            precioFinal={precioFinal}
+            margen={margen}
+            unidad={unidad}
+            previewCodigo={previewCodigo}
+            nombre={nombre}
+            codigo={codigo}
+            editando={editando}
+            puedeGuardar={Boolean(puedeEditar || puedeAjustarStock)}
+            onGuardar={() => void manejarGuardado()}
+            campo={campo}
+          />
         </div>
       </form>
     </div>
