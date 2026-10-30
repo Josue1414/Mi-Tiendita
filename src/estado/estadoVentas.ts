@@ -6,7 +6,7 @@ import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
 import { useEstadoPlan } from "./estadoPlan";
-import { useEstadoRed } from "./estadoRed"; // NUEVO: Para saber si somos Cerebro o Esclavo
+import { useEstadoRed } from "./estadoRed"; 
 
 interface VentaSupabase {
   id: string;
@@ -118,21 +118,19 @@ const obtenerVentasFiadasLocales = async () => {
   return [...ventasFiadas.values()];
 };
 
-// NUEVO: Función que determina el límite de meses según el plan y si es esclavo
 const obtenerFechaCorteEsclavo = (): string | null => {
   const { esMaestro } = useEstadoRed.getState();
-  // Si es Cerebro, no hay fecha de corte (lo guarda todo)
   if (esMaestro) return null; 
 
   const { planActivo } = useEstadoPlan.getState();
   const fecha = new Date();
   
   if (planActivo === "BASICO") {
-    fecha.setMonth(fecha.getMonth() - 1); // Básico: 1 mes
+    fecha.setMonth(fecha.getMonth() - 1); 
   } else if (planActivo === "ESTANDAR") {
-    fecha.setMonth(fecha.getMonth() - 3); // Estándar: 3 meses
+    fecha.setMonth(fecha.getMonth() - 3); 
   } else {
-    fecha.setMonth(fecha.getMonth() - 6); // Plus: 6 meses
+    fecha.setMonth(fecha.getMonth() - 6); 
   }
   
   return fecha.toISOString().slice(0, 10);
@@ -160,13 +158,11 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
       const fechaCorte = obtenerFechaCorteEsclavo();
       let datosLocales = await obtenerVentasLocales();
       
-      // NUEVO: Limpieza automática de ventas viejas en esclavos al iniciar
       if (fechaCorte) {
         const aBorrar = datosLocales.filter(v => v.metodoPago !== "FIADO" && v.fecha.slice(0, 10) < fechaCorte);
         for (const v of aBorrar) {
           await eliminarRegistro("ventas", v.id);
         }
-        // Actualizamos los datos locales dejando solo lo reciente
         datosLocales = datosLocales.filter(v => v.metodoPago === "FIADO" || v.fecha.slice(0, 10) >= fechaCorte);
       }
 
@@ -197,7 +193,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             .filter((venta: VentaSupabase) => venta.metodo_pago !== "FIADO")
             .map((venta: VentaSupabase) => mapearVentaDesdeSupabase(venta));
 
-          // NUEVO: Filtrar las ventas que vienen de Supabase antes de guardarlas en el esclavo
           const ventasA_Guardar = fechaCorte
             ? ventasMapeadas.filter(v => v.fecha.slice(0, 10) >= fechaCorte)
             : ventasMapeadas;
@@ -264,7 +259,9 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         
         if (tiendaId && session) {
           venta.vendedor_id = session.user.id;
-          const { error: errorVenta } = await supabase.from('ventas').insert({
+          
+          // CAMBIO: Utilizamos upsert para evitar errores de clave duplicada
+          const { error: errorVenta } = await supabase.from('ventas').upsert({
             id: venta.id,
             tienda_id: tiendaId,
             vendedor_id: session.user.id,
@@ -290,7 +287,8 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             evidencia_nombre_archivo_local: null 
           }));
 
-          const { error: errorDetalles } = await supabase.from('venta_detalles').insert(detalles);
+          // CAMBIO: Utilizamos upsert en los detalles de venta
+          const { error: errorDetalles } = await supabase.from('venta_detalles').upsert(detalles);
           if (errorDetalles) throw errorDetalles;
         } else {
           await registrarPendienteSync({ tabla: 'ventas', operacion: 'AGREGAR', payload: venta });
@@ -402,7 +400,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
           if (ventaMapeada.metodoPago === "FIADO") return;
           
-          // NUEVO: Verificamos si la venta entra en el límite de tiempo del esclavo
           const fechaCorte = obtenerFechaCorteEsclavo();
           if (fechaCorte && ventaMapeada.fecha.slice(0, 10) < fechaCorte) return;
 
@@ -458,7 +455,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
           const ventaMapeada = mapearVentaDesdeSupabase(ventaNube);
           if (ventaMapeada.metodoPago === "FIADO") return;
           
-          // NUEVO: Verificamos fecha de corte en sincronización por Push de Supabase
           const fechaCorte = obtenerFechaCorteEsclavo();
           if (fechaCorte && ventaMapeada.fecha.slice(0, 10) < fechaCorte) return;
 
@@ -476,10 +472,9 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
   aplicarAccionLAN: async (tipo, payload) => {
     if (tipo === "LAN_VENTA_AGREGAR") {
       if (esVenta(payload)) {
-        // NUEVO: Al recibir una venta por LAN, el esclavo revisa la fecha
         const fechaCorte = obtenerFechaCorteEsclavo();
         if (fechaCorte && payload.fecha.slice(0, 10) < fechaCorte && payload.metodoPago !== "FIADO") {
-          return; // Si es muy vieja, el esclavo la descarta
+          return; 
         }
         await get().agregarVenta(payload, true);
       }
@@ -497,7 +492,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     const fechaCorte = obtenerFechaCorteEsclavo();
     const ventasLAN = snapshot.ventas.filter(esVenta);
     
-    // NUEVO: Filtramos el snapshot recibido del cerebro por LAN
     const ventasNormalesLAN = ventasLAN.filter(venta => 
       venta.metodoPago !== "FIADO" && 
       (!fechaCorte || venta.fecha.slice(0, 10) >= fechaCorte)
@@ -508,7 +502,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     const ventasFiadasLocales = await obtenerVentasFiadasLocales();
     const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
 
-    // Limpia localmente las que el Cerebro no mandó o que ya superaron el límite de tiempo
     for (const local of locales.filter(venta => venta.metodoPago !== "FIADO" && !idsLAN.has(venta.id))) {
       await eliminarRegistro("ventas", local.id);
     }

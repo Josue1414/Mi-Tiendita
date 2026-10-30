@@ -1,5 +1,5 @@
 // src/vistas/VistaInventario.tsx
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
@@ -34,6 +34,10 @@ export default function VistaInventario() {
   
   // NUEVO: Estado para la paginación
   const [paginaActual, setPaginaActual] = useState(1);
+  const listaRef = useRef<HTMLDivElement>(null);
+  const listaMovilRef = useRef<HTMLDivElement>(null);
+  const listaEscritorioRef = useRef<HTMLDivElement>(null);
+  const paginaAnteriorRef = useRef(paginaActual);
 
   const [modalCategoria, setModalCategoria] = useState(false);
   const [productoEtiqueta, setProductoEtiqueta] = useState<Producto | null>(null);
@@ -116,6 +120,14 @@ export default function VistaInventario() {
     const inicio = (paginaActual - 1) * PRODUCTOS_POR_PAGINA;
     return productosFiltrados.slice(inicio, inicio + PRODUCTOS_POR_PAGINA);
   }, [productosFiltrados, paginaActual]);
+
+  useEffect(() => {
+    if (paginaAnteriorRef.current === paginaActual) return;
+    paginaAnteriorRef.current = paginaActual;
+    listaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    listaMovilRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    listaEscritorioRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [paginaActual]);
 
   const colorDe = (nombre?: string) => categorias.find((c) => c.nombre === nombre)?.color ?? "#64748b";
 
@@ -352,8 +364,8 @@ export default function VistaInventario() {
         </button>
       </div>
 
-      <div className="efecto-cristal rounded-2xl overflow-hidden flex-1 flex flex-col border border-slate-200/70 dark:border-white/10 shadow-sm">
-        <div className="hidden overflow-auto flex-1 md:block">
+      <div ref={listaRef} className="scroll-mt-3 efecto-cristal rounded-2xl overflow-hidden flex-1 flex flex-col border border-slate-200/70 dark:border-white/10 shadow-sm">
+        <div ref={listaEscritorioRef} className="hidden min-h-0 overflow-auto flex-1 md:block">
           <table className="w-full text-left border-collapse min-w-[860px]">
             <thead className="sticky top-0 z-10 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-sm">
               <tr className="border-b border-slate-200 dark:border-white/10 text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -466,7 +478,7 @@ export default function VistaInventario() {
         </div>
         
         {/* Vista Móvil */}
-        <div className="flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
+        <div ref={listaMovilRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
           {productosPaginados.length === 0 ? (
             <p className="p-6 text-center text-sm text-slate-500">No se encontraron productos.</p>
           ) : productosPaginados.map((producto) => {

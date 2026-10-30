@@ -4,9 +4,8 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoRed } from "../estado/estadoRed";
-import { UserCircle, Calendar, Activity, ShieldCheck, CalendarDays, Network, Wifi, WifiOff, Server, QrCode, X, Smartphone } from "lucide-react";
+import { UserCircle, Calendar, Activity, ShieldCheck, CalendarDays, Network, Wifi, WifiOff, Server, Smartphone } from "lucide-react";
 import { cn } from "../utilidades/utils";
-import PanelCamaraEscaner from "../componentes/pos/PanelCamaraEscaner";
 
 export default function VistaPerfil() {
   const { trabajadorActivo } = useEstadoTrabajadores();
@@ -15,7 +14,6 @@ export default function VistaPerfil() {
   
   const { esMaestro, conectadoLAN, ipMaestro, setIpMaestro } = useEstadoRed();
   const [inputIpConexion, setInputIpConexion] = useState(ipMaestro || "");
-  const [escaneandoQR, setEscaneandoQR] = useState(false);
 
   if (!trabajadorActivo) return null;
 
@@ -126,38 +124,8 @@ export default function VistaPerfil() {
     ? trabajadorActivo.horarioSemanal.general
     : trabajadorActivo.horarioSemanal?.especifico[diaHoy];
 
-  const manejarEscaneoQR = (codigo: string) => {
-    try {
-      const url = new URL(codigo);
-      const ip = url.searchParams.get("lanHost") || url.hostname;
-      if (ip) {
-        setIpMaestro(ip);
-        setEscaneandoQR(false);
-        window.location.reload();
-      } else {
-        alert("El código escaneado no contiene la IP del Cerebro.");
-      }
-    } catch {
-      alert("Formato de QR no reconocido.");
-    }
-  };
-
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-6 p-4 sm:p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
-      
-      {escaneandoQR && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2"><QrCode size={18}/> Escanear QR del Cerebro</h3>
-              <button onClick={() => setEscaneandoQR(false)} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={16}/></button>
-            </div>
-            <PanelCamaraEscaner alDetectar={manejarEscaneoQR} />
-            <p className="text-xs text-slate-500 text-center">Apunta la cámara al código QR que muestra la pantalla de Red del Cerebro (Dueño).</p>
-          </div>
-        </div>
-      )}
-
       <div className="mb-2">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
           <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl text-emerald-600 dark:text-emerald-400">
@@ -274,13 +242,6 @@ export default function VistaPerfil() {
                       placeholder="IP (ej. 192.168.1.75)"
                       className="w-full min-w-0 flex-1 sm:w-auto bg-white dark:bg-slate-950 font-mono border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
                     />
-                    <button
-                      onClick={() => setEscaneandoQR(true)}
-                      className="shrink-0 px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors"
-                      title="Escanear QR del Cerebro"
-                    >
-                      <QrCode size={18} />
-                    </button>
                     <button
                       onClick={() => { setIpMaestro(inputIpConexion); window.location.reload(); }}
                       className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"

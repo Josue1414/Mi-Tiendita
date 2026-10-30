@@ -23,7 +23,6 @@ import { cn } from "../../utilidades/utils";
 import ModalConfirmacionDesvincularEquipo from "../../componentes/ui/ModalConfirmacionDesvincularEquipo";
 import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
-import PanelCamaraEscaner from "../../componentes/pos/PanelCamaraEscaner";
 import ModalConfirmacionPin from "../../componentes/ui/ModalConfirmacionPin";
 import { enviarAccionLAN } from "../../servicios/sincronizacionLAN";
 
@@ -81,7 +80,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const [copiado, setCopiado] = useState(false);
   const [mostrarQRLAN, setMostrarQRLAN] = useState(false);
   const [preparandoQRLAN, setPreparandoQRLAN] = useState(false);
-  const [escaneandoQR, setEscaneandoQR] = useState(false);
   const [editandoDispId, setEditandoDispId] = useState<string | null>(null);
   const [nombreDispTemp, setNombreDispTemp] = useState("");
   const [cambiandoRolCerebro, setCambiandoRolCerebro] = useState(false);
@@ -355,33 +353,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     document.body.removeChild(link);
   };
 
-  // NUEVO: Extracción de IP a prueba de fallos mediante Regex
-  const manejarEscaneoQR = (codigo: string) => {
-    try {
-      let ipExtraida = "";
-      
-      // 1. Buscamos el patrón exacto de una dirección IP (XXX.XXX.XXX.XXX)
-      const match = codigo.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
-      if (match) {
-        ipExtraida = match[0];
-      } else {
-        // 2. Si no hay IP directa, intentamos leerla como URL normal
-        const url = new URL(codigo);
-        ipExtraida = url.searchParams.get("lanHost") || url.hostname;
-      }
-
-      if (ipExtraida && ipExtraida !== "127.0.0.1" && ipExtraida !== "localhost") {
-        setIpMaestro(ipExtraida);
-        setEscaneandoQR(false);
-        window.location.reload();
-      } else {
-        setAviso({ titulo: "QR Inválido", mensaje: "El código escaneado no contiene una IP de red local válida." });
-      }
-    } catch (e) {
-      setAviso({ titulo: "Error", mensaje: "El formato del QR no es reconocido o no contiene una IP." });
-    }
-  };
-
   const limiteDispositivosAlcanzado = dispositivos.length >= maxDispositivos;
   const dispositivosFiltradosParaModal = useMemo(() => dispositivos.filter(d => obtenerTipoDispositivo(d.hardware_id) === "PC"), [dispositivos]);
 
@@ -399,19 +370,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
           setRolPendiente(null);
         }}
       />
-
-      {escaneandoQR && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2"><QrCode size={18}/> Escanear QR del Cerebro</h3>
-              <button onClick={() => setEscaneandoQR(false)} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={16}/></button>
-            </div>
-            <PanelCamaraEscaner alDetectar={manejarEscaneoQR} />
-            <p className="text-xs text-slate-500 text-center">Apunta la cámara al código QR que muestra la pantalla de Red del Cerebro.</p>
-          </div>
-        </div>
-      )}
 
       <ModalConfirmacionDesvincularEquipo
         abierto={confirmacionDesvincular.abierto} 
@@ -565,14 +523,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
                 <div className="w-full flex flex-col gap-2">
                   <div className="flex gap-2 w-full">
                     <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="IP (Ej: 192.168.1.75)" className="flex-1 text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-slate-900 dark:text-slate-100 min-w-0" />
-                    <button 
-                      onClick={() => setEscaneandoQR(true)} 
-                      disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)}
-                      className="px-3 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors disabled:opacity-50"
-                      title="Escanear QR del Cerebro"
-                    >
-                      <QrCode size={20} />
-                    </button>
                   </div>
                   
                   <button onClick={() => { 
