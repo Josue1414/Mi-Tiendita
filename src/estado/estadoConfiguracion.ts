@@ -32,7 +32,6 @@ export interface Configuracion {
   basculaPuerto: string;
   basculaBaudRate: string;
   basculaFormato: string;
-  // Eliminado: basculaUnidad
   escanerModelo: string;
   escanerFabricante: string;
   escanerDriver: string;
@@ -43,6 +42,10 @@ export interface Configuracion {
   habilitarFiados: boolean;
   modoAccesoFiados: "TODOS" | "MANUAL";
   diasAlertaCaducidad: number;
+  mp_access_token: string;
+  mp_pos_id: string;
+  codi_imagen: string;
+  codi_clabe: string;
 }
 
 type PreferenciasFiados = Pick<Configuracion, "habilitarFiados" | "modoAccesoFiados">;
@@ -84,7 +87,6 @@ interface EstadoConfiguracion extends Configuracion {
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
   actualizarDatosPago: (datos: Partial<Configuracion>) => Promise<void>;
-  // Actualizada: se quitó la unidad de la báscula de los parámetros
   actualizarDatosBascula: (modelo: string, puerto: string, baudRate: string, formato: string) => Promise<void>;
   actualizarDatosEscaner: (
     modelo: string,
@@ -105,7 +107,9 @@ interface EstadoConfiguracion extends Configuracion {
     asistencias: unknown[];
     configuracion: Partial<Configuracion>;
   }) => Promise<void>;
-  sincronizarConfiguracion: (payload: any) => Promise<void>; 
+  sincronizarConfiguracion: (payload: any) => Promise<void>;
+  setCredencialesMP: (token: string, posId: string) => Promise<void>;
+  setConfiguracionCodi: (imagen: string, clabe: string) => Promise<void>;
 }
 
 const CONFIG_ID = "config_principal";
@@ -143,6 +147,10 @@ const CONFIG_INICIAL: Configuracion = {
   habilitarFiados: false,
   modoAccesoFiados: "TODOS",
   diasAlertaCaducidad: DIAS_ALERTA_CADUCIDAD,
+  mp_access_token: "",
+  mp_pos_id: "",
+  codi_imagen: "",
+  codi_clabe: "",
 };
 
 const obtenerConfiguracionPersistible = (configuracion: Configuracion): Configuracion =>
@@ -252,7 +260,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             id: CONFIG_ID,
             sincronizacionNube: permiteNube ? configLocal?.sincronizacionNube ?? get().sincronizacionNube : false,
             configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false,
-            // Conservamos los valores locales de hardware 
             basculaModelo: configLocal?.basculaModelo ?? CONFIG_INICIAL.basculaModelo,
             basculaPuerto: configLocal?.basculaPuerto ?? CONFIG_INICIAL.basculaPuerto,
             basculaBaudRate: configLocal?.basculaBaudRate ?? CONFIG_INICIAL.basculaBaudRate,
@@ -264,6 +271,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             escanerPuerto: configLocal?.escanerPuerto ?? CONFIG_INICIAL.escanerPuerto,
             escanerDetectado: configLocal?.escanerDetectado ?? CONFIG_INICIAL.escanerDetectado,
             escanerMensaje: configLocal?.escanerMensaje ?? CONFIG_INICIAL.escanerMensaje,
+            mp_access_token: configLocal?.mp_access_token ?? CONFIG_INICIAL.mp_access_token,
+            mp_pos_id: configLocal?.mp_pos_id ?? CONFIG_INICIAL.mp_pos_id,
+            codi_imagen: configLocal?.codi_imagen ?? CONFIG_INICIAL.codi_imagen,
+            codi_clabe: configLocal?.codi_clabe ?? CONFIG_INICIAL.codi_clabe,
           };
 
           const preferenciasFiados = leerPreferenciasFiados();
@@ -451,7 +462,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         cuentaTransferencia: nuevaConfig.cuentaTransferencia,
         teclaEfectivo: nuevaConfig.teclaEfectivo,
         teclaTarjeta: nuevaConfig.teclaTarjeta,
-        teclaTransferencia: nuevaConfig.teclaTransferencia
+        teclaTransferencia: nuevaConfig.teclaTransferencia,
+        codi_imagen: nuevaConfig.codi_imagen,
+        codi_clabe: nuevaConfig.codi_clabe
       };
       const payloadNube = {
         mensaje_pago: payloadLAN.mensajePago,
@@ -478,7 +491,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
-  // FUNCIÓN ACTUALIZADA: Quitamos la unidad
   actualizarDatosBascula: async (modelo, puerto, baudRate, formato) => {
     try {
       const configBase = get();
@@ -599,6 +611,27 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
+  setCredencialesMP: async (token, posId) => {
+    const nuevaConfig = { ...get(), mp_access_token: token, mp_pos_id: posId };
+    await guardarConfiguracionLocal(nuevaConfig);
+    set({ mp_access_token: token, mp_pos_id: posId });
+  },
+
+  setConfiguracionCodi: async (imagen, clabe) => {
+    const nuevaConfig = { ...get(), codi_imagen: imagen, codi_clabe: clabe };
+    await guardarConfiguracionLocal(nuevaConfig);
+    set({ codi_imagen: imagen, codi_clabe: clabe });
+    
+    enviarAccionLAN({
+      tipo: "LAN_CONFIG_PAGO",
+      payload: {
+        ...get(),
+        codi_imagen: imagen,
+        codi_clabe: clabe
+      }
+    });
+  },
+
   aplicarAccionLAN: async (tipo, payload) => {
     const configuracionLAN = (payload || {}) as Partial<Configuracion>;
     let actualizacion: Partial<Configuracion>;
@@ -624,7 +657,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         cuentaTransferencia: configuracionLAN.cuentaTransferencia,
         teclaEfectivo: configuracionLAN.teclaEfectivo,
         teclaTarjeta: configuracionLAN.teclaTarjeta,
-        teclaTransferencia: configuracionLAN.teclaTransferencia
+        teclaTransferencia: configuracionLAN.teclaTransferencia,
+        codi_imagen: configuracionLAN.codi_imagen,
+        codi_clabe: configuracionLAN.codi_clabe
       };
       payloadNube = {
         mensaje_pago: actualizacion.mensajePago,
@@ -681,7 +716,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       "titularTransferencia",
       "cuentaTransferencia",
       "mensajePago",
-      "diasAlertaCaducidad"
+      "diasAlertaCaducidad",
+      "codi_imagen", 
+      "codi_clabe"   
     ];
     const actualizacion: Partial<Configuracion> = {};
     for (const clave of clavesCompartidas) {
@@ -756,7 +793,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           cuentaTransferencia: actualizacion.cuentaTransferencia,
           teclaEfectivo: actualizacion.teclaEfectivo,
           teclaTarjeta: actualizacion.teclaTarjeta,
-          teclaTransferencia: actualizacion.teclaTransferencia
+          teclaTransferencia: actualizacion.teclaTransferencia,
+          codi_imagen: get().codi_imagen,
+          codi_clabe: get().codi_clabe
         }
       });
     }

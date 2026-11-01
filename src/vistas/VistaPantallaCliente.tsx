@@ -6,11 +6,11 @@ import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { abreviaturaUnidad, precioVenta, type Producto } from "../tipos/producto";
 import ModalQRCliente from "../componentes/ui/ModalQRCliente";
 
-// IMPORTACIONES PARA SINCRONIZACIÓN DE IMÁGENES LAN Y LIMPIEZA
 import { conectarLAN } from "../servicios/socketCliente";
 import { aplicarAccionLANRecibida, hidratarDesdeLAN } from "../servicios/appLAN";
 import { useEstadoRed } from "../estado/estadoRed";
 import { limpiarCacheImagenesLocales } from "../servicios/baseDatosLocal";
+import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 
 type Densidad = "compacta" | "normal" | "amplia";
 type Tema = "verde" | "claro" | "oscuro" | "grafito";
@@ -24,6 +24,7 @@ const estilosTema: Record<Tema, string> = {
 
 export default function VistaPantallaCliente() {
   const { datosCarrito, mensajeExito, productoEnPantalla } = useReceptorPantallaCliente();
+  const { codi_imagen, codi_clabe, bancoTransferencia, titularTransferencia, cuentaTransferencia } = useEstadoConfiguracion();
   
   const [hora, setHora] = useState("");
   const [opcionesAbiertas, setOpcionesAbiertas] = useState(false);
@@ -35,8 +36,10 @@ export default function VistaPantallaCliente() {
   const params = new URLSearchParams(window.location.search);
   const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
 
-  // Conectar la pantalla cliente a la red principal del Cerebro en segundo plano para pedir imágenes
   useEffect(() => {
+    // IMPORTANTE: Cargamos la configuración para leer la base de datos local y obtener el QR si la pantalla corre en la misma PC
+    useEstadoConfiguracion.getState().cargarConfiguracion();
+
     const lanHost = params.get("lanHost") || (window.location.protocol === "http:" && ["4000", "4001"].includes(window.location.port) ? window.location.hostname : null);
     
     if (lanHost && lanHost !== "localhost") {
@@ -97,7 +100,17 @@ export default function VistaPantallaCliente() {
   const textoNombre = compacto ? "text-sm" : densidad === "normal" ? "text-base" : "text-lg";
   const textoTotal = compacto ? "text-4xl" : densidad === "normal" ? "text-5xl" : "text-6xl";
   const temaClaro = tema === "claro";
-  const transferenciaActiva = datosCarrito.metodoPago === "TRANSFERENCIA" && datosCarrito.datosTransferencia;
+  
+  const esCodi = datosCarrito.metodoPago === "CODI";
+  const esTransferencia = datosCarrito.metodoPago === "TRANSFERENCIA";
+  const transferenciaActiva = esCodi || esTransferencia;
+
+  const datosTransf = {
+    banco: (datosCarrito.datosTransferencia as any)?.banco || (esCodi ? "CoDi" : bancoTransferencia),
+    titular: (datosCarrito.datosTransferencia as any)?.titular || titularTransferencia,
+    cuenta: (datosCarrito.datosTransferencia as any)?.cuenta || (esCodi ? codi_clabe : cuentaTransferencia),
+    qrBase64: (datosCarrito.datosTransferencia as any)?.qrBase64 || (esCodi ? codi_imagen : undefined)
+  };
 
   const renderProductoDetalle = (producto: Producto) => {
     const precio = precioVenta(producto);
@@ -240,22 +253,32 @@ export default function VistaPantallaCliente() {
           renderProductoDetalle(productoEnPantalla)
         ) : transferenciaActiva ? (
           <div className="flex h-full min-h-0 flex-col items-center justify-start gap-3 pt-6 text-center sm:gap-4 sm:pt-10 animate-in fade-in slide-in-from-bottom-4">
-            <div className={`p-4 rounded-full ${temaClaro ? "bg-emerald-100 text-emerald-600" : "bg-emerald-900/30 text-emerald-400"}`}>
-              <Landmark size={48} />
-            </div>
-            <p className="text-xl font-bold text-emerald-500 sm:text-3xl">Datos para Transferencia</p>
+            
+            {datosTransf.qrBase64 ? (
+              <div className={`p-4 rounded-3xl ${temaClaro ? "bg-white border border-emerald-200 shadow-xl" : "bg-white border-4 border-emerald-500/30"}`}>
+                <img src={datosTransf.qrBase64} alt="QR CoDi" className="w-56 h-56 object-contain" />
+              </div>
+            ) : (
+              <div className={`p-4 rounded-full ${temaClaro ? "bg-emerald-100 text-emerald-600" : "bg-emerald-900/30 text-emerald-400"}`}>
+                <Landmark size={48} />
+              </div>
+            )}
+
+            <p className="text-xl font-bold text-emerald-500 sm:text-3xl">
+              {datosTransf.qrBase64 ? "Escanea el código para pagar" : "Datos para Transferencia"}
+            </p>
             
             <div className={`flex w-full max-w-2xl flex-col gap-4 rounded-3xl border p-6 text-center sm:p-8 mt-2 ${temaClaro ? "border-emerald-200 bg-white shadow-lg" : "border-emerald-500/30 bg-black/40"}`}>
               <div className="text-xl leading-loose sm:text-2xl flex flex-col gap-2">
-                <p><span className="opacity-70 font-medium">Banco:</span> <strong className="font-bold">{datosCarrito.datosTransferencia?.banco || "No especificado"}</strong></p>
-                {datosCarrito.datosTransferencia?.titular && (
-                  <p><span className="opacity-70 font-medium">Titular:</span> <strong className="font-bold">{datosCarrito.datosTransferencia.titular}</strong></p>
+                <p><span className="opacity-70 font-medium">Banco:</span> <strong className="font-bold">{datosTransf.banco || "No especificado"}</strong></p>
+                {datosTransf.titular && (
+                  <p><span className="opacity-70 font-medium">Titular:</span> <strong className="font-bold">{datosTransf.titular}</strong></p>
                 )}
                 
                 <div className={`mt-4 inline-block p-4 sm:p-5 rounded-2xl border ${temaClaro ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
                   <p className="text-sm font-bold uppercase tracking-widest opacity-70 mb-1">Número de Cuenta / CLABE</p>
                   <p className="text-3xl sm:text-4xl font-mono font-bold tracking-widest break-all">
-                    {datosCarrito.datosTransferencia?.cuenta || "No especificada"}
+                    {datosTransf.cuenta || "No especificada"}
                   </p>
                 </div>
               </div>
@@ -278,24 +301,6 @@ export default function VistaPantallaCliente() {
               <h2 className="text-xl font-bold">Su compra</h2>
               <span className="text-xs font-bold opacity-80">{datosCarrito.items.length} productos</span>
             </div>
-            
-            {transferenciaActiva && (
-              <div className={`mb-3 flex items-center gap-4 rounded-xl border p-4 ${temaClaro ? "border-emerald-200 bg-emerald-50" : "border-emerald-500/30 bg-emerald-950/40"}`}>
-                <div className={`p-3 rounded-full shrink-0 ${temaClaro ? "bg-emerald-200 text-emerald-700" : "bg-emerald-900/50 text-emerald-400"}`}>
-                  <Landmark size={24} />
-                </div>
-                <div className="min-w-0 flex-1 text-sm">
-                  <p className="mb-1 text-base font-bold text-emerald-600 dark:text-emerald-400">Datos para transferencia</p>
-                  <p><span className="opacity-70">Banco:</span> <strong className="font-medium">{datosCarrito.datosTransferencia?.banco || "No especificado"}</strong></p>
-                  {datosCarrito.datosTransferencia?.titular && (
-                    <p><span className="opacity-70">Titular:</span> <strong className="font-medium">{datosCarrito.datosTransferencia.titular}</strong></p>
-                  )}
-                  <p className={`mt-2 p-2 rounded-lg font-mono text-lg font-bold tracking-wider break-all ${temaClaro ? "bg-white text-emerald-700" : "bg-black/30 text-emerald-400"}`}>
-                    {datosCarrito.datosTransferencia?.cuenta || "No especificada"}
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div className="grid min-h-0 flex-1 content-start grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2">
               {datosCarrito.items.map((item) => {

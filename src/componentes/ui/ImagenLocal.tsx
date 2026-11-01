@@ -22,7 +22,12 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
   useEffect(() => {
     if (!nombreArchivo || nombreArchivo.startsWith("data:image/")) return;
 
-    let urlTemporal: string | null = null;
+    if (nombreArchivo.startsWith("http://") || nombreArchivo.startsWith("https://")) {
+      setImagenResuelta({ nombreArchivo, url: nombreArchivo });
+      setDescargando(false);
+      return;
+    }
+
     let cancelado = false;
 
     // Detectar si estamos en la Pantalla Cliente por LAN
@@ -33,13 +38,9 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     const cargarImagen = async () => {
       try {
         const url = await obtenerUrlImagenLocal(nombreArchivo);
-        if (cancelado) {
-          if (url) URL.revokeObjectURL(url);
-          return;
-        }
+        if (cancelado) return;
 
         if (url) {
-          urlTemporal = url;
           setImagenResuelta({ nombreArchivo, url });
           setDescargando(false);
         } else if (lanHost) {
@@ -56,13 +57,12 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
         }
       } catch (error) {
         console.error("No se pudo cargar la imagen local del producto:", error);
-        setImagenResuelta({ nombreArchivo, url: null });
+        if (!cancelado) setImagenResuelta({ nombreArchivo, url: null });
       }
     };
 
     cargarImagen();
 
-    // Escuchar cuando el Cerebro responda y la imagen se guarde en baseDatosLocal.ts
     const alDescargar = (evento: Event) => {
       const archivoDescargado = (evento as CustomEvent<string>).detail;
       if (archivoDescargado === nombreArchivo) {
@@ -75,7 +75,9 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     return () => {
       cancelado = true;
       window.removeEventListener("imagen-descargada", alDescargar);
-      if (urlTemporal) URL.revokeObjectURL(urlTemporal);
+      // ⚠️ PARCHE CRÍTICO: 
+      // Eliminamos el `URL.revokeObjectURL(urlTemporal)` que destruía las fotos
+      // cuando el carrito se vaciaba después de una compra.
     };
   }, [nombreArchivo, esMaestro, conectadoLAN]);
 

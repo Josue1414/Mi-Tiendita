@@ -1,4 +1,4 @@
-// Coordenada: src/vistas/VistaPanel.tsx
+// src/vistas/VistaPanel.tsx
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
@@ -11,6 +11,7 @@ import { cn } from "../utilidades/utils";
 import { useState } from "react";
 import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
 import VistaFacturacion from "./VistaFacturacion";
+import PanelMetodosPago from "../componentes/PanelMetodosPago"; // <-- INYECCIÓN BYOK
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
 import AyudaContextual from "../componentes/ui/AyudaContextual";
@@ -222,7 +223,6 @@ export default function VistaPanel({
           </div>
         </div>
 
-        {/* Tarjeta de KPI de Alertas (Actualizada con desglose visual) */}
         <div className="efecto-cristal p-5 rounded-2xl flex items-center gap-4 border border-slate-200/50 dark:border-white/10">
           <div className={cn("p-3 rounded-xl", alertasRojas > 0 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400")}>
             <AlertTriangle size={24} className={alertasRojas > 0 ? "campana-vibrando" : ""} />
@@ -255,7 +255,6 @@ export default function VistaPanel({
             <History size={20} />
             <span className="text-xs font-semibold">Ver Historial</span>
           </button>
-          {/* Botón de Ver Alertas con vibración */}
           <button onClick={() => setSeccionActual("stock-bajo")} className="efecto-cristal p-4 rounded-xl border border-slate-200/50 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400">
             <Bell size={20} className={alertasRojas > 0 ? "campana-vibrando" : ""} />
             <span className="text-xs font-semibold">Ver Alertas</span>
@@ -348,7 +347,6 @@ export default function VistaPanel({
           </div>
         </div>
 
-        {/* LÓGICA DE SCROLL: Envolver PanelAutorizaciones en un div con max-h y overflow */}
         <div className="mb-6 lg:col-span-2">
           <div className="max-h-[450px] overflow-y-auto pr-2 scrollbar-thin rounded-2xl">
             <PanelAutorizaciones productos={productos} ventas={ventas} />
@@ -356,7 +354,11 @@ export default function VistaPanel({
         </div>
       </div>
 
-      <VistaFacturacion integrada />
+      {/* NUEVA SECCIÓN DE MÉTODOS DE PAGO Y FACTURACIÓN */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+        <PanelMetodosPago />
+        <VistaFacturacion integrada />
+      </div>
     </div>
   );
 }
