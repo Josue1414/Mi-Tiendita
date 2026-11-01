@@ -1,5 +1,5 @@
 // src/vistas/pos/types.ts
-export type ModoVistaPOS = "cuadricula" | "escaner" | "camara";
+export type ModoVistaPOS = "cuadricula" | "escaner" | "camara" | "pesaje";
 
 export interface DatosNuevoDeudor {
   nombre: string;

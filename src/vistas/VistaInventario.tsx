@@ -32,7 +32,6 @@ export default function VistaInventario() {
   const [categoriaActiva, setCategoriaActiva] = useState("todas");
   const [categoriasExpandidas, setCategoriasExpandidas] = useState(false);
   
-  // NUEVO: Estado para la paginación
   const [paginaActual, setPaginaActual] = useState(1);
   const listaRef = useRef<HTMLDivElement>(null);
   const listaMovilRef = useRef<HTMLDivElement>(null);
@@ -68,7 +67,6 @@ export default function VistaInventario() {
 
   useEscanerCodigoBarras(alEscanear);
 
-  // Permisos
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
   
@@ -76,7 +74,6 @@ export default function VistaInventario() {
   const puedeEliminar = esDueño || esSupervisor || trabajadorActivo?.permisos?.eliminarProductos;
   const puedeAjustarStock = esDueño || esSupervisor || trabajadorActivo?.permisos?.actualizarStockCodigo;
 
-  // NUEVO: Regresar a la página 1 cuando el usuario busque algo o cambie de categoría
   useEffect(() => {
     setPaginaActual(1);
   }, [busqueda, categoriaActiva]);
@@ -114,7 +111,6 @@ export default function VistaInventario() {
     });
   }, [productos, busqueda, categoriaActiva]);
 
-  // NUEVO: Lógica de paginación para cortar el arreglo
   const totalPaginas = Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA);
   const productosPaginados = useMemo(() => {
     const inicio = (paginaActual - 1) * PRODUCTOS_POR_PAGINA;
@@ -156,10 +152,14 @@ export default function VistaInventario() {
     if (!promptStock.producto) return;
     const producto = promptStock.producto;
     const ajusteAplicado = ajuste < 0 ? Math.max(ajuste, -producto.stock_actual) : ajuste;
+    
+    // Al realizar matemática de stock con decimales, redondeamos a 3 decimales para evitar desbordes de coma flotante
+    const nuevoStock = Math.max(0, Math.round((producto.stock_actual + ajusteAplicado) * 1000) / 1000);
+    
     await actualizarProducto({
       ...producto,
       controla_stock: true,
-      stock_actual: Math.max(0, producto.stock_actual + ajusteAplicado),
+      stock_actual: nuevoStock,
       lotes: ajustarLotes(producto.lotes, ajusteAplicado, {
         fechaCaducidad,
         agregadoPor: trabajadorActivo?.nombre ?? "Sistema",
@@ -392,6 +392,11 @@ export default function VistaInventario() {
                   const color = colorDe(producto.categoria);
                   const final = precioVenta(producto);
                   const bajo = producto.controla_stock && producto.stock_actual <= producto.stock_minimo;
+                  
+                  // Lógica para el formateo
+                  const esFraccion = producto.unidad === "KG" || producto.unidad === "LITRO" || producto.unidad === "GRAMO" || producto.unidad === "MILILITRO" || producto.unidad === "MILIGRAMO";
+                  const stockFormateado = esFraccion ? producto.stock_actual.toFixed(3) : producto.stock_actual.toString();
+
                   return (
                     <tr key={producto.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 text-slate-900 dark:text-slate-100 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium">
@@ -415,7 +420,7 @@ export default function VistaInventario() {
                             "inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-sm border",
                             bajo ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50"
                           )}>
-                            {producto.stock_actual}
+                            {stockFormateado}
                           </span>
                         ) : (
                           <span className="text-[11px] text-slate-400 font-bold">—</span>
@@ -484,6 +489,11 @@ export default function VistaInventario() {
           ) : productosPaginados.map((producto) => {
             const bajo = producto.controla_stock && producto.stock_actual <= producto.stock_minimo;
             const color = colorDe(producto.categoria);
+            
+            // Lógica para el formateo
+            const esFraccion = producto.unidad === "KG" || producto.unidad === "LITRO" || producto.unidad === "GRAMO" || producto.unidad === "MILILITRO" || producto.unidad === "MILIGRAMO";
+            const stockFormateado = esFraccion ? producto.stock_actual.toFixed(3) : producto.stock_actual.toString();
+
             return (
               <article key={producto.id} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm p-4 dark:border-white/10 dark:bg-slate-900">
                 <div className="flex items-start gap-3">
@@ -497,7 +507,7 @@ export default function VistaInventario() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className={cn("rounded-lg px-2.5 py-1 text-[11px] font-black shadow-sm border", bajo ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200")}>{producto.controla_stock ? producto.stock_actual : "∞"}</span>
+                    <span className={cn("rounded-lg px-2.5 py-1 text-[11px] font-black shadow-sm border", bajo ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200")}>{producto.controla_stock ? stockFormateado : "∞"}</span>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-white/10">
@@ -520,7 +530,6 @@ export default function VistaInventario() {
           })}
         </div>
 
-        {/* NUEVO: Controles de Paginación UI (Aplicable a ambas vistas) */}
         {totalPaginas > 1 && (
           <div className="flex items-center justify-between border-t border-slate-200/70 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-slate-900/30 shrink-0">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">

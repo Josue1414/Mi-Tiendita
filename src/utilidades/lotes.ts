@@ -1,3 +1,4 @@
+// src/utilidades/lotes.ts
 import type { LoteProducto } from "../tipos/producto";
 import { crearIdentificadorUnico } from "./identificador";
 
@@ -33,8 +34,8 @@ export function descontarDeLotes(lotes: LoteProducto[] = [], cantidad: number): 
     .map((lote) => {
       if (restante <= 0 || lote.cantidad <= 0) return { ...lote };
       const descontado = Math.min(lote.cantidad, restante);
-      restante -= descontado;
-      return { ...lote, cantidad: lote.cantidad - descontado };
+      restante = Math.max(0, Math.round((restante - descontado) * 1000) / 1000);
+      return { ...lote, cantidad: Math.max(0, Math.round((lote.cantidad - descontado) * 1000) / 1000) };
     });
 }
 
@@ -46,7 +47,7 @@ export function ajustarLotes(
   if (ajuste > 0) {
     const nuevoLote: LoteProducto = {
       id: crearIdentificadorUnico(),
-      cantidad: ajuste,
+      cantidad: Math.round(ajuste * 1000) / 1000,
       fecha_ingreso: new Date().toISOString().slice(0, 10),
       agregado_por: opciones.agregadoPor,
       dias_alerta: opciones.diasAlerta ?? DIAS_ALERTA_CADUCIDAD,

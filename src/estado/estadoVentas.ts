@@ -1,6 +1,7 @@
 // src/estado/estadoVentas.ts
 import { create } from "zustand";
 import type { ItemCarrito } from "./estadoCarrito";
+import type { Producto } from "../tipos/producto";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { guardarVentaFiadoLocal, obtenerVentasFiadoLocales } from "../servicios/baseDatosLocal";
@@ -29,6 +30,7 @@ interface DetalleVentaSupabase {
   costo_unitario: number | null;
   subtotal: number;
   autorizacion_confirmada: boolean | null;
+  unidad: Producto["unidad"]; // Aseguramos que tipa bien
 }
 
 type Registro = Record<string, unknown>;
@@ -59,7 +61,7 @@ const mapearVentaDesdeSupabase = (v: VentaSupabase): Venta => ({
     cantidad: d.cantidad,
     precio: d.precio_unitario,
     costo: d.costo_unitario || 0,
-    unidad: "PIEZA",
+    unidad: d.unidad || "PIEZA", // Se respeta la unidad original o se usa pieza si faltara
     subtotal: d.subtotal,
     autorizacion_confirmada: d.autorizacion_confirmada ?? undefined
   }))
@@ -260,7 +262,6 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
         if (tiendaId && session) {
           venta.vendedor_id = session.user.id;
           
-          // CAMBIO: Utilizamos upsert para evitar errores de clave duplicada
           const { error: errorVenta } = await supabase.from('ventas').upsert({
             id: venta.id,
             tienda_id: tiendaId,
@@ -284,10 +285,10 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
             costo_unitario: art.costo || 0,
             subtotal: art.subtotal,
             autorizacion_confirmada: art.autorizacion_confirmada || false,
+            unidad: art.unidad, // Se inyecta al insertar a base de datos
             evidencia_nombre_archivo_local: null 
           }));
 
-          // CAMBIO: Utilizamos upsert en los detalles de venta
           const { error: errorDetalles } = await supabase.from('venta_detalles').upsert(detalles);
           if (errorDetalles) throw errorDetalles;
         } else {

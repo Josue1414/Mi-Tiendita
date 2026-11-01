@@ -51,7 +51,8 @@ export default function VistaEquipo() {
           cambiarInfoTicket: false,
           cambiarPrecios: false,
           verSalarios: false,
-          permisoFiados: false
+          permisoFiados: false,
+          soloEstacionPesaje: false
         },
         horarioSemanal: {
           tipo: "GENERAL",

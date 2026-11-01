@@ -47,7 +47,8 @@ const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
   mensaje_autorizacion: p.mensaje_autorizacion || null,
   permite_foto_autorizacion: p.permite_foto_autorizacion,
   lotes: p.lotes ?? [],
-  nombre_archivo_local: p.imagen_archivo || null
+  nombre_archivo_local: p.imagen_archivo || null,
+  bascula_equivalencia_litros: p.bascula_equivalencia_litros ?? false
 });
 
 const sincronizarConCola = async (
@@ -87,7 +88,8 @@ const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Prod
   lotes: Array.isArray(p.lotes) ? p.lotes : [],
   imagen_archivo: typeof p.nombre_archivo_local === "string" && !p.nombre_archivo_local.startsWith("data:image/")
     ? p.nombre_archivo_local
-    : undefined
+    : undefined,
+  bascula_equivalencia_litros: p.bascula_equivalencia_litros ?? false
 });
 
 export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
@@ -401,7 +403,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         const cantidadDescontada = Math.min(Math.max(0, producto.stock_actual), cantidadSolicitada);
         return {
           ...producto,
-          stock_actual: Math.max(0, producto.stock_actual - cantidadDescontada),
+          stock_actual: Math.max(0, Math.round((producto.stock_actual - cantidadDescontada) * 1000) / 1000),
           lotes: descontarDeLotes(producto.lotes, cantidadDescontada),
         };
       });
@@ -419,7 +421,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       const cantidadDescontada = Math.min(Math.max(0, producto.stock_actual), cantidadSolicitada);
       return {
         ...producto,
-        stock_actual: Math.max(0, producto.stock_actual - cantidadDescontada),
+        stock_actual: Math.max(0, Math.round((producto.stock_actual - cantidadDescontada) * 1000) / 1000),
         lotes: descontarDeLotes(producto.lotes, cantidadDescontada),
       };
     });

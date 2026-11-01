@@ -3,7 +3,6 @@ import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoCaja } from "../estado/estadoCaja";
-// NUEVO: Importamos el estado del plan para validar si permite nube
 import { useEstadoPlan } from "../estado/estadoPlan";
 import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer, Ban, Settings, Cloud, ReceiptText, Loader2 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -24,7 +23,7 @@ export default function VistaHistorialVentas() {
   const { nombreTienda, mensajeTicket, direccionTienda, logoTienda } = useEstadoConfiguracion();
   const { trabajadorActivo } = useEstadoTrabajadores();
   const { requerirPinCancelacion } = useEstadoCaja();
-  const { permiteNube } = useEstadoPlan(); // NUEVO: Extraemos si el plan incluye nube
+  const { permiteNube } = useEstadoPlan(); 
 
   const [busqueda, setBusqueda] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
@@ -317,13 +316,17 @@ export default function VistaHistorialVentas() {
                       {(venta.articulos || []).length === 0 ? (
                         <p className="text-xs text-slate-500">Esta venta no tiene artículos registrados.</p>
                       ) : (
-                        (venta.articulos || []).map((articulo, index) => (
-                          <div key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border border-emerald-200 bg-white p-2 text-xs dark:border-emerald-900/50 dark:bg-slate-900", venta.cancelada && "border-red-200 text-slate-400 line-through dark:border-red-900/50")}>
-                            <strong>{articulo.nombre}</strong>
-                            <span className="mt-0.5 block">{articulo.cantidad} {(articulo.unidad || "PZA").toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}</span>
-                            {articulo.autorizacion_confirmada && <span className="mt-1 block font-semibold text-amber-600">Autorizado</span>}
-                          </div>
-                        ))
+                        (venta.articulos || []).map((articulo, index) => {
+                          const esFraccion = articulo.unidad === "KG" || articulo.unidad === "LITRO" || articulo.unidad === "GRAMO" || articulo.unidad === "MILILITRO" || articulo.unidad === "MILIGRAMO";
+                          const cantidadFormateada = esFraccion ? articulo.cantidad.toFixed(3) : articulo.cantidad.toString();
+                          return (
+                            <div key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border border-emerald-200 bg-white p-2 text-xs dark:border-emerald-900/50 dark:bg-slate-900", venta.cancelada && "border-red-200 text-slate-400 line-through dark:border-red-900/50")}>
+                              <strong>{articulo.nombre}</strong>
+                              <span className="mt-0.5 block">{cantidadFormateada} {(articulo.unidad || "PZA").toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}</span>
+                              {articulo.autorizacion_confirmada && <span className="mt-1 block font-semibold text-amber-600">Autorizado</span>}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -391,7 +394,6 @@ export default function VistaHistorialVentas() {
                 </tr>
               ) : (
                 ventasPagina.map((venta) => {
-                  // Respeta si el plan permite nube y verifica si realmente está sincronizado
                   const estaSincronizada = (venta as any).sincronizado ?? (new Date(venta.fecha).getTime() > hace15Horas);
                   const estaEnNube = permiteNube && estaSincronizada;
                   
@@ -399,7 +401,6 @@ export default function VistaHistorialVentas() {
                     <Fragment key={venta.id}>
                     <tr onClick={() => setVentaSeleccionada((actual) => actual === venta.id ? null : venta.id)} className={cn("cursor-pointer hover:bg-white dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100", venta.cancelada && "opacity-75 bg-red-50/30 dark:bg-red-900/10")}>
                       
-                      {/* CORRECCIÓN: flex movido a un div interno para no romper la tabla */}
                       <td className="p-3 text-xs">
                         <div className={cn("flex items-center gap-2", venta.cancelada && "line-through text-slate-400")}>
                           <Calendar size={14} className={venta.cancelada ? "text-red-400" : "text-slate-400"} />
@@ -407,7 +408,6 @@ export default function VistaHistorialVentas() {
                         </div>
                       </td>
                       
-                      {/* CORRECCIÓN: flex movido a un div interno */}
                       <td className="p-3 font-mono text-[11px] text-slate-500">
                         <div className={cn("flex items-center gap-1", venta.cancelada && "line-through")}>
                           {estaEnNube && (
@@ -479,12 +479,16 @@ export default function VistaHistorialVentas() {
                       <tr className="bg-emerald-50/60 dark:bg-emerald-950/20">
                         <td colSpan={9} className="px-5 py-3">
                           <div className="flex flex-wrap gap-2">
-                            {(venta.articulos || []).map((articulo, index) => (
-                              <span key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
-                                <strong>{articulo.nombre}</strong> · {articulo.cantidad} {(articulo.unidad || 'PZA').toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}
-                                {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
-                              </span>
-                            ))}
+                            {(venta.articulos || []).map((articulo, index) => {
+                              const esFraccion = articulo.unidad === "KG" || articulo.unidad === "LITRO" || articulo.unidad === "GRAMO" || articulo.unidad === "MILILITRO" || articulo.unidad === "MILIGRAMO";
+                              const cantidadFormateada = esFraccion ? articulo.cantidad.toFixed(3) : articulo.cantidad.toString();
+                              return (
+                                <span key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
+                                  <strong>{articulo.nombre}</strong> · {cantidadFormateada} {(articulo.unidad || 'PZA').toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}
+                                  {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
+                                </span>
+                              );
+                            })}
                           </div>
                         </td>
                       </tr>

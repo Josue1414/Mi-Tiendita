@@ -32,6 +32,7 @@ export interface Producto {
   mensaje_autorizacion?: string;
   permite_foto_autorizacion?: boolean;
   lotes?: LoteProducto[];
+  bascula_equivalencia_litros?: boolean;
 }
 
 export interface Categoria {

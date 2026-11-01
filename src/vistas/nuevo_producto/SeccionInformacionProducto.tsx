@@ -6,6 +6,7 @@ import type { Categoria } from "../../tipos/producto";
 import { cn } from "../../utilidades/utils";
 
 interface PropsSeccionInformacionProducto {
+  modoVenta: "PIEZA" | "GRANEL";
   nombre: string;
   setNombre: (nombre: string) => void;
   codigo: string;
@@ -33,6 +34,7 @@ interface PropsSeccionInformacionProducto {
 }
 
 export default function SeccionInformacionProducto({
+  modoVenta,
   nombre,
   setNombre,
   codigo,
@@ -77,9 +79,15 @@ export default function SeccionInformacionProducto({
             <input type="text" required disabled={!puedeEditarCodigo} data-escaner="true" value={codigo} onChange={(e) => setCodigo(e.target.value)} className={cn(campo, "flex-1 font-mono")} placeholder="Escanea o genera un código" />
             <select disabled={!puedeEditarCodigo} onChange={(evento) => onGenerarCodigo(evento.target.value as "EAN13" | "CORTO" | "NUMERICO")} defaultValue="" className="h-8 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-950 sm:flex-none sm:px-2">
               <option value="" disabled>Generar...</option>
-              <option value="EAN13">EAN-13</option>
-              <option value="CORTO">Corto (5 dígitos)</option>
-              <option value="NUMERICO">Numérico (8 dígitos)</option>
+              {modoVenta === "GRANEL" ? (
+                <option value="CORTO">Corto (5 dígitos)</option>
+              ) : (
+                <>
+                  <option value="EAN13">EAN-13</option>
+                  <option value="CORTO">Corto (5 dígitos)</option>
+                  <option value="NUMERICO">Numérico (8 dígitos)</option>
+                </>
+              )}
             </select>
             <button type="button" disabled={!puedeEditarCodigo} onClick={onAbrirEscaner} title="Escanear con cámara" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 text-emerald-700 dark:border-emerald-900/50 dark:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"><Camera size={14} /></button>
           </div>

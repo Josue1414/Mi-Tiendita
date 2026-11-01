@@ -1,5 +1,6 @@
 // src/utilidades/impresion.ts
 import type { Venta } from "../estado/estadoVentas";
+import { abreviaturaUnidad } from "../tipos/producto";
 import { esAndroidNativo } from "./utils";
 
 export const imprimirTicket = async (
@@ -11,16 +12,21 @@ export const imprimirTicket = async (
 ) => {
   let htmlArticulos = '';
   venta.articulos.forEach(art => {
+    // Formatear la cantidad dependiendo de la unidad
+    const esFraccion = art.unidad === "KG" || art.unidad === "LITRO" || art.unidad === "GRAMO" || art.unidad === "MILILITRO" || art.unidad === "MILIGRAMO";
+    const cantidadFormateada = esFraccion ? art.cantidad.toFixed(3) : art.cantidad.toString();
+    const abreviatura = abreviaturaUnidad(art.unidad || 'PIEZA');
+
     // Agregamos (art.unidad || 'PZA') y protecciones (art.precio || 0) para evitar que valores indefinidos rompan la aplicación
     htmlArticulos += `
       <tr>
-        <td style="padding-top: 6px; padding-bottom: 2px;">${art.cantidad}</td>
+        <td style="padding-top: 6px; padding-bottom: 2px;">${cantidadFormateada} ${abreviatura}</td>
         <td style="padding-top: 6px; padding-bottom: 2px; padding-left: 5px;">${art.nombre}</td>
         <td style="padding-top: 6px; padding-bottom: 2px; text-align: right;">$${(art.subtotal || 0).toFixed(2)}</td>
       </tr>
       <tr>
         <td colspan="3" style="font-size: 10px; color: #555; padding-left: 15px;">
-          $${(art.precio || 0).toFixed(2)} x ${(art.unidad || 'PZA').toLowerCase()}
+          $${(art.precio || 0).toFixed(2)} x ${abreviatura}
         </td>
       </tr>
     `;

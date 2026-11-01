@@ -6,14 +6,14 @@ import { cn } from "../../utilidades/utils";
 import { guardarTemaVisual, obtenerTemaVisual, TEMAS_VISUALES, type TemaVisual } from "../../utilidades/temas";
 import { obtenerModelosEscaner, agregarModeloEscaner, DRIVERS_ESCANER, PUERTOS_ESCANER, TIPOS_ESCANER, type EscanerModelo, type DriverEscaner, type TipoEscaner } from "../../servicios/escaner";
 import { obtenerModelosImpresora, agregarModeloImpresora, PUERTOS_IMPRESORA, TAMANIOS_ETIQUETA, type ImpresoraModelo, type PuertoImpresora, type TamanioEtiqueta } from "../../servicios/impresoraEtiquetas";
-import { obtenerModelosBascula, agregarModeloBascula, PUERTOS_BASCULA, BAUD_RATES_BASCULA, FORMATOS_BASCULA, UNIDADES_BASCULA, type BasculaModeloConfig, type PuertoBascula, type BaudRateBascula, type FormatoBascula, type UnidadBascula } from "../../servicios/bascula";
+import { obtenerModelosBascula, agregarModeloBascula, PUERTOS_BASCULA, BAUD_RATES_BASCULA, FORMATOS_BASCULA, type BasculaModeloConfig, type PuertoBascula, type BaudRateBascula, type FormatoBascula } from "../../servicios/bascula";
 import ModalPrompt from "../../componentes/ui/ModalPrompt";
 import AyudaContextual from "../../componentes/ui/AyudaContextual";
 import type { PropsSeccionConfig } from "../VistaConfiguracion";
 
 export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
   const {
-    basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato, basculaUnidad,
+    basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato,
     escanerModelo, escanerFabricante, escanerDriver, escanerTipo, escanerPuerto, escanerDetectado, escanerMensaje,
     actualizarDatosBascula, actualizarDatosEscaner
   } = useEstadoConfiguracion();
@@ -24,7 +24,7 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
   const [modelosBascula, setModelosBascula] = useState<BasculaModeloConfig[]>([]);
   const [formBascula, setFormBascula] = useState({
     modelo: basculaModelo, puerto: basculaPuerto as PuertoBascula, baudRate: basculaBaudRate as BaudRateBascula,
-    formato: basculaFormato as FormatoBascula, unidad: basculaUnidad as UnidadBascula, detectado: false, mensaje: ""
+    formato: basculaFormato as FormatoBascula, detectado: false, mensaje: ""
   });
 
   const [modelosDisponibles, setModelosDisponibles] = useState<EscanerModelo[]>([]);
@@ -118,7 +118,8 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
       setModelosImpresora(obtenerModelosImpresora());
       setFormImpresora(prev => ({ ...prev, modelo: nombreNuevo }));
     } else if (promptConfig.tipo === "bascula") {
-      const nuevoModelo: BasculaModeloConfig = { id, modelo: nombreNuevo, puerto: formBascula.puerto, baudRate: formBascula.baudRate, formato: formBascula.formato, unidad: formBascula.unidad };
+      // Nota: Al crear una báscula genérica, ya no necesitamos la propiedad 'unidad'.
+      const nuevoModelo: BasculaModeloConfig = { id, modelo: nombreNuevo, puerto: formBascula.puerto, baudRate: formBascula.baudRate, formato: formBascula.formato };
       agregarModeloBascula(nuevoModelo);
       setModelosBascula(obtenerModelosBascula());
       setFormBascula(prev => ({ ...prev, modelo: nombreNuevo }));
@@ -168,12 +169,12 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
             <span className="flex items-center gap-2"><Scale size={20} className="text-emerald-600 dark:text-emerald-400" />Báscula y peso</span>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400 group-open:bg-emerald-100 group-open:text-emerald-700 transition-colors">Expandir</span>
           </summary>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Modelo</span>
               <select value={formBascula.modelo} onChange={(e) => {
                 const elegido = modelosBascula.find((item) => item.modelo === e.target.value) ?? modelosBascula[0];
-                setFormBascula({ ...formBascula, modelo: elegido.modelo, puerto: elegido.puerto, baudRate: elegido.baudRate, formato: elegido.formato, unidad: elegido.unidad, detectado: false, mensaje: `Modelo ${elegido.modelo} seleccionado. Haz clic en detectar.` });
+                setFormBascula({ ...formBascula, modelo: elegido.modelo, puerto: elegido.puerto, baudRate: elegido.baudRate, formato: elegido.formato, detectado: false, mensaje: `Modelo ${elegido.modelo} seleccionado. Haz clic en detectar.` });
               }} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
                 {modelosBascula.map((item) => <option key={item.id}>{item.modelo}</option>)}
               </select>
@@ -196,19 +197,14 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
                 {FORMATOS_BASCULA.map((fmt) => <option key={fmt}>{fmt}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Unidad</span>
-              <select value={formBascula.unidad} onChange={(e) => setFormBascula({ ...formBascula, unidad: e.target.value as UnidadBascula })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
-                {UNIDADES_BASCULA.map((uni) => <option key={uni}>{uni}</option>)}
-              </select>
-            </label>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button type="button" onClick={detectarBascula} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition-colors">
               <Scale size={16} />Detectar báscula
             </button>
             <button type="button" onClick={() => {
-              actualizarDatosBascula(formBascula.modelo, formBascula.puerto, formBascula.baudRate, formBascula.formato, formBascula.unidad);
+              // El campo 'unidad' se envía vacío ya que es administrado por cada producto a partir de ahora
+              actualizarDatosBascula(formBascula.modelo, formBascula.puerto, formBascula.baudRate, formBascula.formato,);
               setAviso({ titulo: "Báscula Guardada", mensaje: `La configuración para ${formBascula.modelo} fue guardada exitosamente.` });
             }} className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700 transition-colors">
               <Save size={16} />Guardar báscula

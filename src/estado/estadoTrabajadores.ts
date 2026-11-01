@@ -18,6 +18,7 @@ export interface PermisosTrabajador {
   cambiarPrecios?: boolean;
   verSalarios?: boolean;
   permisoFiados?: boolean;
+  soloEstacionPesaje?: boolean;
 }
 
 const obtenerClavePermisosFiados = () => "permisos_fiados_trabajadores";
@@ -92,13 +93,13 @@ const TRABAJADORES_INICIALES: Trabajador[] = [
   { 
     id: "00000000-0000-0000-0000-000000000001", nombre: "Carlos Dueño", rol: "DUENO", pin: "DU1234", activo: true, ventasRealizadas: 0, ingresosGenerados: 0,
     fechaIngreso: new Date().toISOString().split("T")[0],
-    permisos: { editarProductos: true, eliminarProductos: true, actualizarStockCodigo: true, cambiarHorarios: true, hacerCancelaciones: true, cambiarInfoTicket: true, cambiarPrecios: true, verSalarios: true },
+    permisos: { editarProductos: true, eliminarProductos: true, actualizarStockCodigo: true, cambiarHorarios: true, hacerCancelaciones: true, cambiarInfoTicket: true, cambiarPrecios: true, verSalarios: true, soloEstacionPesaje: false },
     horarioSemanal: { tipo: "GENERAL", diasTrabajo: [1,2,3,4,5], general: { entrada: "09:00", salida: "18:00" }, especifico: {} }
   },
   { 
     id: "00000000-0000-0000-0000-000000000002", nombre: "María García", rol: "TRABAJADOR", pin: "TR0000", activo: true, ventasRealizadas: 0, ingresosGenerados: 0,
     fechaIngreso: new Date().toISOString().split("T")[0],
-    permisos: { editarProductos: false, eliminarProductos: false, actualizarStockCodigo: false, cambiarHorarios: false, hacerCancelaciones: false, cambiarInfoTicket: false, cambiarPrecios: false, verSalarios: false },
+    permisos: { editarProductos: false, eliminarProductos: false, actualizarStockCodigo: false, cambiarHorarios: false, hacerCancelaciones: false, cambiarInfoTicket: false, cambiarPrecios: false, verSalarios: false, soloEstacionPesaje: false },
     horarioSemanal: { tipo: "GENERAL", diasTrabajo: [1,2,3,4,5], general: { entrada: "09:00", salida: "18:00" }, especifico: {} }
   }
 ];

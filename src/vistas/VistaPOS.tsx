@@ -1,3 +1,4 @@
+// src/vistas/VistaPOS.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoCarrito, type TipoDescuento } from "../estado/estadoCarrito";
@@ -17,6 +18,7 @@ import CarritoVenta from "./pos/CarritoVenta";
 import CatalogoProductosPOS from "./pos/CatalogoProductosPOS";
 import ModalFiadoPOS from "./pos/ModalFiadoPOS";
 import ModalesPOS from "./pos/ModalesPOS";
+import PanelPesaje from "./pos/PanelPesaje";
 import type { DatosNuevoDeudor, ItemResaltadoPOS, ModoVistaPOS } from "./pos/types";
 
 export default function VistaPOS() {
@@ -34,6 +36,8 @@ export default function VistaPOS() {
   } = useEstadoCarrito();
   const { ventas, agregarVenta } = useEstadoVentas();
   const { trabajadorActivo } = useEstadoTrabajadores();
+  const soloEstacionPesaje =
+    trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo.permisos?.soloEstacionPesaje === true;
   const { forzarRecepcionCaja, obtenerTurnoActivo, requerirPinCancelacion } = useEstadoCaja();
   const { setSeccionActual } = useEstadoNavegacion();
   const {
@@ -87,11 +91,14 @@ export default function VistaPOS() {
     return preferencia === null ? !window.matchMedia("(max-width: 1023px)").matches : preferencia === "true";
   });
   const [modoVista, setModoVista] = useState<ModoVistaPOS>("cuadricula");
+  const vistaPOS: ModoVistaPOS = soloEstacionPesaje ? "pesaje" : modoVista;
   const [productoEnfoque, setProductoEnfoque] = useState<Producto | null>(null);
   const [productoDescripcion, setProductoDescripcion] = useState<Producto | null>(null);
   const [camaraVisible, setCamaraVisible] = useState(true);
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
+  
+  const [productoPesajeActivo, setProductoPesajeActivo] = useState<Producto | null>(null);
 
   const resaltarProductoEnCarrito = useCallback((productoId: string) => {
     const item = useEstadoCarrito.getState().items.find((actual) => actual.producto_id === productoId);
@@ -166,8 +173,9 @@ export default function VistaPOS() {
     return hoy.getTime() > fechaSalida.getTime() && horasAbierto > 1;
   }, [trabajadorActivo, turnoActivo]);
 
-  const estaBloqueado = bloqueadoPorFondo || turnoExpirado;
+  const estaBloqueado = !soloEstacionPesaje && (bloqueadoPorFondo || turnoExpirado);
   const mantenerCamaraActiva =
+    !soloEstacionPesaje &&
     camaraVisible &&
     !estaBloqueado &&
     !modalPesoAbierto &&
@@ -183,24 +191,32 @@ export default function VistaPOS() {
       const objetivo = evento.target as HTMLElement | null;
       const esCampoTexto =
         objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA" || objetivo?.isContentEditable;
-      if (!esCampoTexto && !estaBloqueado && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
+      if (!soloEstacionPesaje && !esCampoTexto && !estaBloqueado && evento.key.toLowerCase() === teclaCobro.toLowerCase() && items.length > 0) {
         evento.preventDefault();
         setModalCobroAbierto(true);
       }
     };
     window.addEventListener("keydown", alPresionarTecla);
     return () => window.removeEventListener("keydown", alPresionarTecla);
-  }, [items.length, teclaCobro, estaBloqueado]);
+  }, [items.length, teclaCobro, estaBloqueado, soloEstacionPesaje]);
 
-  const productosFiltrados = productos.filter((producto) => {
-    const consulta = busqueda.toLowerCase().trim();
-    const coincideTexto =
-      !consulta ||
-      producto.nombre.toLowerCase().includes(consulta) ||
-      producto.codigo_barras.includes(busqueda);
-    const coincideCategoria = categoriaActiva === "todas" || producto.categoria === categoriaActiva;
-    return coincideTexto && coincideCategoria;
-  });
+  const productosFiltrados = productos
+    .filter((producto) => {
+      const consulta = busqueda.toLowerCase().trim();
+      const coincideTexto =
+        !consulta ||
+        producto.nombre.toLowerCase().includes(consulta) ||
+        producto.codigo_barras.includes(busqueda);
+      const coincideCategoria = categoriaActiva === "todas" || producto.categoria === categoriaActiva;
+      return coincideTexto && coincideCategoria;
+    })
+    .sort((a, b) => {
+      const esGranel = (p: Producto) => ["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(p.unidad);
+      const aGranel = esGranel(a) ? 1 : 0;
+      const bGranel = esGranel(b) ? 1 : 0;
+      if (aGranel !== bGranel) return bGranel - aGranel;
+      return a.nombre.localeCompare(b.nombre);
+    });
 
   const manejarCancelacion = (accion: () => void) => {
     const esAutorizado = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
@@ -213,7 +229,16 @@ export default function VistaPOS() {
   };
 
   const continuarAgregado = useCallback((producto: Producto, evidencia?: string) => {
-    if (producto.unidad === "KG" || producto.unidad === "LITRO") {
+    if (soloEstacionPesaje) {
+      if (["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(producto.unidad)) {
+        setProductoPesajeActivo(producto);
+      }
+      return;
+    }
+
+    const esUnidadGranel = ["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(producto.unidad);
+    
+    if (esUnidadGranel) {
       setEvidenciaAutorizacion(evidencia);
       setProductoParaPesar(producto);
       setModalPesoAbierto(true);
@@ -234,42 +259,70 @@ export default function VistaPOS() {
       agregarAlCarrito(producto, 1, { evidencia });
       resaltarProductoEnCarrito(producto.id);
     }
-  }, [agregarAlCarrito, resaltarProductoEnCarrito]);
+  }, [agregarAlCarrito, resaltarProductoEnCarrito, soloEstacionPesaje]);
 
   const manejarClickProducto = useCallback((producto: Producto) => {
+    if (soloEstacionPesaje) {
+      if (["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(producto.unidad)) {
+        setProductoPesajeActivo(producto);
+      }
+      return;
+    }
+
     setProductoEnfoque(producto);
     if (producto.requiere_autorizacion) {
       setProductoAutorizacion(producto);
       return;
     }
     continuarAgregado(producto);
-  }, [continuarAgregado]);
+  }, [continuarAgregado, soloEstacionPesaje]);
 
   const alEscanear = useCallback(
-    (codigo: string) => {
-      if (estaBloqueado) return;
-      const producto = productos.find((actual) => actual.codigo_barras === codigo);
+    (codigoStr: string) => {
+      if (estaBloqueado || soloEstacionPesaje) return;
+
+      // DETECCIÓN INTELIGENTE DE CÓDIGO DE BÁSCULA VARIABLE
+      if (codigoStr.startsWith("V~")) {
+        const partes = codigoStr.split("~");
+        if (partes.length === 3) {
+          const [, codigoProd, precioStr] = partes;
+          const producto = productos.find((p) => p.codigo_barras === codigoProd);
+          
+          if (producto) {
+            const precioTotal = parseFloat(precioStr);
+            const cantidadCalculada = precioTotal / producto.precio;
+            const cantidadFinal = Math.round(cantidadCalculada * 1000) / 1000; // Redondear a 3 decimales
+            
+            agregarAlCarrito(producto, cantidadFinal);
+            resaltarProductoEnCarrito(producto.id);
+            setBusqueda("");
+            return;
+          }
+        }
+      }
+
+      const producto = productos.find((actual) => actual.codigo_barras === codigoStr);
       if (!producto) {
         setAviso({
           titulo: "Producto no encontrado",
-          mensaje: `El producto con código ${codigo} no está en el inventario.`,
+          mensaje: `El producto con código ${codigoStr} no está en el inventario.`,
         });
         return;
       }
       setBusqueda("");
       manejarClickProducto(producto);
     },
-    [productos, estaBloqueado, manejarClickProducto]
+    [productos, estaBloqueado, soloEstacionPesaje, manejarClickProducto, agregarAlCarrito, resaltarProductoEnCarrito]
   );
 
-  useEscanerCodigoBarras(alEscanear);
+  useEscanerCodigoBarras(alEscanear, !soloEstacionPesaje);
 
   const procesarVentaFinal = async (
     metodoPago: string,
     deudorId?: string,
     nuevoDeudorDatos?: DatosNuevoDeudor
   ) => {
-    if (!trabajadorActivo) return;
+    if (!trabajadorActivo || soloEstacionPesaje) return;
 
     try {
       await descontarStock(items);
@@ -351,6 +404,7 @@ export default function VistaPOS() {
   };
 
   const confirmarVenta = (metodoPago: string) => {
+    if (soloEstacionPesaje) return;
     if (metodoPago === "FIADO") {
       if (!puedeDarFiado) {
         setAviso({
@@ -421,7 +475,7 @@ export default function VistaPOS() {
       )}
 
       <ModalFiadoPOS
-        abierto={modalFiadoAbierto}
+        abierto={!soloEstacionPesaje && modalFiadoAbierto}
         deudores={deudores}
         modo={modoFiado}
         deudorSeleccionado={deudorSeleccionado}
@@ -443,7 +497,7 @@ export default function VistaPOS() {
         modalPinCancelacion={modalPinCancelacion}
         modalPesoAbierto={modalPesoAbierto}
         productoParaPesar={productoParaPesar}
-        modalCobroAbierto={modalCobroAbierto}
+        modalCobroAbierto={!soloEstacionPesaje && modalCobroAbierto}
         modalAviso={aviso}
         productoDescripcion={productoDescripcion}
         productoAutorizacion={productoAutorizacion}
@@ -508,7 +562,8 @@ export default function VistaPOS() {
         categoriaActiva={categoriaActiva}
         categorias={categorias}
         productos={productosFiltrados}
-        modoVista={modoVista}
+        modoVista={vistaPOS}
+        soloEstacionPesaje={soloEstacionPesaje}
         esVistaMovil={esVistaMovil}
         productoEnfoque={productoEnfoque}
         camaraVisible={camaraVisible}
@@ -535,7 +590,9 @@ export default function VistaPOS() {
             alCambiarImpresionAutomatica={actualizarPreferenciaImpresion}
             alImprimirUltimo={imprimirUltimaVenta}
             alLimpiarCarrito={limpiarCarritoConAutorizacion}
-            alAbrirCobro={() => setModalCobroAbierto(true)}
+            alAbrirCobro={() => {
+              if (!soloEstacionPesaje) setModalCobroAbierto(true);
+            }}
           />
         )}
         alCambiarBusqueda={setBusqueda}
@@ -545,19 +602,31 @@ export default function VistaPOS() {
             if (exacto) {
               event.preventDefault();
               setBusqueda("");
-              manejarClickProducto(exacto);
+              if (soloEstacionPesaje) {
+                if (["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(exacto.unidad)) {
+                  setProductoPesajeActivo(exacto);
+                }
+              } else {
+                manejarClickProducto(exacto);
+              }
             }
           }
         }}
         alCambiarModoVista={setModoVista}
         alCambiarCategoria={setCategoriaActiva}
-        alEnfocarProducto={setProductoEnfoque}
+        alEnfocarProducto={(producto) => {
+          if (vistaPOS === "pesaje") {
+             setProductoPesajeActivo(producto);
+          } else {
+             setProductoEnfoque(producto);
+          }
+        }}
         alAgregarProducto={manejarClickProducto}
         alCambiarVisibilidadCamara={() => setCamaraVisible(!camaraVisible)}
         alEscanear={alEscanear}
       />
 
-      {modoVista !== "camara" && (
+      {vistaPOS !== "camara" && vistaPOS !== "pesaje" && (
         <CarritoVenta
           modo="lateral"
           items={items}
@@ -579,7 +648,16 @@ export default function VistaPOS() {
           alCambiarImpresionAutomatica={actualizarPreferenciaImpresion}
           alImprimirUltimo={imprimirUltimaVenta}
           alLimpiarCarrito={limpiarCarritoConAutorizacion}
-          alAbrirCobro={() => setModalCobroAbierto(true)}
+          alAbrirCobro={() => {
+            if (!soloEstacionPesaje) setModalCobroAbierto(true);
+          }}
+        />
+      )}
+      
+      {vistaPOS === "pesaje" && (
+        <PanelPesaje 
+          producto={productoPesajeActivo} 
+          alCerrarPanel={() => setProductoPesajeActivo(null)} 
         />
       )}
     </div>

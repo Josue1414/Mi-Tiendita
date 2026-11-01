@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode, Maximize, Minimize } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
-import { precioVenta, type Producto } from "../tipos/producto";
+import { abreviaturaUnidad, precioVenta, type Producto } from "../tipos/producto";
 import ModalQRCliente from "../componentes/ui/ModalQRCliente";
 
 // IMPORTACIONES PARA SINCRONIZACIÓN DE IMÁGENES LAN Y LIMPIEZA
@@ -298,20 +298,26 @@ export default function VistaPantallaCliente() {
             )}
 
             <div className="grid min-h-0 flex-1 content-start grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2">
-              {datosCarrito.items.map((item) => (
-                <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-xl px-4 py-2 border shadow-sm ${temaClaro ? "bg-white border-slate-200" : "bg-white/5 border-white/10"}`}>
-                  <div className="flex min-w-0 items-center gap-3">
-                    <ImagenLocal nombreArchivo={item.imagen_url || item.imagen_archivo} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
-                    <div className="min-w-0 flex flex-col justify-center">
-                      <h3 className={`${textoNombre} truncate font-bold leading-tight`}>{item.nombre}</h3>
-                      <p className={`text-xs font-semibold mt-0.5 ${temaClaro ? "text-slate-500" : "text-white/70"}`}>
-                        {item.cantidad} {item.unidad.toLowerCase()} · ${item.precio.toFixed(2)}
-                      </p>
+              {datosCarrito.items.map((item) => {
+                const esFraccion = item.unidad === "KG" || item.unidad === "LITRO" || item.unidad === "GRAMO" || item.unidad === "MILILITRO" || item.unidad === "MILIGRAMO";
+                const cantidadFormateada = esFraccion ? item.cantidad.toFixed(3) : item.cantidad.toString();
+                const abreviatura = abreviaturaUnidad(item.unidad || 'PIEZA');
+                
+                return (
+                  <div key={item.id} className={`flex ${altoFila} items-center justify-between gap-3 rounded-xl px-4 py-2 border shadow-sm ${temaClaro ? "bg-white border-slate-200" : "bg-white/5 border-white/10"}`}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <ImagenLocal nombreArchivo={item.imagen_url || item.imagen_archivo} nombreProducto={item.nombre} className={`${compacto ? "h-9 w-9" : "h-12 w-12"} shrink-0 rounded-lg object-cover text-xs bg-white`} />
+                      <div className="min-w-0 flex flex-col justify-center">
+                        <h3 className={`${textoNombre} truncate font-bold leading-tight`}>{item.nombre}</h3>
+                        <p className={`text-xs font-semibold mt-0.5 ${temaClaro ? "text-slate-500" : "text-white/70"}`}>
+                          {cantidadFormateada} {abreviatura} · ${item.precio.toFixed(2)}
+                        </p>
+                      </div>
                     </div>
+                    <span className={`${compacto ? "text-base" : "text-xl"} shrink-0 font-black`}>${item.subtotal.toFixed(2)}</span>
                   </div>
-                  <span className={`${compacto ? "text-base" : "text-xl"} shrink-0 font-black`}>${item.subtotal.toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             <div className={`mt-3 flex items-center justify-between rounded-xl px-5 py-3 ${temaClaro ? "bg-white shadow-sm" : "bg-black/25"}`}>

@@ -12,14 +12,13 @@ export interface BasculaModeloConfig {
   puerto: PuertoBascula;
   baudRate: BaudRateBascula;
   formato: FormatoBascula;
-  unidad: UnidadBascula;
 }
 
 export const MODELOS_BASE_BASCULA: BasculaModeloConfig[] = [
-  { id: "ohaus-valor-2000", modelo: "Ohaus Valor 2000", puerto: "USB", baudRate: "9600", formato: "text", unidad: "kg" },
-  { id: "ohaus-scout-pro", modelo: "Ohaus Scout Pro", puerto: "Serial COM", baudRate: "9600", formato: "serial", unidad: "kg" },
-  { id: "cas-sw-1", modelo: "CAS SW-1", puerto: "USB", baudRate: "9600", formato: "scale", unidad: "kg" },
-  { id: "mettler-toledo", modelo: "Mettler Toledo PB", puerto: "Serial COM", baudRate: "19200", formato: "text", unidad: "kg" }
+  { id: "ohaus-valor-2000", modelo: "Ohaus Valor 2000", puerto: "USB", baudRate: "9600", formato: "text" },
+  { id: "ohaus-scout-pro", modelo: "Ohaus Scout Pro", puerto: "Serial COM", baudRate: "9600", formato: "serial" },
+  { id: "cas-sw-1", modelo: "CAS SW-1", puerto: "USB", baudRate: "9600", formato: "scale" },
+  { id: "mettler-toledo", modelo: "Mettler Toledo PB", puerto: "Serial COM", baudRate: "19200", formato: "text" }
 ];
 
 export const PUERTOS_BASCULA: PuertoBascula[] = ["USB", "Serial COM", "Bluetooth", "TCP/IP"];

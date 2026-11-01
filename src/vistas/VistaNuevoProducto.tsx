@@ -10,6 +10,7 @@ import { precioVenta, type Producto } from "../tipos/producto";
 import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, svgCodigoBarras } from "../utilidades/codigoBarras";
 import ModalCategoria from "../componentes/ui/ModalCategoria";
 import ModalAviso from "../componentes/ui/ModalAviso";
+import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
 import { ajustarLotes } from "../utilidades/lotes";
@@ -36,12 +37,32 @@ export default function VistaNuevoProducto() {
     || (esSupervisor && trabajadorActivo?.permisos?.cambiarPrecios)
     || (trabajadorActivo?.rol === "TRABAJADOR" && trabajadorActivo?.permisos?.editarProductos);
 
+  const generarCodigoUnico = (formato: "EAN13" | "CORTO" | "NUMERICO") => {
+    const crearCodigo = formato === "CORTO" ? generarCodigoCorto : formato === "NUMERICO" ? generarCodigoNumerico : generarCodigoEAN13;
+    let codigoGenerado = crearCodigo();
+    while (productos.some((producto) => producto.codigo_barras === codigoGenerado && producto.id !== productoExistente?.id)) {
+      codigoGenerado = crearCodigo();
+    }
+    return codigoGenerado;
+  };
+
+  const esGranelInicial = ["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(productoExistente?.unidad || "PIEZA");
+  const [modoVenta, setModoVenta] = useState<"PIEZA" | "GRANEL">(esGranelInicial ? "GRANEL" : "PIEZA");
+  const [equivalenciaLitros, setEquivalenciaLitros] = useState(productoExistente?.bascula_equivalencia_litros ?? false);
+  const [modalConfirmacionModo, setModalConfirmacionModo] = useState<{ abierto: boolean; nuevoModo: "PIEZA" | "GRANEL" }>({ abierto: false, nuevoModo: "PIEZA" });
+
   const [nombre, setNombre] = useState("");
-  const [codigo, setCodigo] = useState(() => {
+  const [estadoCodigo, setEstadoCodigo] = useState(() => {
     const codigoPendiente = localStorage.getItem("codigo_producto_pendiente");
     if (codigoPendiente) localStorage.removeItem("codigo_producto_pendiente");
-    return codigoPendiente || "";
+    if (codigoPendiente) return { valor: codigoPendiente, automatico: false };
+    if (productoExistente) return { valor: productoExistente.codigo_barras, automatico: false };
+    return { valor: generarCodigoUnico("EAN13"), automatico: true };
   });
+  const codigo = estadoCodigo.valor;
+  const setCodigo = useCallback((valor: string, automatico = false) => {
+    setEstadoCodigo({ valor, automatico });
+  }, []);
   const [descripcion, setDescripcion] = useState("");
   const [categoria, setCategoria] = useState("");
   const [ubicacion, setUbicacion] = useState("");
@@ -98,6 +119,10 @@ export default function VistaNuevoProducto() {
     setRequiereAutorizacion(productoExistente.requiere_autorizacion ?? false);
     setMensajeAutorizacion(productoExistente.mensaje_autorizacion || "Se requiere receta o autorización para vender este producto.");
     setPermiteFotoAutorizacion(productoExistente.permite_foto_autorizacion ?? false);
+
+    setModoVenta(["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(productoExistente.unidad) ? "GRANEL" : "PIEZA");
+    setEquivalenciaLitros(productoExistente.bascula_equivalencia_litros ?? false);
+
     setArchivoImagen(null);
     setImagenEliminada(false);
     if (productoExistente.imagen_url?.startsWith("data:image/")) {
@@ -125,16 +150,34 @@ export default function VistaNuevoProducto() {
       cancelado = true;
       if (urlLocal) URL.revokeObjectURL(urlLocal);
     };
-  }, [productoExistente]);
+  }, [productoExistente, setCodigo]);
+
+  const aplicarCambioModo = (nuevoModo: "PIEZA" | "GRANEL") => {
+    setModoVenta(nuevoModo);
+    if (nuevoModo === "GRANEL" && !editando && estadoCodigo.automatico) {
+      setCodigo(generarCodigoUnico("CORTO"), true);
+    }
+    if (nuevoModo === "PIEZA") {
+      setUnidad("PIEZA");
+      setEquivalenciaLitros(false);
+    } else {
+      setUnidad("KG");
+    }
+    setModalConfirmacionModo({ abierto: false, nuevoModo: "PIEZA" });
+  };
+
+  const solicitarCambioModoVenta = (nuevoModo: "PIEZA" | "GRANEL") => {
+    if (editando && modoVenta === "GRANEL" && nuevoModo === "PIEZA") {
+      setModalConfirmacionModo({ abierto: true, nuevoModo });
+    } else {
+      aplicarCambioModo(nuevoModo);
+    }
+  };
 
   const generarCodigo = (formato: "EAN13" | "CORTO" | "NUMERICO") => {
     if (!puedeEditar && !puedeAjustarStock) return;
-    const crearCodigo = formato === "CORTO" ? generarCodigoCorto : formato === "NUMERICO" ? generarCodigoNumerico : generarCodigoEAN13;
-    let codigoGenerado = crearCodigo();
-    while (productos.some((producto) => producto.codigo_barras === codigoGenerado && producto.id !== productoExistente?.id)) {
-      codigoGenerado = crearCodigo();
-    }
-    setCodigo(codigoGenerado);
+    const formatoCodigo = modoVenta === "GRANEL" ? "CORTO" : formato;
+    setCodigo(generarCodigoUnico(formatoCodigo), true);
   };
 
   const precioFinal = precioVenta({ precio, descuento_porcentaje: descuento });
@@ -144,7 +187,7 @@ export default function VistaNuevoProducto() {
 
   const alEscanearCodigo = useCallback((codigoEscaneado: string) => {
     if (puedeEditar || puedeAjustarStock) setCodigo(codigoEscaneado);
-  }, [puedeEditar, puedeAjustarStock]);
+  }, [puedeEditar, puedeAjustarStock, setCodigo]);
   useEscanerCodigoBarras(alEscanearCodigo);
 
   const manejarSeleccionImagen = (evento: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,6 +317,7 @@ export default function VistaNuevoProducto() {
       requiere_autorizacion: puedeEditar ? requiereAutorizacion : (productoExistente?.requiere_autorizacion ?? false),
       mensaje_autorizacion: puedeEditar ? mensajeAutorizacion.trim() : (productoExistente?.mensaje_autorizacion || ""),
       permite_foto_autorizacion: puedeEditar ? (requiereAutorizacion && permiteFotoAutorizacion) : (productoExistente?.permite_foto_autorizacion ?? false),
+      bascula_equivalencia_litros: puedeEditar ? (modoVenta === "GRANEL" && (unidad === "LITRO" || unidad === "MILILITRO") ? equivalenciaLitros : false) : (productoExistente?.bascula_equivalencia_litros ?? false),
     };
 
     if (editando) await actualizarProducto(producto);
@@ -294,6 +338,15 @@ export default function VistaNuevoProducto() {
         mensaje={avisoGenerico?.mensaje ?? ""}
         tipo="advertencia"
         alCerrar={() => setAvisoGenerico(null)}
+      />
+
+      <ModalConfirmacion
+        abierto={modalConfirmacionModo.abierto}
+        titulo="Cambio de modo de venta"
+        mensaje="Al cambiar a venta por pieza, este producto ya no aceptará decimales ni lectura de báscula en la caja. ¿Deseas continuar?"
+        textoBoton="Sí, cambiar a piezas"
+        alConfirmar={() => aplicarCambioModo(modalConfirmacionModo.nuevoModo)}
+        alCerrar={() => setModalConfirmacionModo({ ...modalConfirmacionModo, abierto: false })}
       />
 
       <ModalEscanerCodigo
@@ -335,6 +388,7 @@ export default function VistaNuevoProducto() {
       <form onSubmit={manejarGuardado} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           <SeccionInformacionProducto
+            modoVenta={modoVenta}
             nombre={nombre}
             setNombre={setNombre}
             codigo={codigo}
@@ -361,6 +415,10 @@ export default function VistaNuevoProducto() {
             setPermiteFotoAutorizacion={setPermiteFotoAutorizacion}
           />
           <SeccionInventarioProducto
+            modoVenta={modoVenta}
+            onCambiarModoVenta={solicitarCambioModoVenta}
+            equivalenciaLitros={equivalenciaLitros}
+            setEquivalenciaLitros={setEquivalenciaLitros}
             controlaStock={controlaStock}
             setControlaStock={setControlaStock}
             puedeEditar={puedeEditar}

@@ -262,6 +262,9 @@ export default function TarjetaTrabajador({ trabajador }: { trabajador: Trabajad
                     <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
                       <input type="checkbox" checked={formLocal.permisos?.actualizarStockCodigo || false} onChange={(e) => manejarPermiso("actualizarStockCodigo", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir ajustar stock y códigos de barras
                     </label>
+                    <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                      <input type="checkbox" checked={formLocal.permisos?.soloEstacionPesaje || false} onChange={(e) => manejarPermiso("soloEstacionPesaje", e.target.checked)} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" /> Permitir solo la estación de pesaje en POS (sin cobrar)
+                    </label>
                     {habilitarFiados && (
                       <label className={cn("flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400", modoAccesoFiados === "MANUAL" ? "cursor-pointer" : "cursor-not-allowed")}>
                         <input

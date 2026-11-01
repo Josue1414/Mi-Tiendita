@@ -6,6 +6,10 @@ import { cn } from "../../utilidades/utils";
 import { estadoCaducidad } from "../../utilidades/lotes";
 
 interface PropsSeccionInventarioProducto {
+  modoVenta: "PIEZA" | "GRANEL";
+  onCambiarModoVenta: (nuevoModo: "PIEZA" | "GRANEL") => void;
+  equivalenciaLitros: boolean;
+  setEquivalenciaLitros: (equiv: boolean) => void;
   controlaStock: boolean;
   setControlaStock: (controla: boolean) => void;
   puedeEditar: boolean | undefined;
@@ -37,6 +41,10 @@ interface PropsSeccionInventarioProducto {
 }
 
 export default function SeccionInventarioProducto({
+  modoVenta,
+  onCambiarModoVenta,
+  equivalenciaLitros,
+  setEquivalenciaLitros,
   controlaStock,
   setControlaStock,
   puedeEditar,
@@ -68,7 +76,7 @@ export default function SeccionInventarioProducto({
 }: PropsSeccionInventarioProducto) {
   return (
     <section className="bg-white/80 dark:bg-black/40 p-4 rounded-2xl flex flex-col gap-3 border border-slate-200 dark:border-white/10">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-2">
         <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">Detalles de Inventario</h2>
         <label className={cn("flex items-center gap-2", puedeEditar ? "cursor-pointer" : "cursor-not-allowed opacity-70")}>
           <span className="text-xs text-slate-500">Controlar stock</span>
@@ -78,6 +86,66 @@ export default function SeccionInventarioProducto({
             <div className={cn("absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform", controlaStock ? "translate-x-4" : "")} />
           </div>
         </label>
+      </div>
+
+      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900/50 rounded-xl mb-1 border border-slate-200 dark:border-white/5">
+        <button
+          type="button"
+          disabled={!puedeEditar}
+          onClick={() => onCambiarModoVenta("PIEZA")}
+          className={cn(
+            "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+            modoVenta === "PIEZA" ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/10" : "text-slate-500"
+          )}
+        >
+          Por Pieza / Entero
+        </button>
+        <button
+          type="button"
+          disabled={!puedeEditar}
+          onClick={() => onCambiarModoVenta("GRANEL")}
+          className={cn(
+            "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+            modoVenta === "GRANEL" ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-white/10" : "text-slate-500"
+          )}
+        >
+          A Granel / Báscula
+        </button>
+      </div>
+
+      <div className="mb-2 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-100 dark:border-white/5">
+        <label className="block text-xs font-medium text-slate-600 mb-2">Unidad de medida {!puedeEditar && <Lock size={10} className="inline text-slate-400" />}</label>
+        <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value as Producto["unidad"])} className={campo}>
+          {modoVenta === "PIEZA" ? (
+            <>
+              <option value="PIEZA">Pieza</option>
+              <option value="PAQUETE">Paquete</option>
+              <option value="SOBRE">Sobre</option>
+              <option value="DOCENA">Docena</option>
+            </>
+          ) : (
+            <>
+              <option value="KG">Kilogramos (KG)</option>
+              <option value="GRAMO">Gramos (G)</option>
+              <option value="LITRO">Litros (L)</option>
+              <option value="MILILITRO">Mililitros (ML)</option>
+            </>
+          )}
+        </select>
+
+        {modoVenta === "GRANEL" && (unidad === "LITRO" || unidad === "MILILITRO") && (
+          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10 animate-in fade-in slide-in-from-top-2">
+            <p className="text-[11px] text-blue-700 dark:text-blue-300 font-bold mb-2">Las básculas leen peso físico, no volumen. ¿Cómo deseas vender este líquido?</p>
+            <label className="flex items-center gap-2 text-xs font-semibold text-blue-800 dark:text-blue-200 cursor-pointer">
+              <input type="radio" name="litros_equiv" disabled={!puedeEditar} checked={equivalenciaLitros} onChange={() => setEquivalenciaLitros(true)} className="accent-blue-600" />
+              Asumir que 1 Kg = 1 Litro (Habilita la lectura en báscula)
+            </label>
+            <label className="flex items-center gap-2 text-xs font-semibold text-blue-800 dark:text-blue-200 cursor-pointer mt-2">
+              <input type="radio" name="litros_equiv" disabled={!puedeEditar} checked={!equivalenciaLitros} onChange={() => setEquivalenciaLitros(false)} className="accent-blue-600" />
+              Ingresar cantidad manual (Apaga la báscula para este producto)
+            </label>
+          </div>
+        )}
       </div>
 
       {!controlaStock && (
@@ -107,7 +175,7 @@ export default function SeccionInventarioProducto({
       </div>
 
       {controlaStock && puedeAjustarStock && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20 mt-2">
           {editando && (
             <div className="mb-3 flex items-center gap-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Agregar nueva cantidad o lote</label>
@@ -115,14 +183,13 @@ export default function SeccionInventarioProducto({
                 type="button"
                 onClick={() => setMostrarAyudaLotes(!mostrarAyudaLotes)}
                 aria-label="Ayuda sobre agregar lotes"
-                aria-expanded={mostrarAyudaLotes}
                 className="rounded-full text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:hover:bg-purple-900/30"
               >
                 <CircleHelp size={16} />
               </button>
               {mostrarAyudaLotes && (
                 <span className="text-xs text-slate-600 dark:text-slate-300">
-                  Añade unidades a la cantidad actual como un lote nuevo. La fecha de caducidad es opcional y se usa para alertas y para descontar primero los lotes que vencen antes.
+                  Añade unidades a la cantidad actual como un lote nuevo. La fecha de caducidad es opcional.
                 </span>
               )}
             </div>
@@ -143,9 +210,9 @@ export default function SeccionInventarioProducto({
           {(!editando || cantidadNuevoLote > 0) && (
             <div>
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-                <CalendarDays size={13} /> Caducidad del stock que agregas (opcional)
+                <CalendarDays size={13} /> Caducidad del stock agregado (opcional)
               </label>
-              <CampoFecha value={fechaCaducidadNuevoLote} onChange={setFechaCaducidadNuevoLote} className={campo} aria-label="Fecha de caducidad del stock agregado" />
+              <CampoFecha value={fechaCaducidadNuevoLote} onChange={setFechaCaducidadNuevoLote} className={campo} aria-label="Fecha de caducidad" />
             </div>
           )}
           {editando && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">El stock actual no cambia; la cantidad agregada se registra por separado.</p>}
@@ -153,20 +220,14 @@ export default function SeccionInventarioProducto({
       )}
 
       {editando && lotesRecientes.length > 0 && (
-        <div className="border-t border-slate-200 pt-3 dark:border-white/10">
+        <div className="border-t border-slate-200 pt-3 dark:border-white/10 mt-2">
           <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Últimas fechas de caducidad</h3>
           <div className="flex flex-wrap gap-2">
             {lotesRecientes.map((lote) => {
               const estado = estadoCaducidad(lote.fecha_caducidad, new Date(), lote.dias_alerta);
-              const claseFecha = lote.cantidad <= 0
-                ? "bg-slate-100 text-slate-500 opacity-60 dark:bg-slate-800 dark:text-slate-400"
-                : estado === "vencido"
-                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
-                  : estado === "proximo"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+              const claseFecha = lote.cantidad <= 0 ? "bg-slate-100 text-slate-500 opacity-60" : estado === "vencido" ? "bg-purple-100 text-purple-800" : estado === "proximo" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700";
               return (
-                <button key={lote.id} type="button" onClick={() => onAbrirLoteCaducidad(lote.id)} className={cn("rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors hover:ring-2 hover:ring-emerald-500", claseFecha)} title={`Ir al lote ${lote.id} en Fechas de Caducidad`}>
+                <button key={lote.id} type="button" onClick={() => onAbrirLoteCaducidad(lote.id)} className={cn("rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors hover:ring-2 hover:ring-emerald-500", claseFecha)}>
                   <span className="block">{lote.fecha_caducidad || "Sin fecha"}</span>
                   <span className="mt-0.5 block text-[10px] font-normal">Ingreso {lote.fecha_ingreso} · {lote.cantidad} {unidad.toLowerCase()}</span>
                 </button>
@@ -177,7 +238,7 @@ export default function SeccionInventarioProducto({
       )}
 
       {editando && (productoExistente?.lotes?.length ?? 0) > 0 && (
-        <div className="border-t border-slate-200 pt-3 dark:border-white/10">
+        <div className="border-t border-slate-200 pt-3 dark:border-white/10 mt-2">
           <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
             <CalendarDays size={14} /> Lotes registrados
           </h3>
@@ -213,21 +274,6 @@ export default function SeccionInventarioProducto({
           </div>
         </div>
       )}
-
-      <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1 flex justify-between">Tipo de unidad {!puedeEditar && <Lock size={12} className="text-slate-400" />}</label>
-        <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value as Producto["unidad"])} className={campo}>
-          <option value="PIEZA">Pieza</option>
-          <option value="KG">Kilogramos</option>
-          <option value="GRAMO">Gramos</option>
-          <option value="LITRO">Litros</option>
-          <option value="MILILITRO">Mililitros</option>
-          <option value="MILIGRAMO">Miligramos</option>
-          <option value="PAQUETE">Paquete</option>
-          <option value="SOBRE">Sobre</option>
-          <option value="DOCENA">Docena</option>
-        </select>
-      </div>
     </section>
   );
 }

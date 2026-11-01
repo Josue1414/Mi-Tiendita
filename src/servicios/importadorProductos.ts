@@ -116,6 +116,7 @@ export async function leerProductosExcel(archivo: File, existentes: Producto[]):
       descuento_porcentaje: 0,
       activo: true,
       imagen_url: undefined,
+      bascula_equivalencia_litros: false
     };
     importados.push(producto);
     codigosExistentes.add(codigo);

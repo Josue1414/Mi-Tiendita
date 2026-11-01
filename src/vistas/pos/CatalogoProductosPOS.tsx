@@ -16,6 +16,7 @@ interface CatalogoProductosPOSProps {
   categorias: Categoria[];
   productos: Producto[];
   modoVista: ModoVistaPOS;
+  soloEstacionPesaje?: boolean;
   esVistaMovil: boolean;
   productoEnfoque: Producto | null;
   camaraVisible: boolean;
@@ -37,6 +38,7 @@ export default function CatalogoProductosPOS({
   categorias,
   productos,
   modoVista,
+  soloEstacionPesaje = false,
   esVistaMovil,
   productoEnfoque,
   camaraVisible,
@@ -51,6 +53,11 @@ export default function CatalogoProductosPOS({
   alCambiarVisibilidadCamara,
   alEscanear,
 }: CatalogoProductosPOSProps) {
+  // FILTRO INTELIGENTE PARA EL MODO PESAJE (Solo muestra Granel)
+  const productosMostrar = modoVista === "pesaje"
+    ? productos.filter(p => ["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(p.unidad))
+    : productos;
+
   return (
     <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
       <div className="flex gap-2 relative">
@@ -68,46 +75,68 @@ export default function CatalogoProductosPOS({
         </div>
 
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button
-            onClick={() => alCambiarModoVista("cuadricula")}
-            className={cn(
-              "p-2 rounded-lg flex items-center justify-center transition-all",
-              modoVista === "cuadricula"
-                ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            )}
-            title="Vista Cuadrícula"
-          >
-            <LayoutGrid size={20} />
-          </button>
-          <button
-            onClick={() => alCambiarModoVista("escaner")}
-            className={cn(
-              "p-2 rounded-lg flex items-center justify-center transition-all",
-              modoVista === "escaner"
-                ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            )}
-            title="Vista Escáner"
-          >
-            <ScanBarcode size={20} />
-          </button>
-          <button
-            onClick={() => alCambiarModoVista("camara")}
-            className={cn(
-              "p-2 rounded-lg flex items-center justify-center transition-all",
-              modoVista === "camara"
-                ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            )}
-            title="Cámara Escáner"
-          >
-            <Camera size={20} />
-          </button>
+          {soloEstacionPesaje ? (
+            <button type="button" className="p-2 rounded-lg flex items-center justify-center bg-emerald-600 text-white shadow-sm" title="Estación de Pesaje (Etiquetado)">
+              <Scale size={20} />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => alCambiarModoVista("cuadricula")}
+                className={cn(
+                  "p-2 rounded-lg flex items-center justify-center transition-all",
+                  modoVista === "cuadricula"
+                    ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                )}
+                title="Vista Cuadrícula"
+              >
+                <LayoutGrid size={20} />
+              </button>
+              
+              <button
+                onClick={() => alCambiarModoVista("pesaje")}
+                className={cn(
+                  "p-2 rounded-lg flex items-center justify-center transition-all",
+                  modoVista === "pesaje"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                )}
+                title="Estación de Pesaje (Etiquetado)"
+              >
+                <Scale size={20} />
+              </button>
+
+              <button
+                onClick={() => alCambiarModoVista("escaner")}
+                className={cn(
+                  "p-2 rounded-lg flex items-center justify-center transition-all",
+                  modoVista === "escaner"
+                    ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                )}
+                title="Vista Escáner"
+              >
+                <ScanBarcode size={20} />
+              </button>
+              <button
+                onClick={() => alCambiarModoVista("camara")}
+                className={cn(
+                  "p-2 rounded-lg flex items-center justify-center transition-all",
+                  modoVista === "camara"
+                    ? "bg-white dark:bg-slate-700 shadow-sm text-emerald-600"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                )}
+                title="Cámara Escáner"
+              >
+                <Camera size={20} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {modoVista === "cuadricula" ? (
+      {(modoVista === "cuadricula" || modoVista === "pesaje") ? (
         <>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mt-1">
             <button
@@ -140,11 +169,11 @@ export default function CatalogoProductosPOS({
             })}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1">
-            {productos.map((producto) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1 content-start">
+            {productosMostrar.map((producto) => {
               const final = precioVenta(producto);
               const color = categorias.find((categoria) => categoria.nombre === producto.categoria)?.color;
-              const seleccionado = esVistaMovil && productoEnfoque?.id === producto.id;
+              const seleccionado = productoEnfoque?.id === producto.id;
               const esAgotado = producto.controla_stock && producto.stock_actual <= 0;
               const esBajoStock =
                 producto.controla_stock && producto.stock_actual <= producto.stock_minimo && producto.stock_actual > 0;
@@ -153,12 +182,12 @@ export default function CatalogoProductosPOS({
                 <div
                   key={producto.id}
                   onClick={() => {
-                    if (esVistaMovil) alEnfocarProducto(producto);
+                    if (esVistaMovil || modoVista === "pesaje") alEnfocarProducto(producto);
                   }}
                   onDoubleClick={() => {
-                    if (!esVistaMovil) alAgregarProducto(producto);
+                    if (!esVistaMovil && modoVista !== "pesaje") alAgregarProducto(producto);
                   }}
-                  title={esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar al carrito"}
+                  title={modoVista === "pesaje" ? "Haz clic para pesar y etiquetar" : esVistaMovil ? "Toca para mostrar Agregar" : "Doble clic para agregar al carrito"}
                   className={cn(
                     "p-2 rounded-xl flex items-center text-left hover:scale-[1.02] transition-transform border relative overflow-hidden group gap-2 min-h-[105px]",
                     seleccionado && "ring-2 ring-emerald-500",
@@ -195,7 +224,7 @@ export default function CatalogoProductosPOS({
                       )}
                     </span>
                   </div>
-                  {esVistaMovil && (
+                  {esVistaMovil && modoVista !== "pesaje" && (
                     <button
                       type="button"
                       onClick={(event) => {
@@ -215,6 +244,13 @@ export default function CatalogoProductosPOS({
                 </div>
               );
             })}
+            
+            {productosMostrar.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center opacity-40 text-slate-500 py-10">
+                <Scale size={48} className="mb-2" />
+                <p>No hay productos a granel para pesar.</p>
+              </div>
+            )}
           </div>
         </>
       ) : modoVista === "escaner" ? (

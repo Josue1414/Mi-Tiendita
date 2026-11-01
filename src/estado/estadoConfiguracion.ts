@@ -32,7 +32,7 @@ export interface Configuracion {
   basculaPuerto: string;
   basculaBaudRate: string;
   basculaFormato: string;
-  basculaUnidad: string;
+  // Eliminado: basculaUnidad
   escanerModelo: string;
   escanerFabricante: string;
   escanerDriver: string;
@@ -40,7 +40,7 @@ export interface Configuracion {
   escanerPuerto: string;
   escanerDetectado: boolean;
   escanerMensaje: string;
-  habilitarFiados: boolean; // <-- NUEVO ESTADO
+  habilitarFiados: boolean;
   modoAccesoFiados: "TODOS" | "MANUAL";
   diasAlertaCaducidad: number;
 }
@@ -84,7 +84,8 @@ interface EstadoConfiguracion extends Configuracion {
   toggleSincronizacion: () => Promise<void>;
   setTeclaCobro: (tecla: string) => Promise<void>;
   actualizarDatosPago: (datos: Partial<Configuracion>) => Promise<void>;
-  actualizarDatosBascula: (modelo: string, puerto: string, baudRate: string, formato: string, unidad: string) => Promise<void>;
+  // Actualizada: se quitó la unidad de la báscula de los parámetros
+  actualizarDatosBascula: (modelo: string, puerto: string, baudRate: string, formato: string) => Promise<void>;
   actualizarDatosEscaner: (
     modelo: string,
     fabricante: string,
@@ -95,7 +96,7 @@ interface EstadoConfiguracion extends Configuracion {
     mensaje: string,
   ) => Promise<void>;
   setCorreoDueno: (correo: string) => Promise<void>;
-  setHabilitarFiados: (activo: boolean) => Promise<void>; // <-- NUEVA FUNCIÓN
+  setHabilitarFiados: (activo: boolean) => Promise<void>;
   setModoAccesoFiados: (modo: PreferenciasFiados["modoAccesoFiados"]) => Promise<void>;
   setDiasAlertaCaducidad: (dias: number) => Promise<void>;
   aplicarAccionLAN: (tipo: string, payload: unknown) => Promise<void>;
@@ -132,7 +133,6 @@ const CONFIG_INICIAL: Configuracion = {
   basculaPuerto: "USB",
   basculaBaudRate: "9600",
   basculaFormato: "serial",
-  basculaUnidad: "kg",
   escanerModelo: "Zebra DS2208",
   escanerFabricante: "Zebra",
   escanerDriver: "USB HID",
@@ -140,7 +140,7 @@ const CONFIG_INICIAL: Configuracion = {
   escanerPuerto: "USB",
   escanerDetectado: false,
   escanerMensaje: "No se detectó un escáner habilitado. Configure el modelo manualmente.",
-  habilitarFiados: false, // <-- VALOR INICIAL
+  habilitarFiados: false,
   modoAccesoFiados: "TODOS",
   diasAlertaCaducidad: DIAS_ALERTA_CADUCIDAD,
 };
@@ -251,7 +251,19 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
               : configLocal?.diasAlertaCaducidad ?? CONFIG_INICIAL.diasAlertaCaducidad,
             id: CONFIG_ID,
             sincronizacionNube: permiteNube ? configLocal?.sincronizacionNube ?? get().sincronizacionNube : false,
-            configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false
+            configuracionNubePendiente: configLocal?.configuracionNubePendiente ?? false,
+            // Conservamos los valores locales de hardware 
+            basculaModelo: configLocal?.basculaModelo ?? CONFIG_INICIAL.basculaModelo,
+            basculaPuerto: configLocal?.basculaPuerto ?? CONFIG_INICIAL.basculaPuerto,
+            basculaBaudRate: configLocal?.basculaBaudRate ?? CONFIG_INICIAL.basculaBaudRate,
+            basculaFormato: configLocal?.basculaFormato ?? CONFIG_INICIAL.basculaFormato,
+            escanerModelo: configLocal?.escanerModelo ?? CONFIG_INICIAL.escanerModelo,
+            escanerFabricante: configLocal?.escanerFabricante ?? CONFIG_INICIAL.escanerFabricante,
+            escanerDriver: configLocal?.escanerDriver ?? CONFIG_INICIAL.escanerDriver,
+            escanerTipo: configLocal?.escanerTipo ?? CONFIG_INICIAL.escanerTipo,
+            escanerPuerto: configLocal?.escanerPuerto ?? CONFIG_INICIAL.escanerPuerto,
+            escanerDetectado: configLocal?.escanerDetectado ?? CONFIG_INICIAL.escanerDetectado,
+            escanerMensaje: configLocal?.escanerMensaje ?? CONFIG_INICIAL.escanerMensaje,
           };
 
           const preferenciasFiados = leerPreferenciasFiados();
@@ -466,7 +478,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     }
   },
 
-  actualizarDatosBascula: async (modelo, puerto, baudRate, formato, unidad) => {
+  // FUNCIÓN ACTUALIZADA: Quitamos la unidad
+  actualizarDatosBascula: async (modelo, puerto, baudRate, formato) => {
     try {
       const configBase = get();
       const nuevaConfig = {
@@ -474,20 +487,20 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         basculaModelo: modelo,
         basculaPuerto: puerto,
         basculaBaudRate: baudRate,
-        basculaFormato: formato,
-        basculaUnidad: unidad
+        basculaFormato: formato
       };
 
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      } else {
+        await guardarConfiguracionLocal(nuevaConfig);
       }
 
       set({
         basculaModelo: modelo,
         basculaPuerto: puerto,
         basculaBaudRate: baudRate,
-        basculaFormato: formato,
-        basculaUnidad: unidad
+        basculaFormato: formato
       });
     } catch (error) {
       console.error("Error al guardar la configuración de la báscula:", error);
@@ -510,6 +523,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
 
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      } else {
+        await guardarConfiguracionLocal(nuevaConfig);
       }
 
       set({
@@ -536,7 +551,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     set({ correoDueno: correoLimpio });
   },
 
-  // <-- NUEVA FUNCIÓN PARA ACTIVAR/DESACTIVAR FIADOS LOCALMENTE -->
   setHabilitarFiados: async (activo) => {
     try {
       const configBase = get();
@@ -545,6 +559,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       set({ habilitarFiados: activo });
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      } else {
+         await guardarConfiguracionLocal(nuevaConfig);
       }
     } catch (error) {
       console.error("Error al guardar configuración de fiados:", error);
@@ -559,6 +575,8 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       set({ modoAccesoFiados: modo });
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
+      } else {
+         await guardarConfiguracionLocal(nuevaConfig);
       }
     } catch (error) {
       console.error("Error al guardar el modo de acceso a fiados:", error);
@@ -705,9 +723,11 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           ...actualizacion, 
           directorioHandle: configBase.directorioHandle 
         });
+      } else {
+        await guardarConfiguracionLocal({ ...get(), ...actualizacion });
       }
+
       if (actualizacion.diasAlertaCaducidad !== undefined) {
-        await guardarConfiguracionLocal({ ...get(), diasAlertaCaducidad: actualizacion.diasAlertaCaducidad });
         enviarAccionLAN({
           tipo: "LAN_CONFIG_CADUCIDAD",
           payload: { diasAlertaCaducidad: actualizacion.diasAlertaCaducidad }
@@ -739,13 +759,6 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           teclaTransferencia: actualizacion.teclaTransferencia
         }
       });
-      if (actualizacion.diasAlertaCaducidad !== undefined) {
-        await guardarConfiguracionLocal({ ...get(), ...actualizacion });
-        enviarAccionLAN({
-          tipo: "LAN_CONFIG_CADUCIDAD",
-          payload: { diasAlertaCaducidad: actualizacion.diasAlertaCaducidad }
-        });
-      }
     }
   }
 }));
