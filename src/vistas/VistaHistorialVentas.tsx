@@ -4,14 +4,12 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoCaja } from "../estado/estadoCaja";
 import { useEstadoPlan } from "../estado/estadoPlan";
-import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer, Ban, Settings, Cloud, ReceiptText, Loader2 } from "lucide-react";
+import { Search, History, Calendar, ChevronLeft, ChevronRight, Printer, Ban, Settings, Cloud } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { imprimirTicket } from "../utilidades/impresion";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import ModalGestionHistorial from "../componentes/ui/ModalGestionHistorial";
-import ModalAviso from "../componentes/ui/ModalAviso";
-import { supabase } from "../servicios/supabase";
 import { cn } from "../utilidades/utils";
 import CampoFecha from "../componentes/ui/CampoFecha";
 
@@ -41,11 +39,8 @@ export default function VistaHistorialVentas() {
   const [modalGestionAbierto, setModalGestionAbierto] = useState(false);
   const [ventaPendienteCancelacion, setVentaPendienteCancelacion] = useState<string | null>(null);
   
-  const [avisoFactura, setAvisoFactura] = useState<{ titulo: string; mensaje: string; tipo: "exito" | "advertencia" | "info" } | null>(null);
-  const [facturandoId, setFacturandoId] = useState<string | null>(null);
-  
   const porPagina = 10;
-  const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
+  const esEscritorio = typeof window !== 'undefined' && window.apiLocal !== undefined;
 
   const esDueño = trabajadorActivo?.rol === "DUENO";
   const esSupervisor = trabajadorActivo?.rol === "SUPERVISOR";
@@ -119,52 +114,12 @@ export default function VistaHistorialVentas() {
     setVentaPendienteCancelacion(null);
   };
 
-  const solicitarFactura = async (e: React.MouseEvent, ticketId: string) => {
-    e.stopPropagation();
-    try {
-      if (!navigator.onLine) throw new Error("Necesitas conexión a internet para emitir facturas.");
-      
-      setFacturandoId(ticketId);
-      const tiendaId = localStorage.getItem("tienda_id");
-      
-      const { data, error } = await supabase.functions.invoke('facturar-ticket', {
-        body: { tienda_id: tiendaId, ticket_id: ticketId }
-      });
-
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-
-      setAvisoFactura({
-        titulo: "Factura Generada",
-        mensaje: `${data.mensaje}\n\nPuedes revisar el PDF en tu proveedor.`,
-        tipo: "exito"
-      });
-
-    } catch (err: any) {
-      setAvisoFactura({
-        titulo: "Error al Facturar",
-        mensaje: err.message || "Ocurrió un problema al comunicarse con el proveedor fiscal.",
-        tipo: "advertencia"
-      });
-    } finally {
-      setFacturandoId(null);
-    }
-  };
-
   const hace15Horas = Date.now() - 15 * 60 * 60 * 1000;
 
   return (
     <div className="flex h-full w-full flex-col p-3 animate-in fade-in duration-300 sm:p-6">
       
       <ModalGestionHistorial abierto={modalGestionAbierto} alCerrar={() => setModalGestionAbierto(false)} />
-
-      <ModalAviso 
-        abierto={Boolean(avisoFactura)} 
-        titulo={avisoFactura?.titulo ?? ""} 
-        mensaje={avisoFactura?.mensaje ?? ""} 
-        tipo={avisoFactura?.tipo} 
-        alCerrar={() => setAvisoFactura(null)} 
-      />
 
       <ModalConfirmacionPin
         abierto={modalPinCancelacion}
@@ -269,7 +224,7 @@ export default function VistaHistorialVentas() {
             <div className="py-8 text-center text-sm text-slate-500">No hay ventas registradas que coincidan con la búsqueda.</div>
           ) : (
             ventasPagina.map((venta) => {
-              const estaSincronizada = (venta as any).sincronizado ?? (new Date(venta.fecha).getTime() > hace15Horas);
+              const estaSincronizada = venta.sincronizado ?? (new Date(venta.fecha).getTime() > hace15Horas);
               const estaEnNube = permiteNube && estaSincronizada;
               const trabajador = (venta.trabajador || "Cajero").replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim();
               const estaExpandida = ventaSeleccionada === venta.id;
@@ -331,17 +286,6 @@ export default function VistaHistorialVentas() {
                     </div>
                   )}
                   <div className="flex items-center justify-end gap-1 border-t border-slate-100 p-2 dark:border-white/10">
-                    {!venta.cancelada && esDueño && (
-                      <button
-                        type="button"
-                        onClick={(e) => void solicitarFactura(e, venta.id)}
-                        disabled={facturandoId === venta.id}
-                        aria-label="Generar Factura Electrónica"
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                      >
-                        {facturandoId === venta.id ? <Loader2 size={18} className="animate-spin text-blue-500" /> : <ReceiptText size={18} />}
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => imprimirTicket(venta, nombreTienda, mensajeTicket, direccionTienda, logoTienda)}
@@ -394,7 +338,7 @@ export default function VistaHistorialVentas() {
                 </tr>
               ) : (
                 ventasPagina.map((venta) => {
-                  const estaSincronizada = (venta as any).sincronizado ?? (new Date(venta.fecha).getTime() > hace15Horas);
+                  const estaSincronizada = venta.sincronizado ?? (new Date(venta.fecha).getTime() > hace15Horas);
                   const estaEnNube = permiteNube && estaSincronizada;
                   
                   return (
@@ -434,17 +378,6 @@ export default function VistaHistorialVentas() {
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           
-                          {!venta.cancelada && esDueño && (
-                            <button
-                              onClick={(e) => solicitarFactura(e, venta.id)}
-                              disabled={facturandoId === venta.id}
-                              className="p-1.5 flex items-center justify-center text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50"
-                              title="Generar Factura Electrónica"
-                            >
-                              {facturandoId === venta.id ? <Loader2 size={16} className="animate-spin text-blue-500" /> : <ReceiptText size={16} />}
-                            </button>
-                          )}
-
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

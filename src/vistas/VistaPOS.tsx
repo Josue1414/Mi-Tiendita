@@ -56,6 +56,8 @@ export default function VistaPOS() {
     bancoTransferencia,
     titularTransferencia,
     cuentaTransferencia,
+    codi_imagen,
+    codi_clabe,
     habilitarFiados,
     modoAccesoFiados,
   } = useEstadoConfiguracion();
@@ -384,7 +386,9 @@ export default function VistaPOS() {
           metodoPago,
           mensajePago,
           datosTransferencia:
-            metodoPago === "TRANSFERENCIA"
+            metodoPago === "CODI"
+              ? { banco: "CoDi", titular: "", cuenta: codi_clabe, qrBase64: codi_imagen }
+              : metodoPago === "TRANSFERENCIA"
               ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia }
               : undefined,
         });
@@ -556,7 +560,9 @@ export default function VistaPOS() {
             tipo: "ACTUALIZAR_PAGO",
             metodoPago,
             datosTransferencia:
-              metodoPago === "TRANSFERENCIA"
+              metodoPago === "CODI"
+                ? { banco: "CoDi", titular: "", cuenta: codi_clabe, qrBase64: codi_imagen }
+                : metodoPago === "TRANSFERENCIA"
                 ? { banco: bancoTransferencia, titular: titularTransferencia, cuenta: cuentaTransferencia }
                 : undefined,
           })

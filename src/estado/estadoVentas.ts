@@ -104,6 +104,7 @@ export interface Venta {
   total: number;
   metodoPago: string;
   cancelada?: boolean;
+  sincronizado?: boolean | null;
 }
 
 const obtenerVentasFiadasLocales = async () => {

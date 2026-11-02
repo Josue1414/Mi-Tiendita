@@ -105,6 +105,69 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
     setMensaje({ texto: `Se exportaron ${ventasRango.length} ventas con éxito.`, tipo: "exito" });
   };
 
+  const exportarReporteContador = () => {
+    if (!fechaInicio || !fechaFin) {
+      setMensaje({ texto: "Por favor selecciona la fecha de inicio y fin.", tipo: "error" });
+      return;
+    }
+
+    const ventasPeriodo = ventas.filter((venta) => {
+      const fecha = venta.fecha.slice(0, 10);
+      return !venta.cancelada && fecha >= fechaInicio && fecha <= fechaFin;
+    });
+
+    if (ventasPeriodo.length === 0) {
+      setMensaje({ texto: "No hay ventas completadas en este rango de fechas para el reporte contable.", tipo: "error" });
+      return;
+    }
+
+    const datos = ventasPeriodo.map((venta) => {
+      const subtotalSinIva = venta.total / 1.16;
+      const iva = venta.total - subtotalSinIva;
+      return {
+        "Fecha y Hora": new Date(venta.fecha).toLocaleString("es-MX", { hour12: true }),
+        "Folio Ticket": venta.id.slice(0, 8).toUpperCase(),
+        "Método de Pago": venta.metodoPago || "EFECTIVO",
+        "Subtotal": Number(subtotalSinIva.toFixed(2)),
+        "IVA (16%)": Number(iva.toFixed(2)),
+        "Total Neto": Number(venta.total.toFixed(2)),
+        "Descuentos": Number((venta.descuento || 0).toFixed(2))
+      };
+    });
+
+    const libro = XLSX.utils.book_new();
+    const hojaVentas = XLSX.utils.json_to_sheet(datos);
+    hojaVentas["!cols"] = [
+      { wch: 22 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 }
+    ];
+    XLSX.utils.book_append_sheet(libro, hojaVentas, "Reporte Contable");
+
+    const totalesPorMetodo = ventasPeriodo.reduce<Record<string, number>>((totales, venta) => {
+      const metodo = venta.metodoPago || "EFECTIVO";
+      totales[metodo] = (totales[metodo] || 0) + venta.total;
+      return totales;
+    }, {});
+    const resumen = Object.entries(totalesPorMetodo).map(([metodo, total]) => ({
+      "Método de Pago": metodo,
+      "Total Ingresado": Number(total.toFixed(2))
+    }));
+    const granTotal = Object.values(totalesPorMetodo).reduce((total, importe) => total + importe, 0);
+    resumen.push({ "Método de Pago": "GRAN TOTAL", "Total Ingresado": Number(granTotal.toFixed(2)) });
+
+    const hojaResumen = XLSX.utils.json_to_sheet(resumen);
+    hojaResumen["!cols"] = [{ wch: 20 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(libro, hojaResumen, "Resumen por Pago");
+    XLSX.writeFile(libro, `Reporte_Contador_${fechaInicio}_al_${fechaFin}.xlsx`);
+
+    setMensaje({ texto: `Se exportó el reporte contable con ${ventasPeriodo.length} ventas completadas.`, tipo: "exito" });
+  };
+
   const solicitarEliminacion = () => {
     if (!fechaInicio || !fechaFin) {
       setMensaje({ texto: "Por favor selecciona la fecha de inicio y fin para poder purgar.", tipo: "error" });
@@ -220,8 +283,12 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
             )}
 
             <div className="flex flex-col gap-3">
-              <button onClick={exportarExcel} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/20">
-                <FileSpreadsheet size={18} /> Exportar a Excel
+              <button onClick={exportarReporteContador} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-600/20">
+                <FileSpreadsheet size={18} /> Descargar Excel para el contador
+              </button>
+
+              <button onClick={exportarExcel} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 p-3 rounded-xl font-bold transition-all">
+                <FileSpreadsheet size={18} /> Exportar historial a Excel
               </button>
               
               <button onClick={solicitarEliminacion} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-900/20 border border-slate-200 dark:border-white/10 dark:text-slate-300 dark:hover:text-red-400 p-3 rounded-xl font-bold transition-all group">

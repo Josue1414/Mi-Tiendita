@@ -10,9 +10,8 @@ import VistaConfiguracion from "../VistaConfiguracion";
 import VistaPerfil from "../VistaPerfil";
 import VistaCorteCaja from "../VistaCorteCaja";
 import VistaFiados from "../VistaFiados";
-import VistaFacturacion from "../VistaFacturacion";
 
-export const componentesSeccion: Record<Exclude<SeccionApp | "fiados" | "facturacion", "panel">, ComponentType> = {
+export const componentesSeccion: Record<Exclude<SeccionApp | "fiados", "panel">, ComponentType> = {
   pos: VistaPOS,
   inventario: VistaInventario,
   reportes: () => <div>Reportes</div>,
@@ -24,5 +23,4 @@ export const componentesSeccion: Record<Exclude<SeccionApp | "fiados" | "factura
   perfil: VistaPerfil,
   caja: VistaCorteCaja,
   fiados: VistaFiados,
-  facturacion: VistaFacturacion,
 };

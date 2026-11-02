@@ -106,10 +106,10 @@ export default function VistaPantallaCliente() {
   const transferenciaActiva = esCodi || esTransferencia;
 
   const datosTransf = {
-    banco: (datosCarrito.datosTransferencia as any)?.banco || (esCodi ? "CoDi" : bancoTransferencia),
-    titular: (datosCarrito.datosTransferencia as any)?.titular || titularTransferencia,
-    cuenta: (datosCarrito.datosTransferencia as any)?.cuenta || (esCodi ? codi_clabe : cuentaTransferencia),
-    qrBase64: (datosCarrito.datosTransferencia as any)?.qrBase64 || (esCodi ? codi_imagen : undefined)
+    banco: datosCarrito.datosTransferencia?.banco || (esCodi ? "CoDi" : bancoTransferencia),
+    titular: datosCarrito.datosTransferencia?.titular || titularTransferencia,
+    cuenta: datosCarrito.datosTransferencia?.cuenta || (esCodi ? codi_clabe : cuentaTransferencia),
+    qrBase64: datosCarrito.datosTransferencia?.qrBase64 || (esCodi ? codi_imagen : undefined)
   };
 
   const renderProductoDetalle = (producto: Producto) => {
@@ -268,21 +268,24 @@ export default function VistaPantallaCliente() {
               {datosTransf.qrBase64 ? "Escanea el código para pagar" : "Datos para Transferencia"}
             </p>
             
-            <div className={`flex w-full max-w-2xl flex-col gap-4 rounded-3xl border p-6 text-center sm:p-8 mt-2 ${temaClaro ? "border-emerald-200 bg-white shadow-lg" : "border-emerald-500/30 bg-black/40"}`}>
-              <div className="text-xl leading-loose sm:text-2xl flex flex-col gap-2">
-                <p><span className="opacity-70 font-medium">Banco:</span> <strong className="font-bold">{datosTransf.banco || "No especificado"}</strong></p>
-                {datosTransf.titular && (
-                  <p><span className="opacity-70 font-medium">Titular:</span> <strong className="font-bold">{datosTransf.titular}</strong></p>
-                )}
-                
-                <div className={`mt-4 inline-block p-4 sm:p-5 rounded-2xl border ${temaClaro ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
-                  <p className="text-sm font-bold uppercase tracking-widest opacity-70 mb-1">Número de Cuenta / CLABE</p>
-                  <p className="text-3xl sm:text-4xl font-mono font-bold tracking-widest break-all">
-                    {datosTransf.cuenta || "No especificada"}
-                  </p>
+            {(!esCodi || datosTransf.cuenta) && (
+              <div className={`flex w-full max-w-2xl flex-col gap-4 rounded-3xl border p-6 text-center sm:p-8 mt-2 ${temaClaro ? "border-emerald-200 bg-white shadow-lg" : "border-emerald-500/30 bg-black/40"}`}>
+                <div className="text-xl leading-loose sm:text-2xl flex flex-col gap-2">
+                  <p><span className="opacity-70 font-medium">Banco:</span> <strong className="font-bold">{datosTransf.banco || "No especificado"}</strong></p>
+                  {datosTransf.titular && (
+                    <p><span className="opacity-70 font-medium">Titular:</span> <strong className="font-bold">{datosTransf.titular}</strong></p>
+                  )}
+                  {datosTransf.cuenta && (
+                    <div className={`mt-4 inline-block p-4 sm:p-5 rounded-2xl border ${temaClaro ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
+                      <p className="text-sm font-bold uppercase tracking-widest opacity-70 mb-1">Número de Cuenta / CLABE</p>
+                      <p className="text-3xl sm:text-4xl font-mono font-bold tracking-widest break-all">
+                        {datosTransf.cuenta}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             <div className={`absolute bottom-12 left-5 right-5 flex items-center justify-between rounded-2xl px-5 py-3 sm:px-7 sm:py-4 ${temaClaro ? "bg-white shadow-sm" : "bg-black/25"}`}>
               <span className="text-lg opacity-75 sm:text-2xl">Total a pagar</span>

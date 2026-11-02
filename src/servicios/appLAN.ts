@@ -45,7 +45,9 @@ export const crearSnapshotLAN = () => {
       teclaTransferencia: configuracion.teclaTransferencia,
       teclaCodi: configuracion.teclaCodi,
       teclaMercadoPago: configuracion.teclaMercadoPago,
-      teclaFiado: configuracion.teclaFiado
+      teclaFiado: configuracion.teclaFiado,
+      codi_imagen: configuracion.codi_imagen,
+      codi_clabe: configuracion.codi_clabe
     }
   };
 };

@@ -10,7 +10,6 @@ import {
 import { cn } from "../utilidades/utils";
 import { useState } from "react";
 import PanelAutorizaciones from "../componentes/PanelAutorizaciones";
-import VistaFacturacion from "./VistaFacturacion";
 import PanelMetodosPago from "../componentes/PanelMetodosPago"; // <-- INYECCIÓN BYOK
 import { tieneAlertaStock } from "../utilidades/stock";
 import { imprimirTicket } from "../utilidades/impresion";
@@ -354,10 +353,9 @@ export default function VistaPanel({
         </div>
       </div>
 
-      {/* NUEVA SECCIÓN DE MÉTODOS DE PAGO Y FACTURACIÓN */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+      {/* Configuración de métodos de pago */}
+      <div className="grid grid-cols-1 gap-6 pb-6">
         <PanelMetodosPago />
-        <VistaFacturacion integrada />
       </div>
     </div>
   );

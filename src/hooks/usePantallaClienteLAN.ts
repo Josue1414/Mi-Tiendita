@@ -21,6 +21,7 @@ export interface DatosTransferencia {
   banco: string;
   titular: string;
   cuenta: string;
+  qrBase64?: string;
 }
 
 const CANAL = "pantalla_cliente_mi_tienda";

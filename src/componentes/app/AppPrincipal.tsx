@@ -108,7 +108,7 @@ export default function AppPrincipal() {
     ? componentesSeccion.pos
     : seccionActual === "fiados" && !puedeAccederFiados
     ? componentesSeccion.pos
-    : componentesSeccion[seccionActual as Exclude<SeccionApp | "fiados" | "facturacion", "panel">] || componentesSeccion.pos;
+    : componentesSeccion[seccionActual as Exclude<SeccionApp | "fiados", "panel">] || componentesSeccion.pos;
 
   const abrirPantallaCliente = () => {
     const nombreCaja = localStorage.getItem("nombre_dispositivo_local") || "Caja Principal";
