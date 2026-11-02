@@ -1,4 +1,3 @@
-// src/utilidades/impresion.ts
 import type { Venta } from "../estado/estadoVentas";
 import { abreviaturaUnidad } from "../tipos/producto";
 import { esAndroidNativo } from "./utils";
@@ -8,16 +7,15 @@ export const imprimirTicket = async (
   nombreTienda: string = "Mi Tienda", 
   mensajePie: string = "¡Gracias por su preferencia!",
   direccionTienda: string = "",
-  logoTienda: string = ""
+  logoTienda: string = "",
+  urlFactura?: string // <-- Nuevo parámetro opcional
 ) => {
   let htmlArticulos = '';
   venta.articulos.forEach(art => {
-    // Formatear la cantidad dependiendo de la unidad
     const esFraccion = art.unidad === "KG" || art.unidad === "LITRO" || art.unidad === "GRAMO" || art.unidad === "MILILITRO" || art.unidad === "MILIGRAMO";
     const cantidadFormateada = esFraccion ? art.cantidad.toFixed(3) : art.cantidad.toString();
     const abreviatura = abreviaturaUnidad(art.unidad || 'PIEZA');
 
-    // Agregamos (art.unidad || 'PZA') y protecciones (art.precio || 0) para evitar que valores indefinidos rompan la aplicación
     htmlArticulos += `
       <tr>
         <td style="padding-top: 6px; padding-bottom: 2px;">${cantidadFormateada} ${abreviatura}</td>
@@ -32,12 +30,22 @@ export const imprimirTicket = async (
     `;
   });
 
-  // Protegemos la variable por si en ventas muy antiguas no existía el nombre del trabajador
   const nombreCajero = venta.trabajador ? venta.trabajador.replace(/-/g, "").replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "").trim() : "Cajero";
-
-  // Se prepara el HTML del logo y la dirección si existen
-  const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" alt="Logo de la tienda" style="display: block; max-width: 150px; max-height: 80px; margin: 0 auto; object-fit: contain;" /></div>` : '';
+  const logoHtml = logoTienda ? `<div class="center" style="margin-bottom: 10px;"><img src="${logoTienda}" alt="Logo" style="display: block; max-width: 150px; max-height: 80px; margin: 0 auto; object-fit: contain;" /></div>` : '';
   const direccionHtml = direccionTienda ? `<div class="center" style="margin-bottom: 15px; font-size: 10px; white-space: pre-wrap;">${direccionTienda}</div>` : '';
+
+  // Bloque para inyectar el código QR si existe una URL de autofacturación
+  const facturaHtml = urlFactura 
+    ? `
+      <div class="divider"></div>
+      <div class="center bold" style="margin-top: 10px; font-size: 11px;">¿Requiere Factura?</div>
+      <div class="center" style="font-size: 10px; margin-bottom: 5px;">Escanee este código para generarla:</div>
+      <div class="center">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(urlFactura)}" alt="QR Factura" style="display: block; margin: 0 auto; width: 130px; height: 130px;" />
+      </div>
+      <div class="center" style="font-size: 9px; margin-top: 5px; word-break: break-all;">${urlFactura}</div>
+    ` 
+    : '';
 
   const html = `
     <!DOCTYPE html>
@@ -50,7 +58,7 @@ export const imprimirTicket = async (
           .ticket {
             width: 80mm; 
             max-width: 100%;
-            padding: 20px 10px 10px 10px; /* Margen superior de 20px para que no pegue arriba */
+            padding: 20px 10px 10px 10px;
             text-align: left;
             font-family: 'Courier New', Courier, monospace;
             font-size: 12px;
@@ -64,7 +72,7 @@ export const imprimirTicket = async (
           td { vertical-align: top; }
           @media print {
             body { display: block; }
-            .ticket { margin: 0 auto; padding-top: 15px; } /* Espacio de seguridad al imprimir */
+            .ticket { margin: 0 auto; padding-top: 15px; }
             @page { margin: 0; }
           }
         </style>
@@ -101,7 +109,10 @@ export const imprimirTicket = async (
             <span>$${(venta.total || 0).toFixed(2)}</span>
           </div>
           
-          <div style="margin-top: 10px; font-size: 11px;">Pago realizado con: ${venta.metodoPago}</div>
+          <div style="margin-top: 10px; font-size: 11px;">Pago: ${venta.metodoPago}</div>
+          
+          ${facturaHtml} 
+          
           <div class="divider"></div>
           <div class="center bold" style="margin-top: 15px;">${mensajePie || '¡Gracias por su preferencia!'}</div>
         </div>
@@ -110,19 +121,16 @@ export const imprimirTicket = async (
   `;
 
   if (esAndroidNativo) {
-    // TODO: Integrar plugin nativo de Capacitor (Bluetooth/Serial) para Android
+    // TODO: Integrar plugin nativo
   } else if (typeof window !== 'undefined' && window.apiLocal?.imprimirSilencioso) {
-    // Impresión silenciosa en entorno de escritorio (Electron)
     try {
       await window.apiLocal.imprimirSilencioso(html);
       return;
     } catch (error) {
       console.error("Error en impresión silenciosa:", error);
-      // Si falla la API local, el código continuará con la impresión web estándar como respaldo.
     }
   }
 
-  // Creación de iframe oculto para impresión web segura (evita bloqueadores de pop-ups)
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.right = '0';
@@ -139,25 +147,15 @@ export const imprimirTicket = async (
   doc.open();
   doc.write(html);
   doc.close();
-
   contentWindow.focus();
   
-  // Pequeño retraso para que el navegador procese el documento antes de lanzar la ventana de impresión
   setTimeout(() => {
     void Promise.all(
-      Array.from(doc.images, imagen =>
-        imagen.decode().catch(error => {
-          console.error("Error al cargar una imagen del ticket:", error);
-        })
-      )
+      Array.from(doc.images, imagen => imagen.decode().catch(() => {}))
     ).then(() => {
       contentWindow.print();
-
-      // Limpieza del DOM eliminando el iframe tras la interacción
       setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
       }, 1000);
     });
   }, 300);

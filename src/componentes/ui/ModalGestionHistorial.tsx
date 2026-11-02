@@ -1,4 +1,3 @@
-// src/componentes/ui/ModalGestionHistorial.tsx
 import { useState } from "react";
 import { X, FileSpreadsheet, Trash2, Calendar, AlertTriangle, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { useEstadoVentas } from "../../estado/estadoVentas";
@@ -10,7 +9,6 @@ interface PropsModalGestion {
   alCerrar: () => void;
 }
 
-// Función auxiliar para formatear fechas correctamente sin problemas de zona horaria
 const formatearFechaLocal = (fecha: Date) => {
   const offset = fecha.getTimezoneOffset() * 60000;
   return new Date(fecha.getTime() - offset).toISOString().slice(0, 10);
@@ -22,7 +20,6 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
   const [fechaFin, setFechaFin] = useState("");
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'exito' | 'error' } | null>(null);
   
-  // Estados para controlar las vistas y animaciones del modal
   const [vistaConfirmacion, setVistaConfirmacion] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [eliminadoExito, setEliminadoExito] = useState(false);
@@ -76,20 +73,33 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
     }
 
     const datos = ventasRango.map(v => ({
-      "ID Ticket": v.id,
-      "Fecha": new Date(v.fecha).toLocaleString('es-MX'),
+      "ID Ticket": v.id.slice(0, 8).toUpperCase(),
+      "Fecha y Hora": new Date(v.fecha).toLocaleString('es-MX', { hour12: true }),
       "Cajero": v.trabajador,
       "Cant. Artículos": v.articulos.length,
-      "Subtotal": v.subtotal,
-      "Descuento": v.descuento,
-      "Total Cobrado": v.total,
-      "Método de Pago": v.metodoPago,
+      "Subtotal": Number(v.subtotal.toFixed(2)),
+      "Descuento": Number((v.descuento || 0).toFixed(2)),
+      "Total Cobrado": Number(v.total.toFixed(2)),
+      "Método de Pago": v.metodoPago || "EFECTIVO",
       "Estado": v.cancelada ? "CANCELADA" : "COMPLETADA"
     }));
 
     const ws = XLSX.utils.json_to_sheet(datos);
+    
+    ws['!cols'] = [
+      { wch: 12 }, 
+      { wch: 22 }, 
+      { wch: 20 }, 
+      { wch: 15 }, 
+      { wch: 12 }, 
+      { wch: 12 }, 
+      { wch: 15 }, 
+      { wch: 18 }, 
+      { wch: 15 }  
+    ];
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Historial");
+    XLSX.utils.book_append_sheet(wb, ws, "Historial Completo");
     XLSX.writeFile(wb, `Reporte_Ventas_${fechaInicio}_al_${fechaFin}.xlsx`);
     
     setMensaje({ texto: `Se exportaron ${ventasRango.length} ventas con éxito.`, tipo: "exito" });
@@ -112,7 +122,6 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
     setEliminadoExito(true);
     setMensaje({ texto: "Historial purgado correctamente del almacenamiento local.", tipo: "exito" });
     
-    // Esperamos 2 segundos mostrando el éxito antes de regresar al menú
     setTimeout(() => {
       setEliminadoExito(false);
       setVistaConfirmacion(false);
@@ -131,17 +140,14 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 overflow-hidden relative min-h-[300px] flex flex-col justify-center">
         
-        {/* --- VISTA DE CONFIRMACIÓN Y ANIMACIONES --- */}
         {vistaConfirmacion ? (
           eliminando ? (
-            // Animación de carga (Borrando)
             <div className="flex flex-col items-center text-center animate-in zoom-in duration-300 py-8">
               <Loader2 size={48} className="text-red-500 animate-spin mb-4" />
               <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Borrando historial...</h2>
               <p className="text-sm text-slate-500 mt-2">Por favor no cierres la ventana.</p>
             </div>
           ) : eliminadoExito ? (
-            // Animación de éxito (Borrado terminado)
             <div className="flex flex-col items-center text-center animate-in zoom-in duration-300 py-8">
               <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-4">
                 <Trash2 size={40} className="animate-bounce" />
@@ -150,7 +156,6 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
               <p className="text-sm text-slate-500 mt-2">El espacio ha sido liberado con éxito.</p>
             </div>
           ) : (
-            // Vista de advertencia antes de borrar
             <div className="flex flex-col items-center text-center animate-in slide-in-from-right-8 duration-300">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-4 border-4 border-red-50 dark:border-slate-800">
                 <AlertTriangle size={32} />
@@ -171,7 +176,6 @@ export default function ModalGestionHistorial({ abierto, alCerrar }: PropsModalG
             </div>
           )
         ) : (
-          /* --- VISTA PRINCIPAL (FORMULARIO) --- */
           <div className="animate-in slide-in-from-left-8 duration-300">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3 text-slate-900 dark:text-slate-100">

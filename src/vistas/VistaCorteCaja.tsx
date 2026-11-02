@@ -105,7 +105,7 @@ export default function VistaCorteCaja() {
 
     const totalVendido = ventasValidas.reduce((acc, v) => acc + (v.total || 0), 0);
     const totalEfectivo = ventasValidas.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
-    const totalElectronico = ventasValidas.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+    const totalElectronico = ventasValidas.filter(v => ["TARJETA", "TRANSFERENCIA", "CODI", "MERCADO_PAGO"].includes(v.metodoPago)).reduce((acc, v) => acc + (v.total || 0), 0);
     const totalFiado = ventasValidas.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
 
     const articulosAutorizados = ventasValidas.flatMap(v => (v.articulos || []).filter(a => a.autorizacion_confirmada));
@@ -123,7 +123,7 @@ export default function VistaCorteCaja() {
     const ventasDiaValidas = ventas.filter(v => v.fecha.slice(0, 10) === fechaFiltro && !v.cancelada);
     const total = ventasDiaValidas.reduce((acc, v) => acc + (v.total || 0), 0);
     const efectivo = ventasDiaValidas.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
-    const electronico = ventasDiaValidas.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+    const electronico = ventasDiaValidas.filter(v => ["TARJETA", "TRANSFERENCIA", "CODI", "MERCADO_PAGO"].includes(v.metodoPago)).reduce((acc, v) => acc + (v.total || 0), 0);
     const fiado = ventasDiaValidas.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
     return { total, efectivo, electronico, fiado };
   }, [ventas, fechaFiltro]);

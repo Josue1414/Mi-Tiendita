@@ -1,4 +1,3 @@
-// src/vistas/VistaFacturacion.tsx
 import { useState, useEffect } from "react";
 import { FileSpreadsheet, KeyRound, Download, AlertTriangle } from "lucide-react";
 import { useEstadoVentas } from "../estado/estadoVentas";
@@ -14,12 +13,10 @@ export default function VistaFacturacion({ integrada = false }: { integrada?: bo
   
   const [pestanaActiva, setPestanaActiva] = useState<"REPORTES" | "CONFIGURACION">("REPORTES");
   
-  // Estados para Reportes
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string; tipo: "exito" | "advertencia" | "info" } | null>(null);
 
-  // Estados para Configuración
   const [cambiosConfig, setCambiosConfig] = useState<Partial<ConfiguracionFiscal>>({});
   const formConfig: ConfiguracionFiscal = {
     proveedor: cambiosConfig.proveedor ?? configuracion?.proveedor ?? "facturapi",
@@ -48,14 +45,12 @@ export default function VistaFacturacion({ integrada = false }: { integrada?: bo
       return;
     }
 
-    // Preparar datos desglosados para el contador
     const datos = ventasPeriodo.map(v => {
-      // Suponiendo un IVA del 16% incluido (puedes ajustar esta fórmula según tu lógica de impuestos)
       const subtotalSinIva = v.total / 1.16;
       const iva = v.total - subtotalSinIva;
 
       return {
-        "Fecha": new Date(v.fecha).toLocaleDateString('es-MX'),
+        "Fecha y Hora": new Date(v.fecha).toLocaleString('es-MX', { hour12: true }),
         "Folio Ticket": v.id.slice(0, 8).toUpperCase(),
         "Método de Pago": v.metodoPago || "EFECTIVO",
         "Subtotal": Number(subtotalSinIva.toFixed(2)),
@@ -66,11 +61,41 @@ export default function VistaFacturacion({ integrada = false }: { integrada?: bo
     });
 
     const ws = XLSX.utils.json_to_sheet(datos);
+
+    ws['!cols'] = [
+      { wch: 22 }, 
+      { wch: 15 }, 
+      { wch: 18 }, 
+      { wch: 12 }, 
+      { wch: 12 }, 
+      { wch: 12 }, 
+      { wch: 12 }, 
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reporte Contable");
+
+    const resumenMetodos = ventasPeriodo.reduce((acc, v) => {
+      const metodo = v.metodoPago || "EFECTIVO";
+      acc[metodo] = (acc[metodo] || 0) + v.total;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const datosResumen = Object.entries(resumenMetodos).map(([metodo, total]) => ({
+      "Método de Pago": metodo,
+      "Total Ingresado": Number(total.toFixed(2))
+    }));
+
+    const granTotal = Object.values(resumenMetodos).reduce((a, b) => a + b, 0);
+    datosResumen.push({ "Método de Pago": "GRAN TOTAL", "Total Ingresado": Number(granTotal.toFixed(2)) });
+
+    const wsResumen = XLSX.utils.json_to_sheet(datosResumen);
+    wsResumen['!cols'] = [{ wch: 20 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen por Pago");
+
     XLSX.writeFile(wb, `Reporte_Ingresos_${fechaInicio}_al_${fechaFin}.xlsx`);
     
-    setAviso({ titulo: "Reporte Exportado", mensaje: `Se descargó el Excel con ${ventasPeriodo.length} tickets.`, tipo: "exito" });
+    setAviso({ titulo: "Reporte Exportado", mensaje: `Se descargó el Excel con ${ventasPeriodo.length} tickets y su resumen.`, tipo: "exito" });
   };
 
   const manejarGuardarConfiguracion = async (e: React.FormEvent) => {

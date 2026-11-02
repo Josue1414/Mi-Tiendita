@@ -38,7 +38,7 @@ const optimizarImagenLogo = async (dataUrl: string): Promise<string> => {
 export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) {
   const {
     nombreTienda, mensajeTicket, directorioImagenes, teclaCobro, direccionTienda, logoTienda,
-    teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
+    teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago,
     habilitarFiados, setHabilitarFiados, modoAccesoFiados, setModoAccesoFiados,
     actualizarDatosTienda, setDirectorioImagenes, setTeclaCobro, actualizarDatosPago
   } = useEstadoConfiguracion();
@@ -56,7 +56,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
   const [inputLogo, setInputLogo] = useState(logoTienda || "");
   const [guardadoTienda, setGuardadoTienda] = useState(false);
   const [guardandoTienda, setGuardandoTienda] = useState(false);
-  const [formPago, setFormPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
+  const [formPago, setFormPago] = useState({ teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
   const [cambiosPago, setCambiosPago] = useState(false);
   const [guardadoPago, setGuardadoPago] = useState(false);
   const [teclaTemporal, setTeclaTemporal] = useState(teclaCobro);
@@ -66,10 +66,10 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
 
   useEffect(() => {
     if (!cambiosPago) {
-      setFormPago({ teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
+      setFormPago({ teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago });
       setTeclaTemporal(teclaCobro);
     }
-  }, [teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago, cambiosPago]);
+  }, [teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, bancoTransferencia, titularTransferencia, cuentaTransferencia, mensajePago, cambiosPago]);
 
   const manejarGuardarTienda = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +116,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
     setCambiosPago(true);
   };
 
-  const capturarTeclaPago = (campo: "teclaEfectivo" | "teclaTarjeta" | "teclaTransferencia", evento: React.KeyboardEvent<HTMLInputElement>) => {
+  const capturarTeclaPago = (campo: "teclaEfectivo" | "teclaTarjeta" | "teclaTransferencia" | "teclaCodi" | "teclaMercadoPago" | "teclaFiado", evento: React.KeyboardEvent<HTMLInputElement>) => {
     if (!esDueño) return;
     evento.preventDefault();
     actualizarDatoPago(campo, evento.key.length === 1 ? evento.key.toUpperCase() : evento.key);
@@ -244,7 +244,7 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
       </div>
 
       <div className={cn("efecto-cristal p-6 rounded-2xl border flex flex-col gap-4 transition-all", !esDueño ? "opacity-75 border-slate-200 pointer-events-none" : "border-slate-200/50 dark:border-white/10")}>
-        <h2 className="text-lg font-bold border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100 flex items-center gap-1">Atajos y Métodos de pago <AyudaContextual etiqueta="Atajos y métodos de pago" texto="Configura las teclas rápidas de cobro y los datos que se muestran para pagos por transferencia. El mensaje se utiliza como confirmación después de registrar el pago. También puedes habilitar la Libreta de Fiados, guardar ventas pendientes de pago y definir quiénes pueden acceder; las cuentas fiadas se almacenan localmente en este equipo." /></h2>
+        <h2 className="text-lg font-bold border-b border-slate-200 dark:border-white/10 pb-3 text-slate-900 dark:text-slate-100 flex items-center gap-1">Atajos y Métodos de pago <AyudaContextual etiqueta="Atajos y métodos de pago" texto="Configura las teclas rápidas de cobro y de cada método de pago, así como los datos que se muestran para pagos por transferencia. El mensaje se utiliza como confirmación después de registrar el pago. También puedes habilitar la Libreta de Fiados, guardar ventas pendientes de pago y definir quiénes pueden acceder; las cuentas fiadas se almacenan localmente en este equipo." /></h2>
          <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs border border-blue-100 dark:border-blue-800/30"><Info size={18} className="shrink-0" /><p>No se recomienda usar la tecla Enter, ya que crea conflictos con el lector escáner.</p></div>
         <form onSubmit={manejarGuardarPagos} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -252,9 +252,9 @@ export default function SeccionAdministracion({ setAviso }: PropsSeccionConfig) 
               Cobro General
               <input type="text" readOnly disabled={!esDueño} value={teclaTemporal} onKeyDown={(e) => { e.preventDefault(); setTeclaTemporal(e.key.length === 1 ? e.key.toUpperCase() : e.key); setCambiosPago(true); }} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-emerald-300 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-2 text-center text-lg font-bold text-emerald-800 dark:text-emerald-300 outline-none focus:ring-2 focus:ring-emerald-500" />
             </label>
-            {(["teclaEfectivo", "teclaTarjeta", "teclaTransferencia"] as const).map((campo) => (
+            {(["teclaEfectivo", "teclaTarjeta", "teclaTransferencia", "teclaCodi", "teclaMercadoPago", "teclaFiado"] as const).map((campo) => (
               <label key={campo} className="text-xs font-medium text-slate-600 dark:text-slate-400 flex flex-col">
-                {campo === "teclaEfectivo" ? "Efectivo" : campo === "teclaTarjeta" ? "Tarjeta" : "Transferencia"}
+                {campo === "teclaEfectivo" ? "Efectivo" : campo === "teclaTarjeta" ? "Tarjeta" : campo === "teclaTransferencia" ? "Transferencia" : campo === "teclaCodi" ? "QR CoDi" : campo === "teclaMercadoPago" ? "Mercado Pago" : "Fiado"}
                 <input readOnly disabled={!esDueño} value={formPago[campo]} onKeyDown={(e) => capturarTeclaPago(campo, e)} onFocus={(e) => e.currentTarget.select()} className="mt-1 w-full rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-2 py-2 text-center text-lg font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500" />
               </label>
             ))}

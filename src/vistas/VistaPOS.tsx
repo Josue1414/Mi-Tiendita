@@ -49,6 +49,9 @@ export default function VistaPOS() {
     teclaEfectivo,
     teclaTarjeta,
     teclaTransferencia,
+    teclaCodi,
+    teclaMercadoPago,
+    teclaFiado,
     mensajePago,
     bancoTransferencia,
     titularTransferencia,
@@ -510,6 +513,9 @@ export default function VistaPOS() {
         teclaEfectivo={teclaEfectivo}
         teclaTarjeta={teclaTarjeta}
         teclaTransferencia={teclaTransferencia}
+        teclaCodi={teclaCodi}
+        teclaMercadoPago={teclaMercadoPago}
+        teclaFiado={teclaFiado}
         enviarMensaje={enviarMensaje}
         alConfirmarPin={() => {
           if (accionPendiente) accionPendiente();

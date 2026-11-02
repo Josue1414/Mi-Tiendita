@@ -27,6 +27,9 @@ interface ModalesPOSProps {
   teclaEfectivo: string;
   teclaTarjeta: string;
   teclaTransferencia: string;
+  teclaCodi: string;
+  teclaMercadoPago: string;
+  teclaFiado: string;
   enviarMensaje: EnviarMensajePantalla;
   alConfirmarPin: () => void;
   alCerrarPin: () => void;
@@ -58,6 +61,9 @@ export default function ModalesPOS({
   teclaEfectivo,
   teclaTarjeta,
   teclaTransferencia,
+  teclaCodi,
+  teclaMercadoPago,
+  teclaFiado,
   enviarMensaje,
   alConfirmarPin,
   alCerrarPin,
@@ -126,6 +132,9 @@ export default function ModalesPOS({
           teclaEfectivo={teclaEfectivo}
           teclaTarjeta={teclaTarjeta}
           teclaTransferencia={teclaTransferencia}
+          teclaCodi={teclaCodi}
+          teclaMercadoPago={teclaMercadoPago}
+          teclaFiado={teclaFiado}
           alCambiarMetodoPago={alCambiarMetodoPago}
         />
       )}

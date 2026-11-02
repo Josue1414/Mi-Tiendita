@@ -23,6 +23,9 @@ export interface Configuracion {
   teclaEfectivo: string;
   teclaTarjeta: string;
   teclaTransferencia: string;
+  teclaCodi: string;
+  teclaMercadoPago: string;
+  teclaFiado: string;
   bancoTransferencia: string;
   titularTransferencia: string;
   cuentaTransferencia: string;
@@ -127,6 +130,9 @@ const CONFIG_INICIAL: Configuracion = {
   teclaEfectivo: "F3",
   teclaTarjeta: "F4",
   teclaTransferencia: "F5",
+  teclaCodi: "F6",
+  teclaMercadoPago: "F7",
+  teclaFiado: "F8",
   bancoTransferencia: "",
   titularTransferencia: "",
   cuentaTransferencia: "",
@@ -248,6 +254,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
             teclaEfectivo: tiendaNube.tecla_efectivo ?? CONFIG_INICIAL.teclaEfectivo,
             teclaTarjeta: tiendaNube.tecla_tarjeta ?? CONFIG_INICIAL.teclaTarjeta,
             teclaTransferencia: tiendaNube.tecla_transferencia ?? CONFIG_INICIAL.teclaTransferencia,
+            teclaCodi: tiendaNube.tecla_codi ?? CONFIG_INICIAL.teclaCodi,
+            teclaMercadoPago: tiendaNube.tecla_mercado_pago ?? CONFIG_INICIAL.teclaMercadoPago,
+            teclaFiado: tiendaNube.tecla_fiado ?? CONFIG_INICIAL.teclaFiado,
             mensajePago: tiendaNube.mensaje_pago || CONFIG_INICIAL.mensajePago,
             bancoTransferencia: tiendaNube.banco_transferencia || "",
             titularTransferencia: tiendaNube.titular_transferencia || "",
@@ -463,6 +472,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         teclaEfectivo: nuevaConfig.teclaEfectivo,
         teclaTarjeta: nuevaConfig.teclaTarjeta,
         teclaTransferencia: nuevaConfig.teclaTransferencia,
+        teclaCodi: nuevaConfig.teclaCodi,
+        teclaMercadoPago: nuevaConfig.teclaMercadoPago,
+        teclaFiado: nuevaConfig.teclaFiado,
         codi_imagen: nuevaConfig.codi_imagen,
         codi_clabe: nuevaConfig.codi_clabe
       };
@@ -473,7 +485,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         cuenta_transferencia: payloadLAN.cuentaTransferencia,
         tecla_efectivo: payloadLAN.teclaEfectivo,
         tecla_tarjeta: payloadLAN.teclaTarjeta,
-        tecla_transferencia: payloadLAN.teclaTransferencia
+        tecla_transferencia: payloadLAN.teclaTransferencia,
+        tecla_codi: payloadLAN.teclaCodi,
+        tecla_mercado_pago: payloadLAN.teclaMercadoPago,
+        tecla_fiado: payloadLAN.teclaFiado
       };
 
       if (enviarAccionLAN({ tipo: "LAN_CONFIG_PAGO", payload: payloadLAN })) return;
@@ -658,6 +673,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         teclaEfectivo: configuracionLAN.teclaEfectivo,
         teclaTarjeta: configuracionLAN.teclaTarjeta,
         teclaTransferencia: configuracionLAN.teclaTransferencia,
+        teclaCodi: configuracionLAN.teclaCodi,
+        teclaMercadoPago: configuracionLAN.teclaMercadoPago,
+        teclaFiado: configuracionLAN.teclaFiado,
         codi_imagen: configuracionLAN.codi_imagen,
         codi_clabe: configuracionLAN.codi_clabe
       };
@@ -668,7 +686,10 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         cuenta_transferencia: actualizacion.cuentaTransferencia,
         tecla_efectivo: actualizacion.teclaEfectivo,
         tecla_tarjeta: actualizacion.teclaTarjeta,
-        tecla_transferencia: actualizacion.teclaTransferencia
+        tecla_transferencia: actualizacion.teclaTransferencia,
+        tecla_codi: actualizacion.teclaCodi,
+        tecla_mercado_pago: actualizacion.teclaMercadoPago,
+        tecla_fiado: actualizacion.teclaFiado
       };
     } else if (tipo === "LAN_CONFIG_TECLA") {
       actualizacion = { teclaCobro: configuracionLAN.teclaCobro };
@@ -712,6 +733,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       "teclaEfectivo",
       "teclaTarjeta",
       "teclaTransferencia",
+      "teclaCodi",
+      "teclaMercadoPago",
+      "teclaFiado",
       "bancoTransferencia",
       "titularTransferencia",
       "cuentaTransferencia",
@@ -742,6 +766,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         teclaEfectivo: nuevo.tecla_efectivo || get().teclaEfectivo,
         teclaTarjeta: nuevo.tecla_tarjeta || get().teclaTarjeta,
         teclaTransferencia: nuevo.tecla_transferencia || get().teclaTransferencia,
+        teclaCodi: nuevo.tecla_codi || get().teclaCodi,
+        teclaMercadoPago: nuevo.tecla_mercado_pago || get().teclaMercadoPago,
+        teclaFiado: nuevo.tecla_fiado || get().teclaFiado,
         mensajePago: nuevo.mensaje_pago,
         bancoTransferencia: nuevo.banco_transferencia || "",
         titularTransferencia: nuevo.titular_transferencia || "",
@@ -794,6 +821,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           teclaEfectivo: actualizacion.teclaEfectivo,
           teclaTarjeta: actualizacion.teclaTarjeta,
           teclaTransferencia: actualizacion.teclaTransferencia,
+          teclaCodi: actualizacion.teclaCodi,
+          teclaMercadoPago: actualizacion.teclaMercadoPago,
+          teclaFiado: actualizacion.teclaFiado,
           codi_imagen: get().codi_imagen,
           codi_clabe: get().codi_clabe
         }

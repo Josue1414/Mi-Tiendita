@@ -42,7 +42,10 @@ export const crearSnapshotLAN = () => {
       cuentaTransferencia: configuracion.cuentaTransferencia,
       teclaEfectivo: configuracion.teclaEfectivo,
       teclaTarjeta: configuracion.teclaTarjeta,
-      teclaTransferencia: configuracion.teclaTransferencia
+      teclaTransferencia: configuracion.teclaTransferencia,
+      teclaCodi: configuracion.teclaCodi,
+      teclaMercadoPago: configuracion.teclaMercadoPago,
+      teclaFiado: configuracion.teclaFiado
     }
   };
 };

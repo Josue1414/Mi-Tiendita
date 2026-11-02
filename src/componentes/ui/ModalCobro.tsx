@@ -17,12 +17,15 @@ interface PropsModalCobro {
   teclaEfectivo: string;
   teclaTarjeta: string;
   teclaTransferencia: string;
+  teclaCodi: string;
+  teclaMercadoPago: string;
+  teclaFiado: string;
   alCambiarMetodoPago: (metodoPago: MetodoPago) => void;
 }
 
 export type MetodoPago = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO" | "CODI" | "MERCADO_PAGO";
 
-export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, alCambiarMetodoPago }: PropsModalCobro) {
+export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento, total, cantidadArticulos, fiadosPermitidos, alConfirmarVenta, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, alCambiarMetodoPago }: PropsModalCobro) {
   const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   const [metodoPago, setMetodoPago] = useState<MetodoPago>("EFECTIVO");
   const [cantidadRecibida, setCantidadRecibida] = useState(() => total.toFixed(2));
@@ -91,12 +94,27 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
         seleccionarMetodo("TRANSFERENCIA");
         return;
       }
+      if (tecla === teclaCodi.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("CODI");
+        return;
+      }
+      if (tecla === teclaMercadoPago.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("MERCADO_PAGO");
+        return;
+      }
+      if (fiadosPermitidos && tecla === teclaFiado.toLowerCase()) {
+        evento.preventDefault();
+        seleccionarMetodo("FIADO");
+        return;
+      }
       if (objetivo?.tagName === "INPUT" || objetivo?.tagName === "TEXTAREA") return;
     };
     
     window.addEventListener("keydown", manejarTecla);
     return () => window.removeEventListener("keydown", manejarTecla);
-  }, [estaAbierto, procesando, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, metodoPago, esValido, seleccionarMetodo]);
+  }, [estaAbierto, procesando, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, fiadosPermitidos, metodoPago, esValido, seleccionarMetodo]);
 
   if (!estaAbierto) return null;
 
@@ -160,28 +178,28 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
             <div className="grid grid-cols-3 gap-2">
               <button disabled={procesando} onClick={() => seleccionarMetodo("EFECTIVO")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "EFECTIVO" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                 <Banknote size={20} />
-                <span className="text-[11px] font-semibold">Efectivo</span>
+                <span className="text-[11px] font-semibold">Efectivo <span className="text-[9px] opacity-70">({teclaEfectivo})</span></span>
               </button>
               <button disabled={procesando} onClick={() => seleccionarMetodo("TARJETA")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "TARJETA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                 <CreditCard size={20} />
-                <span className="text-[11px] font-semibold">Tarjeta</span>
+                <span className="text-[11px] font-semibold">Tarjeta <span className="text-[9px] opacity-70">({teclaTarjeta})</span></span>
               </button>
               <button disabled={procesando} onClick={() => seleccionarMetodo("TRANSFERENCIA")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "TRANSFERENCIA" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                 <ArrowRightLeft size={20} />
-                <span className="text-[11px] font-semibold">Transf.</span>
+                <span className="text-[11px] font-semibold">Transf. <span className="text-[9px] opacity-70">({teclaTransferencia})</span></span>
               </button>
               <button disabled={procesando} onClick={() => seleccionarMetodo("CODI")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "CODI" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                 <QrCode size={20} />
-                <span className="text-[11px] font-semibold">QR CoDi</span>
+                <span className="text-[11px] font-semibold">QR CoDi <span className="text-[9px] opacity-70">({teclaCodi})</span></span>
               </button>
               <button disabled={procesando} onClick={() => seleccionarMetodo("MERCADO_PAGO")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "MERCADO_PAGO" ? "bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-700 dark:text-blue-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                 <Smartphone size={20} />
-                <span className="text-[11px] font-semibold">Mercado Pago</span>
+                <span className="text-[11px] font-semibold">Mercado Pago <span className="text-[9px] opacity-70">({teclaMercadoPago})</span></span>
               </button>
               {fiadosPermitidos && (
                 <button disabled={procesando} onClick={() => seleccionarMetodo("FIADO")} className={cn("flex flex-col items-center gap-1 p-2.5 rounded-xl border transition-all disabled:opacity-50", metodoPago === "FIADO" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-500 text-amber-700 dark:text-amber-400" : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900 text-slate-500")}>
                   <BookUser size={20} />
-                  <span className="text-[11px] font-semibold">Fiado</span>
+                  <span className="text-[11px] font-semibold">Fiado <span className="text-[9px] opacity-70">({teclaFiado})</span></span>
                 </button>
               )}
             </div>
@@ -195,7 +213,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
-                    <input type="number" step="0.01" min="0" ref={entradaRecibidaRef} disabled={procesando} value={cantidadRecibida} onChange={(e) => setCantidadRecibida(e.target.value)} className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" />
+                    <input type="number" inputMode={esAndroid ? "none" : "decimal"} step="0.01" min="0" ref={entradaRecibidaRef} disabled={procesando} value={cantidadRecibida} onChange={(e) => setCantidadRecibida(e.target.value)} className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" />
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 mt-2">

@@ -60,7 +60,7 @@ export default function VistaPanel({
   
   const totalIngresosHoy = ventasHoy.reduce((acc, v) => acc + (v.total || 0), 0);
   const totalEfectivoHoy = ventasHoy.filter(v => v.metodoPago === "EFECTIVO").reduce((acc, v) => acc + (v.total || 0), 0);
-  const totalElectronicoHoy = ventasHoy.filter(v => v.metodoPago === "TARJETA" || v.metodoPago === "TRANSFERENCIA").reduce((acc, v) => acc + (v.total || 0), 0);
+  const totalElectronicoHoy = ventasHoy.filter(v => ["TARJETA", "TRANSFERENCIA", "CODI", "MERCADO_PAGO"].includes(v.metodoPago)).reduce((acc, v) => acc + (v.total || 0), 0);
   const totalFiadoHoy = ventasHoy.filter(v => v.metodoPago === "FIADO").reduce((acc, v) => acc + (v.total || 0), 0);
 
   let costoTotalHoy = 0;
