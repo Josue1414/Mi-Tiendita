@@ -12,6 +12,16 @@ export interface AccionLAN {
 
 export const enviarAccionLAN = (accion: AccionLAN): boolean => {
   const { esMaestro, conectadoLAN } = useEstadoRed.getState();
+  
+  // Evitar rebote de ventas que llegaron por sincronización masiva de esclavos
+  if (accion.tipo === "LAN_VENTA_AGREGAR") {
+    const payload = accion.payload as any;
+    if (payload && payload._origenSyncEsclavo) {
+      delete payload._origenSyncEsclavo; // Limpiar bandera temporal
+      return false; // No propagarlo por LAN, solo subir a Supabase
+    }
+  }
+
   if (esMaestro) {
     const apiLocal = window.apiLocal;
     if (apiLocal) {

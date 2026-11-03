@@ -1,5 +1,5 @@
 // src/vistas/VistaPerfil.tsx
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoVentas } from "../estado/estadoVentas";
@@ -12,8 +12,7 @@ export default function VistaPerfil() {
   const { asistencias } = useEstadoAsistencias();
   const { ventas } = useEstadoVentas();
   
-  const { esMaestro, conectadoLAN, ipMaestro, setIpMaestro } = useEstadoRed();
-  const [inputIpConexion, setInputIpConexion] = useState(ipMaestro || "");
+  const { esMaestro, conectadoLAN, ipMaestro, reiniciarDescubrimientoCerebro } = useEstadoRed();
 
   if (!trabajadorActivo) return null;
 
@@ -237,13 +236,14 @@ export default function VistaPerfil() {
                   <div className="flex min-w-0 flex-wrap gap-2">
                     <input
                       type="text"
-                      value={inputIpConexion}
-                      onChange={(e) => setInputIpConexion(e.target.value)}
-                      placeholder="IP (ej. 192.168.1.75)"
-                      className="w-full min-w-0 flex-1 sm:w-auto bg-white dark:bg-slate-950 font-mono border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                      value={ipMaestro}
+                      readOnly
+                      placeholder="Buscando Cerebro..."
+                      aria-label="Dirección IP detectada del Cerebro"
+                      className="w-full min-w-0 flex-1 sm:w-auto bg-white dark:bg-slate-950 font-mono border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none text-slate-900 dark:text-slate-100"
                     />
                     <button
-                      onClick={() => { setIpMaestro(inputIpConexion); window.location.reload(); }}
+                      onClick={reiniciarDescubrimientoCerebro}
                       className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"
                     >
                       Conectar

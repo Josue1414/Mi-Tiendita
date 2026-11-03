@@ -69,6 +69,17 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
       const objetivo = evento.target as HTMLElement | null;
       const tecla = evento.key.toLowerCase();
 
+      // Permitir la escritura desde un teclado físico externo aunque el campo sea readOnly en Android
+      if (metodoPago === "EFECTIVO" && esAndroid) {
+        if (/^[0-9.]$/.test(evento.key)) {
+          evento.preventDefault();
+          agregarDigito(evento.key);
+        } else if (evento.key === "Backspace") {
+          evento.preventDefault();
+          setCantidadRecibida(prev => prev.slice(0, -1) || "0");
+        }
+      }
+
       if (tecla === "delete") {
         evento.preventDefault();
         setCantidadRecibida("");
@@ -114,7 +125,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
     
     window.addEventListener("keydown", manejarTecla);
     return () => window.removeEventListener("keydown", manejarTecla);
-  }, [estaAbierto, procesando, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, fiadosPermitidos, metodoPago, esValido, seleccionarMetodo]);
+  }, [estaAbierto, procesando, teclaCobro, teclaEfectivo, teclaTarjeta, teclaTransferencia, teclaCodi, teclaMercadoPago, teclaFiado, fiadosPermitidos, metodoPago, esValido, seleccionarMetodo, esAndroid]);
 
   if (!estaAbierto) return null;
 
@@ -140,7 +151,7 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
             onClick={manejarVenta}
             disabled={!esValido}
             className={cn(
-              "shrink-0 items-center justify-center gap-1 justify-self-center rounded-lg px-2 py-1.5 text-xs font-bold leading-none text-white shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50",
+              "shrink-0 min-w-[100px] items-center justify-center gap-2 justify-self-center rounded-lg px-4 py-2 text-sm font-bold leading-none text-white shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50",
               esAndroid ? "flex" : "hidden",
               metodoPago === "FIADO" ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
             )}
@@ -213,12 +224,37 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-medium">$</span>
-                    <input type="number" inputMode={esAndroid ? "none" : "decimal"} step="0.01" min="0" ref={entradaRecibidaRef} disabled={procesando} value={cantidadRecibida} onChange={(e) => setCantidadRecibida(e.target.value)} className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" />
+                    <input 
+                      type="text" 
+                      inputMode="none"
+                      readOnly={esAndroid}
+                      ref={entradaRecibidaRef} 
+                      disabled={procesando} 
+                      value={cantidadRecibida} 
+                      onChange={(e) => setCantidadRecibida(e.target.value.replace(/[^0-9.]/g, ''))} 
+                      className="w-full text-lg font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" 
+                    />
+                  </div>
+                </div>
+                <div className="mt-1">
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Pago con</span>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mt-1">
+                    {[20, 50, 100, 200, 500, 1000].map((importe) => (
+                      <button
+                        key={importe}
+                        type="button"
+                        disabled={procesando}
+                        onClick={() => setCantidadRecibida(importe.toFixed(2))}
+                        className="rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 disabled:opacity-50"
+                      >
+                        ${importe}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 mt-2">
                   {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
-                    <button key={digito} disabled={procesando} onClick={() => agregarDigito(digito)} className="h-9 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 disabled:opacity-50">{digito === "C" ? "Borrar" : digito}</button>
+                    <button key={digito} disabled={procesando} onClick={() => agregarDigito(digito)} className="h-9 sm:h-12 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 disabled:opacity-50">{digito === "C" ? "Borrar" : digito}</button>
                   ))}
                 </div>
                 {cambio >= 0 ? (

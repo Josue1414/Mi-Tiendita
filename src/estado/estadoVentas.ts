@@ -504,9 +504,18 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     const ventasFiadasLocales = await obtenerVentasFiadasLocales();
     const idsLAN = new Set(ventasNormalesLAN.map(venta => venta.id));
 
+    // IMPORTANTE: Definir límite de tiempo (ej. ventas de los últimos 3 días se protegen)
+    const limiteSeguridad = Date.now() - (3 * 24 * 60 * 60 * 1000);
+
+    // No borramos las ventas locales recientes (protección de race condition)
     for (const local of locales.filter(venta => venta.metodoPago !== "FIADO" && !idsLAN.has(venta.id))) {
-      await eliminarRegistro("ventas", local.id);
+      const fechaLocal = new Date(local.fecha).getTime();
+      if (fechaLocal < limiteSeguridad) {
+        await eliminarRegistro("ventas", local.id);
+      }
     }
+    
+    // Guardar las ventas nuevas que vienen del Cerebro
     for (const venta of ventasNormalesLAN) {
       await guardarRegistro("ventas", venta);
     }
@@ -519,9 +528,15 @@ export const useEstadoVentas = create<EstadoVentas>((set, get) => ({
     }
     for (const venta of ventasFiadasLAN) await guardarVentaFiadoLocal(venta);
     
-    const ventasCombinadas = new Map(ventasNormalesLAN.map(venta => [venta.id, venta]));
-    ventasFiadasLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
+    // Fusionar (Merge) para el estado en memoria usando un Map (Sobrescribe con lo más reciente si hay choque)
+    const ventasCombinadas = new Map();
+    // 1. Cargar las locales primero
+    locales.forEach(venta => ventasCombinadas.set(venta.id, venta));
     ventasFiadasLocales.forEach(venta => ventasCombinadas.set(venta.id, venta));
+    // 2. Sobrescribir/Agregar las del LAN (Cerebro)
+    ventasNormalesLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
+    ventasFiadasLAN.forEach(venta => ventasCombinadas.set(venta.id, venta));
+
     set({
       ventas: [...ventasCombinadas.values()].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
       cargando: false

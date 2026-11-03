@@ -25,6 +25,8 @@ export default function useServidorLAN({
   setIpMaestro,
   setEstadoLAN,
 }: PropsServidorLAN) {
+  const reinicioDescubrimiento = useEstadoRed((estado) => estado.reinicioDescubrimiento);
+
   useEffect(() => {
     if (esVistaCliente || !esMaestro || !datosInicialesCargados || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
 
@@ -118,7 +120,7 @@ export default function useServidorLAN({
           console.error("No se pudo cargar el estado local del Cerebro desde el QR:", error);
         });
       });
-    } else if (window.location.protocol === "http:" && window.location.port === "4000") {
+    } else if (reinicioDescubrimiento === 0 && window.location.protocol === "http:" && window.location.port === "4000") {
       const ipServidorLocal = window.location.hostname;
       if (ipMaestro !== ipServidorLocal) setIpMaestro(ipServidorLocal);
       conectarLAN(ipServidorLocal, aplicarAccionLANRecibida, (snapshot) => {
@@ -126,7 +128,7 @@ export default function useServidorLAN({
           console.error("No se pudo cargar el estado local del Cerebro:", error);
         });
       });
-    } else if (window.location.protocol === "http:" && window.location.port === "4001") {
+    } else if (reinicioDescubrimiento === 0 && window.location.protocol === "http:" && window.location.port === "4001") {
       const ipServidorLocal = window.location.hostname;
       if (ipMaestro !== ipServidorLocal) setIpMaestro(ipServidorLocal);
       conectarLAN(ipServidorLocal, aplicarAccionLANRecibida, (snapshot) => {
@@ -141,5 +143,5 @@ export default function useServidorLAN({
         });
       });
     }
-  }, [esMaestro, esVistaCliente, datosInicialesCargados, hostLanEnlace, ipMaestro, setIpMaestro, setEstadoLAN]);
+  }, [esMaestro, esVistaCliente, datosInicialesCargados, hostLanEnlace, ipMaestro, setIpMaestro, setEstadoLAN, reinicioDescubrimiento]);
 }

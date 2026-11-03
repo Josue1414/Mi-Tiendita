@@ -34,7 +34,12 @@ export default function AppPrincipal() {
   const { trabajadorActivo, cargando: cargandoTrabajadores, cargarTrabajadores, cerrarSesion } = useEstadoTrabajadores();
   const { productos, cargarProductos, cargando: cargandoInventario } = useEstadoInventario();
   const { cargarVentas, cargando: cargandoVentas } = useEstadoVentas();
-  const { cargarConfiguracion, cargando: cargandoConfiguracion, habilitarFiados, modoAccesoFiados } = useEstadoConfiguracion();
+  
+  const cargarConfiguracion = useEstadoConfiguracion((estado) => estado.cargarConfiguracion);
+  const cargandoConfiguracion = useEstadoConfiguracion((estado) => estado.cargando);
+  const habilitarFiados = useEstadoConfiguracion((estado) => estado.habilitarFiados);
+  const modoAccesoFiados = useEstadoConfiguracion((estado) => estado.modoAccesoFiados);
+  
   const { registrarSalida, cargarAsistencias } = useEstadoAsistencias();
   const {
     esMaestro,

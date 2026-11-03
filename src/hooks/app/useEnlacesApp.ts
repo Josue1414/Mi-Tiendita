@@ -9,6 +9,7 @@ export default function useEnlacesApp() {
   const hostLanEnlace = new URLSearchParams(deepLinkSearch).get("lanHost");
   const esVistaCliente = new URLSearchParams(deepLinkSearch).has("cliente");
   const { esMaestro, ipMaestro, setIpMaestro } = useEstadoRed();
+  const reinicioDescubrimiento = useEstadoRed((estado) => estado.reinicioDescubrimiento);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
@@ -47,14 +48,18 @@ export default function useEnlacesApp() {
   }, []);
 
   useEffect(() => {
-    if (!esMaestro && hostLanEnlace && ipMaestro !== hostLanEnlace) {
+    if (reinicioDescubrimiento === 0 && !esMaestro && hostLanEnlace && ipMaestro !== hostLanEnlace) {
       setIpMaestro(hostLanEnlace);
     }
     const puertoWeb = Number(new URLSearchParams(deepLinkSearch).get("lanPort"));
     if ([4000, 4001].includes(puertoWeb)) {
       localStorage.setItem("puerto_web_maestro_lan", String(puertoWeb));
     }
-  }, [deepLinkSearch, esMaestro, hostLanEnlace, ipMaestro, setIpMaestro]);
+  }, [deepLinkSearch, esMaestro, hostLanEnlace, ipMaestro, setIpMaestro, reinicioDescubrimiento]);
 
-  return { deepLinkSearch, hostLanEnlace, esVistaCliente };
+  return {
+    deepLinkSearch,
+    hostLanEnlace: reinicioDescubrimiento === 0 ? hostLanEnlace : null,
+    esVistaCliente,
+  };
 }

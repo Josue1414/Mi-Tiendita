@@ -1,6 +1,7 @@
 // src/vistas/pos/PanelPesaje.tsx
-import { useEffect, useState, useRef, type KeyboardEvent } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Scale, Usb, Edit3, Printer, ArrowLeft } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { useBascula } from "../../hooks/useBascula";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import type { Producto } from "../../tipos/producto";
@@ -15,6 +16,7 @@ interface PanelPesajeProps {
 
 export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProps) {
   const { basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato } = useEstadoConfiguracion();
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   
   const esLiquido = producto?.unidad === "LITRO" || producto?.unidad === "MILILITRO";
   const esMasa = producto?.unidad === "KG" || producto?.unidad === "GRAMO" || producto?.unidad === "MILIGRAMO";
@@ -33,7 +35,6 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
 
   useEffect(() => {
     setDigitosManuales("");
-    // Autoenfocar el input cuando se seleccione un producto y la báscula no esté activa
     if (producto && (!basculaConectada || !permiteUsoBascula)) {
       setTimeout(() => inputManualRef.current?.focus(), 100);
     }
@@ -45,14 +46,18 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
     };
   }, [desconectarBascula]);
 
-  const parsearPesoManual = () => {
-    if (!digitosManuales) return 0;
-    return parseInt(digitosManuales, 10) / 1000;
+  const agregarDigito = (digito: string) => {
+    setDigitosManuales((actual) => {
+      if (digito === "C") return "";
+      if (digito === "." && actual.includes(".")) return actual;
+      if (actual === "" && digito === ".") return "0.";
+      return actual === "0" && digito !== "." ? digito : `${actual}${digito}`;
+    });
   };
 
-  const manejarCambioManual = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valorLimpio = e.target.value.replace(/\D/g, "");
-    setDigitosManuales(valorLimpio);
+  const parsearPesoManual = () => {
+    if (!digitosManuales || digitosManuales === ".") return 0;
+    return parseFloat(digitosManuales);
   };
 
   const obtenerCantidadConvertida = (pesoEnKg: number) => {
@@ -79,6 +84,15 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
 
   const unidadAbreviatura = abreviaturaUnidad(producto.unidad);
   const unidadDisplay = esLiquido ? "LITROS" : producto.unidad.toUpperCase();
+  const sugerenciasPeso = [0.25, 0.5, 0.8, 1].map((pesoKg) => {
+    const cantidad = obtenerCantidadConvertida(pesoKg);
+    return {
+      cantidad,
+      etiqueta: producto.unidad === "KG"
+        ? (pesoKg === 1 ? "1 Kg" : `${pesoKg.toFixed(3).slice(1)} Kg`)
+        : `${cantidad.toLocaleString("es-MX")} ${unidadAbreviatura}`,
+    };
+  });
   
   let cantidadFinal = parsearPesoManual();
   if (basculaConectada && permiteUsoBascula && pesoActual > 0) {
@@ -86,7 +100,6 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
   }
   
   const precioCalculado = cantidadFinal * producto.precio;
-  const valorInputMostrar = parsearPesoManual().toFixed(3);
 
   const imprimirYLimpiar = () => {
     if (cantidadFinal <= 0) return;
@@ -101,21 +114,43 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
     });
 
     setDigitosManuales("");
-    alCerrarPanel(); // Cierra el producto para evitar errores humanos en el siguiente pesaje
+    alCerrarPanel();
   };
 
-  const manejarTeclaAbajo = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      imprimirYLimpiar();
-    }
-  };
+  // Escuchar teclado físico para ingreso manual cuando la báscula no está en uso
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!producto || (basculaConectada && permiteUsoBascula)) return;
+    
+    const manejarTecla = (evento: KeyboardEvent) => {
+      const objetivo = evento.target as HTMLElement | null;
+      const esCampoActivo = objetivo?.tagName === "INPUT" && objetivo.id !== "input-pesaje-manual";
+      if (esCampoActivo || objetivo?.tagName === "TEXTAREA") return;
+
+      if (evento.key === "Enter") {
+        evento.preventDefault();
+        imprimirYLimpiar();
+      } else if (evento.key === "Backspace") {
+        evento.preventDefault();
+        setDigitosManuales(prev => prev.slice(0, -1));
+      } else if (evento.key === "Delete" || evento.key.toLowerCase() === "c") {
+        evento.preventDefault();
+        setDigitosManuales("");
+      } else if (/^[0-9.]$/.test(evento.key)) {
+        evento.preventDefault();
+        agregarDigito(evento.key);
+      }
+    };
+
+    window.addEventListener("keydown", manejarTecla);
+    return () => window.removeEventListener("keydown", manejarTecla);
+  }, [producto, basculaConectada, permiteUsoBascula, digitosManuales, cantidadFinal]);
 
   return (
     <div className="w-full md:w-[min(35%,380px)] flex flex-col gap-3 shrink-0 h-full animate-in slide-in-from-right-4">
       <div className="efecto-cristal rounded-2xl p-5 flex flex-col min-h-[360px] h-full border border-emerald-200/60 dark:border-emerald-900/30 shadow-md">
         
-        <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-slate-200/50 dark:border-white/10">
+        <div className="flex items-start justify-between gap-3 mb-4 pb-4 border-b border-slate-200/50 dark:border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <ImagenLocal nombreArchivo={producto.imagen_url || producto.imagen_archivo} nombreProducto={producto.nombre} className="w-10 h-10 rounded-lg object-cover bg-white shrink-0" />
             <div className="flex flex-col min-w-0">
@@ -129,7 +164,7 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
         </div>
 
         {permiteUsoBascula && (
-          <div className="mb-4 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-white/10 p-5">
+          <div className="mb-4 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-white/10 p-5 shrink-0">
             {basculaConectada ? (
               <div className="flex flex-col items-center animate-in zoom-in duration-300">
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1.5 uppercase tracking-wider">
@@ -153,21 +188,51 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
         )}
 
         {(!basculaConectada || !permiteUsoBascula) && (
-          <div className="mb-4 flex-1">
+          <div className="mb-4 flex flex-col flex-1 shrink-0 animate-in fade-in">
             <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
-              <Edit3 size={12} /> {permiteUsoBascula ? "O Ingreso Manual" : "Ingreso Manual"}
+              <Edit3 size={12} /> {permiteUsoBascula ? `O Ingreso Manual (${unidadAbreviatura})` : `Ingreso Manual (${unidadAbreviatura})`}
             </label>
             <input 
+              id="input-pesaje-manual"
               ref={inputManualRef}
               type="text" 
-              inputMode="numeric"
+              inputMode="none"
+              readOnly={esAndroid}
               autoFocus
-              value={valorInputMostrar} 
-              onChange={manejarCambioManual} 
-              onKeyDown={manejarTeclaAbajo}
+              value={digitosManuales || "0"} 
+              onChange={() => {}} // Manejado por eventos del teclado / botones
               className="w-full text-center text-xl font-bold bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-white/10 rounded-xl py-2 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 text-slate-900 dark:text-slate-100 transition-all" 
               placeholder="0.000" 
             />
+
+            <div className="mt-2">
+              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Peso sugerido</span>
+              <div className="grid grid-cols-4 gap-1.5 mt-1">
+                {sugerenciasPeso.map(({ cantidad, etiqueta }) => (
+                  <button
+                    key={etiqueta}
+                    type="button"
+                    onClick={() => setDigitosManuales(String(cantidad))}
+                    className="rounded-lg border border-slate-200 bg-white py-1.5 text-[10px] sm:text-xs font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-1.5 mt-3">
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C"].map((digito) => (
+                <button 
+                  key={digito} 
+                  type="button"
+                  onClick={() => agregarDigito(digito)} 
+                  className="h-10 sm:h-12 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 active:scale-95 transition-transform"
+                >
+                  {digito === "C" ? "Borrar" : digito}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -187,7 +252,7 @@ export default function PanelPesaje({ producto, alCerrarPanel }: PanelPesajeProp
               }}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
             >
-              Limpiar
+              Cancelar
             </button>
             <button 
               onClick={imprimirYLimpiar} 

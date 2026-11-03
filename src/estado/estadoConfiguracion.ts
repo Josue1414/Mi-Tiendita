@@ -584,10 +584,23 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const nuevaConfig = { ...configBase, habilitarFiados: activo };
       guardarPreferenciasFiados({ habilitarFiados: activo, modoAccesoFiados: configBase.modoAccesoFiados });
       set({ habilitarFiados: activo });
+      
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
       } else {
          await guardarConfiguracionLocal(nuevaConfig);
+      }
+
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_FIADOS",
+        payload: { habilitarFiados: activo, modoAccesoFiados: configBase.modoAccesoFiados }
+      });
+
+      if (debeSincronizarConNube() && navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) await supabase.from('tiendas').update({ habilitar_fiados: activo }).eq('id', tiendaId);
+      } else if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { habilitar_fiados: activo } });
       }
     } catch (error) {
       console.error("Error al guardar configuración de fiados:", error);
@@ -600,10 +613,23 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       const nuevaConfig = { ...configBase, modoAccesoFiados: modo };
       guardarPreferenciasFiados({ habilitarFiados: configBase.habilitarFiados, modoAccesoFiados: modo });
       set({ modoAccesoFiados: modo });
+      
       if (esEscritorio) {
         await guardarRegistro("configuracion", { ...nuevaConfig, directorioHandle: configBase.directorioHandle });
       } else {
          await guardarConfiguracionLocal(nuevaConfig);
+      }
+
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_FIADOS",
+        payload: { habilitarFiados: configBase.habilitarFiados, modoAccesoFiados: modo }
+      });
+
+      if (debeSincronizarConNube() && navigator.onLine) {
+        const tiendaId = await obtenerTiendaIdActual();
+        if (tiendaId) await supabase.from('tiendas').update({ modo_acceso_fiados: modo }).eq('id', tiendaId);
+      } else if (debeSincronizarConNube()) {
+        await registrarPendienteSync({ tabla: 'tiendas', operacion: 'ACTUALIZAR', payload: { modo_acceso_fiados: modo } });
       }
     } catch (error) {
       console.error("Error al guardar el modo de acceso a fiados:", error);
@@ -694,6 +720,27 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     } else if (tipo === "LAN_CONFIG_TECLA") {
       actualizacion = { teclaCobro: configuracionLAN.teclaCobro };
       payloadNube = { tecla_cobro: actualizacion.teclaCobro };
+
+    } else if (tipo === "LAN_CONFIG_FIADOS") {
+      const activo = configuracionLAN.habilitarFiados ?? false;
+      const modo = configuracionLAN.modoAccesoFiados ?? "TODOS";
+      
+      guardarPreferenciasFiados({
+        habilitarFiados: activo,
+        modoAccesoFiados: modo
+      });
+      
+      set({ habilitarFiados: activo, modoAccesoFiados: modo });
+      
+      actualizacion = {
+        habilitarFiados: activo,
+        modoAccesoFiados: modo
+      };
+      payloadNube = {
+        habilitar_fiados: activo,
+        modo_acceso_fiados: modo
+      };
+      
     } else if (tipo === "LAN_CONFIG_CADUCIDAD") {
       const dias = configuracionLAN.diasAlertaCaducidad;
       if (typeof dias !== "number" || !Number.isInteger(dias) || dias < 1 || dias > 365) return;
@@ -742,7 +789,9 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
       "mensajePago",
       "diasAlertaCaducidad",
       "codi_imagen", 
-      "codi_clabe"   
+      "codi_clabe",
+      "habilitarFiados",
+      "modoAccesoFiados"
     ];
     const actualizacion: Partial<Configuracion> = {};
     for (const clave of clavesCompartidas) {
@@ -752,7 +801,15 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
 
     const configuracionActualizada = { ...get(), ...actualizacion };
     await guardarConfiguracionLocal(configuracionActualizada);
-    set({ ...actualizacion, cargando: false });
+    
+    if (actualizacion.habilitarFiados !== undefined || actualizacion.modoAccesoFiados !== undefined) {
+      guardarPreferenciasFiados({
+        habilitarFiados: actualizacion.habilitarFiados ?? get().habilitarFiados,
+        modoAccesoFiados: actualizacion.modoAccesoFiados ?? get().modoAccesoFiados
+      });
+    }
+    
+    set((estado) => ({ ...estado, ...actualizacion, cargando: false }));
   },
 
   sincronizarConfiguracion: async (payload: any) => {
@@ -772,11 +829,19 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
         mensajePago: nuevo.mensaje_pago,
         bancoTransferencia: nuevo.banco_transferencia || "",
         titularTransferencia: nuevo.titular_transferencia || "",
-        cuentaTransferencia: nuevo.cuenta_transferencia || ""
+        cuentaTransferencia: nuevo.cuenta_transferencia || "",
+        habilitarFiados: nuevo.habilitar_fiados ?? get().habilitarFiados,
+        modoAccesoFiados: nuevo.modo_acceso_fiados ?? get().modoAccesoFiados
       };
+      
       if (Number.isInteger(nuevo.dias_alerta_caducidad) && nuevo.dias_alerta_caducidad >= 1 && nuevo.dias_alerta_caducidad <= 365) {
         actualizacion.diasAlertaCaducidad = nuevo.dias_alerta_caducidad;
       }
+      
+      guardarPreferenciasFiados({
+        habilitarFiados: actualizacion.habilitarFiados!,
+        modoAccesoFiados: actualizacion.modoAccesoFiados!
+      });
       
       set((state) => ({ ...state, ...actualizacion }));
       
@@ -826,6 +891,14 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
           teclaFiado: actualizacion.teclaFiado,
           codi_imagen: get().codi_imagen,
           codi_clabe: get().codi_clabe
+        }
+      });
+      
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_FIADOS",
+        payload: {
+          habilitarFiados: actualizacion.habilitarFiados,
+          modoAccesoFiados: actualizacion.modoAccesoFiados
         }
       });
     }

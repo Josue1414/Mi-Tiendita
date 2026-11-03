@@ -12,9 +12,90 @@ import ModalConfirmacionPin from "../componentes/ui/ModalConfirmacionPin";
 import ModalGestionHistorial from "../componentes/ui/ModalGestionHistorial";
 import { cn } from "../utilidades/utils";
 import CampoFecha from "../componentes/ui/CampoFecha";
+import { abreviaturaUnidad } from "../tipos/producto";
+import type { Venta } from "../estado/estadoVentas";
 
 const obtenerFechaLocal = (fecha: Date) =>
   `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+
+function TicketVentaExpandido({
+  venta,
+  nombreTienda,
+  mensajeTicket,
+  direccionTienda,
+  logoTienda,
+}: {
+  venta: Venta;
+  nombreTienda: string;
+  mensajeTicket: string;
+  direccionTienda: string;
+  logoTienda: string;
+}) {
+  const trabajador = (venta.trabajador || "Cajero")
+    .replace(/-/g, "")
+    .replace(/(Dueño|Dueña|Trabajador|Trabajadora)/gi, "")
+    .trim() || "Cajero";
+
+  return (
+    <div className="mx-auto w-full max-w-xl whitespace-normal rounded-lg border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-slate-950 dark:text-slate-100">
+      {logoTienda && (
+        <img src={logoTienda} alt={`Logo de ${nombreTienda}`} className="mx-auto mb-3 max-h-16 max-w-36 object-contain" />
+      )}
+      <header className="text-center">
+        <h3 className="text-base font-black uppercase">{nombreTienda || "Mi Tienda"}</h3>
+        {direccionTienda && <p className="mt-1 whitespace-pre-wrap text-xs text-slate-500 dark:text-slate-400">{direccionTienda}</p>}
+        <p className="mt-2 text-xs font-semibold">Comprobante de Venta</p>
+      </header>
+
+      <div className="mt-3 space-y-1 border-y border-dashed border-slate-300 py-3 text-xs dark:border-slate-700">
+        <p><strong>Ticket:</strong> {venta.id}</p>
+        <p><strong>Fecha:</strong> {new Date(venta.fecha).toLocaleString("es-MX")}</p>
+        <p><strong>Cajero:</strong> {trabajador}</p>
+        {venta.cancelada && <p className="font-bold uppercase text-red-600">Venta cancelada</p>}
+      </div>
+
+      <div className="mt-3">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-b border-slate-200 pb-2 text-[10px] font-bold uppercase dark:border-slate-700">
+          <span>Cant.</span><span>Descripción</span><span className="text-right">Total</span>
+        </div>
+        {(venta.articulos || []).length === 0 ? (
+          <p className="py-3 text-center text-xs text-slate-500">Esta venta no tiene artículos registrados.</p>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {venta.articulos.map((articulo, index) => {
+              const esFraccion = ["KG", "LITRO", "GRAMO", "MILILITRO", "MILIGRAMO"].includes(articulo.unidad);
+              const cantidad = esFraccion ? articulo.cantidad.toFixed(3) : articulo.cantidad.toString();
+              const unidad = abreviaturaUnidad(articulo.unidad || "PIEZA");
+              return (
+                <div key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 py-2 text-xs">
+                  <span>{cantidad} {unidad}</span>
+                  <span className="min-w-0 break-words">
+                    {articulo.nombre}
+                    <span className="block text-[10px] text-slate-500 dark:text-slate-400">${(articulo.precio || 0).toFixed(2)} x {unidad}</span>
+                    {articulo.autorizacion_confirmada && <span className="block text-[10px] font-semibold text-amber-600">Autorizado</span>}
+                  </span>
+                  <span className="text-right">${(articulo.subtotal || 0).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 space-y-1 border-t border-dashed border-slate-300 pt-3 text-xs dark:border-slate-700">
+        <div className="flex justify-between"><span>Subtotal:</span><span>${(venta.subtotal || 0).toFixed(2)}</span></div>
+        {(venta.descuento || 0) > 0 && (
+          <div className="flex justify-between"><span>Descuento:</span><span>-${venta.descuento.toFixed(2)}</span></div>
+        )}
+        <div className="flex justify-between pt-1 text-base font-black"><span>TOTAL:</span><span>${(venta.total || 0).toFixed(2)}</span></div>
+        <p className="pt-1">Pago: {venta.metodoPago || "EFECTIVO"}</p>
+      </div>
+      <footer className="mt-3 border-t border-dashed border-slate-300 pt-3 text-center text-xs font-semibold dark:border-slate-700">
+        {mensajeTicket || "¡Gracias por su preferencia!"}
+      </footer>
+    </div>
+  );
+}
 
 export default function VistaHistorialVentas() {
   const { ventas, cancelarVenta } = useEstadoVentas();
@@ -267,22 +348,14 @@ export default function VistaHistorialVentas() {
                     </span>
                   </button>
                   {estaExpandida && (
-                    <div className="space-y-2 border-t border-slate-100 bg-emerald-50/60 p-3 dark:border-white/10 dark:bg-emerald-950/20">
-                      {(venta.articulos || []).length === 0 ? (
-                        <p className="text-xs text-slate-500">Esta venta no tiene artículos registrados.</p>
-                      ) : (
-                        (venta.articulos || []).map((articulo, index) => {
-                          const esFraccion = articulo.unidad === "KG" || articulo.unidad === "LITRO" || articulo.unidad === "GRAMO" || articulo.unidad === "MILILITRO" || articulo.unidad === "MILIGRAMO";
-                          const cantidadFormateada = esFraccion ? articulo.cantidad.toFixed(3) : articulo.cantidad.toString();
-                          return (
-                            <div key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border border-emerald-200 bg-white p-2 text-xs dark:border-emerald-900/50 dark:bg-slate-900", venta.cancelada && "border-red-200 text-slate-400 line-through dark:border-red-900/50")}>
-                              <strong>{articulo.nombre}</strong>
-                              <span className="mt-0.5 block">{cantidadFormateada} {(articulo.unidad || "PZA").toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}</span>
-                              {articulo.autorizacion_confirmada && <span className="mt-1 block font-semibold text-amber-600">Autorizado</span>}
-                            </div>
-                          );
-                        })
-                      )}
+                    <div className="border-t border-slate-100 bg-emerald-50/60 p-3 dark:border-white/10 dark:bg-emerald-950/20">
+                      <TicketVentaExpandido
+                        venta={venta}
+                        nombreTienda={nombreTienda}
+                        mensajeTicket={mensajeTicket}
+                        direccionTienda={direccionTienda}
+                        logoTienda={logoTienda}
+                      />
                     </div>
                   )}
                   <div className="flex items-center justify-end gap-1 border-t border-slate-100 p-2 dark:border-white/10">
@@ -411,18 +484,13 @@ export default function VistaHistorialVentas() {
                     {ventaSeleccionada === venta.id && (
                       <tr className="bg-emerald-50/60 dark:bg-emerald-950/20">
                         <td colSpan={9} className="px-5 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            {(venta.articulos || []).map((articulo, index) => {
-                              const esFraccion = articulo.unidad === "KG" || articulo.unidad === "LITRO" || articulo.unidad === "GRAMO" || articulo.unidad === "MILILITRO" || articulo.unidad === "MILIGRAMO";
-                              const cantidadFormateada = esFraccion ? articulo.cantidad.toFixed(3) : articulo.cantidad.toString();
-                              return (
-                                <span key={articulo.id || `${venta.id}-${articulo.producto_id}-${index}`} className={cn("rounded-lg border px-3 py-2 text-xs", venta.cancelada ? "border-red-200 bg-white/50 text-slate-400 dark:border-red-900/50 dark:bg-slate-900 line-through" : "border-emerald-200 bg-white dark:border-emerald-900/50 dark:bg-slate-900")}>
-                                  <strong>{articulo.nombre}</strong> · {cantidadFormateada} {(articulo.unidad || 'PZA').toLowerCase()} · ${(articulo.subtotal || 0).toFixed(2)}
-                                  {articulo.autorizacion_confirmada && <span className="ml-2 text-amber-600">Autorizado</span>}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <TicketVentaExpandido
+                            venta={venta}
+                            nombreTienda={nombreTienda}
+                            mensajeTicket={mensajeTicket}
+                            direccionTienda={direccionTienda}
+                            logoTienda={logoTienda}
+                          />
                         </td>
                       </tr>
                     )}

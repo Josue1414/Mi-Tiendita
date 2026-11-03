@@ -1,6 +1,7 @@
 // src/componentes/ui/ModalPeso.tsx
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Scale, X, Check, Usb, Edit3 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { useBascula } from "../../hooks/useBascula";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import type { Producto } from "../../tipos/producto";
@@ -15,6 +16,7 @@ interface PropsModalPeso {
 
 export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: PropsModalPeso) {
   const { basculaModelo, basculaPuerto, basculaBaudRate, basculaFormato } = useEstadoConfiguracion();
+  const esAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   
   const esLiquido = producto?.unidad === "LITRO" || producto?.unidad === "MILILITRO";
   const esMasa = producto?.unidad === "KG" || producto?.unidad === "GRAMO" || producto?.unidad === "MILIGRAMO";
@@ -33,11 +35,8 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
   useEffect(() => {
     if (!abierto) {
       desconectarBascula();
-      setDigitosManuales("");
     }
   }, [abierto, desconectarBascula]);
-
-  if (!abierto || !producto) return null;
 
   // Convierte los dígitos acumulados a formato numérico dividiendo por 1000
   // Ej: "5" -> 0.005 | "500" -> 0.500 | "1250" -> 1.250
@@ -53,6 +52,7 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
   };
 
   const obtenerCantidadConvertida = (pesoEnKg: number) => {
+    if (!producto) return pesoEnKg;
     switch (producto.unidad) {
         case "GRAMO": return pesoEnKg * 1000;
         case "MILILITRO": return pesoEnKg * 1000;
@@ -61,12 +61,34 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
     }
   };
 
-  const manejarConfirmacion = () => {
-    let cantidadFinal = 0;
+  const agregarDigito = useCallback((digito: string) => {
+    setDigitosManuales((actual) => {
+      if (digito === "C") return "";
+      if (digito === "⌫") return actual.slice(0, -1);
+      return actual === "0" ? digito : `${actual}${digito}`;
+    });
+  }, []);
+
+  const cerrarModal = () => {
+    setDigitosManuales("");
+    alCerrar();
+  };
+
+  const manejarConfirmacion = useCallback(() => {
+    if (!producto) return;
+    let cantidadFinal = digitosManuales ? parseInt(digitosManuales, 10) / 1000 : 0;
     if (basculaConectada && permiteUsoBascula && pesoActual > 0) {
-      cantidadFinal = obtenerCantidadConvertida(pesoActual);
-    } else {
-      cantidadFinal = parsearPesoManual();
+      switch (producto.unidad) {
+        case "GRAMO":
+        case "MILILITRO":
+          cantidadFinal = pesoActual * 1000;
+          break;
+        case "MILIGRAMO":
+          cantidadFinal = pesoActual * 1000000;
+          break;
+        default:
+          cantidadFinal = pesoActual;
+      }
     }
     
     if (isNaN(cantidadFinal) || cantidadFinal <= 0) {
@@ -75,18 +97,47 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
     }
     
     alConfirmar(cantidadFinal);
+    setDigitosManuales("");
     alCerrar();
-  };
+  }, [producto, basculaConectada, permiteUsoBascula, pesoActual, alConfirmar, alCerrar, digitosManuales]);
 
-  // Capturar el Enter para confirmar
-  const manejarTeclaAbajo = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      manejarConfirmacion();
-    }
-  };
+  useEffect(() => {
+    if (!abierto || !producto || (basculaConectada && permiteUsoBascula)) return;
+
+    const manejarTecladoFisico = (evento: globalThis.KeyboardEvent) => {
+      if (esAndroid && /^[0-9]$/.test(evento.key)) {
+        evento.preventDefault();
+        agregarDigito(evento.key);
+      } else if (esAndroid && evento.key === "Backspace") {
+        evento.preventDefault();
+        agregarDigito("⌫");
+      } else if (esAndroid && (evento.key === "Delete" || evento.key.toLowerCase() === "c")) {
+        evento.preventDefault();
+        agregarDigito("C");
+      } else if (evento.key === "Enter") {
+        evento.preventDefault();
+        manejarConfirmacion();
+      }
+    };
+
+    window.addEventListener("keydown", manejarTecladoFisico);
+    return () => window.removeEventListener("keydown", manejarTecladoFisico);
+  }, [abierto, producto, basculaConectada, permiteUsoBascula, esAndroid, digitosManuales, pesoActual, manejarConfirmacion, agregarDigito]);
+
+  if (!abierto || !producto) return null;
 
   const unidadAbreviatura = abreviaturaUnidad(producto.unidad);
+  const sugerenciasPeso = [0.25, 0.5, 0.8, 1].map((pesoKg) => {
+    const cantidad = obtenerCantidadConvertida(pesoKg);
+    const usaKilogramos = producto.unidad === "KG" || producto.unidad === "LITRO";
+    return {
+      cantidad,
+      digitos: String(Math.round(cantidad * 1000)),
+      etiqueta: usaKilogramos
+        ? (pesoKg === 1 ? `1 ${unidadAbreviatura}` : `${pesoKg.toFixed(3)} ${unidadAbreviatura}`)
+        : `${cantidad.toLocaleString("es-MX")} ${unidadAbreviatura}`,
+    };
+  });
   
   let cantidadParaCalculo = parsearPesoManual();
   if (basculaConectada && permiteUsoBascula && pesoActual > 0) {
@@ -98,8 +149,8 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
   const valorInputMostrar = parsearPesoManual().toFixed(3);
 
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in" onClick={alCerrar}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white/90 dark:bg-slate-900/90 efecto-cristal p-6 shadow-2xl dark:border-white/10" onClick={(evento) => evento.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in" onClick={cerrarModal}>
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white/90 dark:bg-slate-900/90 efecto-cristal p-5 shadow-2xl dark:border-white/10" onClick={(evento) => evento.stopPropagation()} role="dialog" aria-modal="true">
         
         <div className="flex items-start justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
@@ -111,7 +162,7 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
               <p className="text-sm text-slate-500 dark:text-slate-400">${producto.precio.toFixed(2)} x {unidadAbreviatura}</p>
             </div>
           </div>
-          <button onClick={alCerrar} aria-label="Cerrar" className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <button onClick={cerrarModal} aria-label="Cerrar" className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -160,14 +211,45 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
             </label>
             <input 
               type="text" 
-              inputMode="numeric"
+              inputMode={esAndroid ? "none" : "numeric"}
+              readOnly={esAndroid}
               autoFocus
               value={valorInputMostrar} 
               onChange={manejarCambioManual} 
-              onKeyDown={manejarTeclaAbajo}
               className="w-full text-center text-2xl font-bold bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-white/10 rounded-2xl py-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 text-slate-900 dark:text-slate-100 transition-all" 
               placeholder="0.000" 
             />
+
+            {permiteUsoBascula && (
+              <div className="mt-2">
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Peso sugerido</span>
+                <div className="grid grid-cols-4 gap-1.5 mt-1">
+                  {sugerenciasPeso.map(({ digitos, etiqueta }) => (
+                    <button
+                      key={etiqueta}
+                      type="button"
+                      onClick={() => setDigitosManuales(digitos)}
+                      className="rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-4 gap-1.5 mt-2">
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"].map((digito) => (
+                <button
+                  key={digito}
+                  type="button"
+                  onClick={() => agregarDigito(digito)}
+                  className="h-9 sm:h-10 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  {digito === "C" ? "Borrar" : digito}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -178,7 +260,7 @@ export default function ModalPeso({ abierto, producto, alCerrar, alConfirmar }: 
         </div>
 
         <div className="flex gap-3">
-          <button onClick={alCerrar} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">
+          <button onClick={cerrarModal} className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">
             Cancelar
           </button>
           <button onClick={manejarConfirmacion} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02]">

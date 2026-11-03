@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { androidLan } from "../../servicios/androidLan";
 import { obtenerIdentificadorDispositivo, obtenerTiendaIdActual } from "../../servicios/supabase";
 import { useEstadoRed } from "../../estado/estadoRed";
+import { desconectarLAN } from "../../servicios/socketCliente";
 
 interface PropsDescubrimientoCerebro {
   esVistaCliente: boolean;
@@ -10,6 +11,8 @@ interface PropsDescubrimientoCerebro {
 }
 
 export default function useDescubrimientoCerebro({ esVistaCliente, setIpMaestro }: PropsDescubrimientoCerebro) {
+  const reinicioDescubrimiento = useEstadoRed((estado) => estado.reinicioDescubrimiento);
+
   useEffect(() => {
     if (esVistaCliente) return;
     let cancelado = false;
@@ -58,6 +61,7 @@ export default function useDescubrimientoCerebro({ esVistaCliente, setIpMaestro 
       cancelado = true;
       quitarListener?.();
       if (listenerAndroid) void listenerAndroid.remove();
+      desconectarLAN();
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android") {
         void androidLan.stopDiscovery().catch((error: unknown) => {
           console.error("No se pudo detener el descubrimiento del Cerebro por LAN:", error);
@@ -68,5 +72,5 @@ export default function useDescubrimientoCerebro({ esVistaCliente, setIpMaestro 
         });
       }
     };
-  }, [esVistaCliente, setIpMaestro]);
+  }, [esVistaCliente, setIpMaestro, reinicioDescubrimiento]);
 }

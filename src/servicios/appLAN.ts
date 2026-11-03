@@ -13,6 +13,7 @@ import { obtenerImagenLocalBruta, guardarImagenLocal, blobABase64, base64ABlob }
 export const crearSnapshotLAN = () => {
   const caja = useEstadoCaja.getState();
   const configuracion = useEstadoConfiguracion.getState();
+  
   return {
     productos: useEstadoInventario.getState().productos,
     categorias: useEstadoInventario.getState().categorias,
@@ -47,7 +48,11 @@ export const crearSnapshotLAN = () => {
       teclaMercadoPago: configuracion.teclaMercadoPago,
       teclaFiado: configuracion.teclaFiado,
       codi_imagen: configuracion.codi_imagen,
-      codi_clabe: configuracion.codi_clabe
+      codi_clabe: configuracion.codi_clabe,
+      
+      // VARIABLES AGREGADAS PARA SINCRONIZAR MENÚS EN DISPOSITIVOS ESCLAVOS
+      habilitarFiados: configuracion.habilitarFiados,
+      modoAccesoFiados: configuracion.modoAccesoFiados
     }
   };
 };
@@ -92,7 +97,7 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
     return;
   }
 
-  // 4. NUEVO: EL CEREBRO RECIBE VENTAS PENDIENTES DE UN ESCLAVO RECONECTADO
+  // 4. EL CEREBRO RECIBE VENTAS PENDIENTES DE UN ESCLAVO RECONECTADO
   if (accion.tipo === "LAN_SYNC_VENTAS_ESCLAVO") {
     if (esMaestro && Array.isArray(payload)) {
       console.log("Recibiendo sincronización de ventas retrasadas de un esclavo...");
@@ -101,14 +106,15 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
       
       for (const ventaEsclavo of payload) {
         if (!idsConocidos.has(ventaEsclavo.id)) {
-          // Guardamos la venta en el Cerebro de forma silenciosa para la red
-          await agregarVenta(ventaEsclavo, true);
+          // Guardamos y forzamos subida a la nube pasando false.
+          const ventaAIntegrar = { ...ventaEsclavo, _origenSyncEsclavo: true };
+          await agregarVenta(ventaAIntegrar, false);
         }
       }
     }
     return;
   }
-
+  
   // 5. RESTO DE SINCRONIZACIONES
   if (accion.tipo === "LAN_VENTA_AGREGAR" || accion.tipo === "LAN_VENTA_CANCELAR") {
     void useEstadoVentas.getState().aplicarAccionLAN(accion.tipo, payload);

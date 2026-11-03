@@ -111,19 +111,39 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   hidratarEstadoLAN: async ({ productos, categorias }) => {
-    const productosLocales = await obtenerRegistros("productos");
-    const categoriasLocales = await obtenerRegistros("categorias");
+    const productosLocales = await obtenerRegistros("productos") as Producto[];
+    const categoriasLocales = await obtenerRegistros("categorias") as Categoria[];
+    
     const idsProductos = new Set(productos.map((producto) => producto.id));
     const idsCategorias = new Set(categorias.map((categoria) => categoria.id));
-    for (const producto of productosLocales as Producto[]) {
+    
+    // Limpieza de eliminados
+    for (const producto of productosLocales) {
       if (!idsProductos.has(producto.id)) await eliminarRegistro("productos", producto.id);
     }
-    for (const categoria of categoriasLocales as Categoria[]) {
+    for (const categoria of categoriasLocales) {
       if (!idsCategorias.has(categoria.id)) await eliminarRegistro("categorias", categoria.id);
     }
+    
     for (const categoria of categorias) await guardarRegistro("categorias", categoria);
-    for (const producto of productos) await guardarRegistro("productos", producto);
-    set({ productos, categorias, cargando: false });
+    
+    // FUSIÓN INTELIGENTE DE PRODUCTOS (Preservar el stock más bajo en caso de colisión local vs nube/lan)
+    const productosFusionados = productos.map(productoLAN => {
+      const prodLocal = productosLocales.find(p => p.id === productoLAN.id);
+      if (prodLocal && prodLocal.controla_stock && productoLAN.controla_stock) {
+        // Si el local tiene menos stock, significa que hizo ventas offline recientes que el Cerebro aún no procesa.
+        if (prodLocal.stock_actual < productoLAN.stock_actual) {
+          return { ...productoLAN, stock_actual: prodLocal.stock_actual, lotes: prodLocal.lotes };
+        }
+      }
+      return productoLAN;
+    });
+
+    for (const producto of productosFusionados) {
+      await guardarRegistro("productos", producto);
+    }
+    
+    set({ productos: productosFusionados, categorias, cargando: false });
   },
 
   cargarProductos: async () => {

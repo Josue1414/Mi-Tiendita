@@ -59,7 +59,7 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
     servidorLANActivo,
     dispositivosLANConectados,
     setEsMaestro,
-    setIpMaestro
+    reiniciarDescubrimientoCerebro
   } = useEstadoRed();
   
   const maxDispositivos = useEstadoPlan((estado) => estado.maxDispositivos);
@@ -73,7 +73,6 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const suscripcionActiva = true;
 
   const [ipLocalPC, setIpLocalPC] = useState("");
-  const [inputIpConexion, setInputIpConexion] = useState(ipMaestro || "");
   const [dispositivos, setDispositivos] = useState<DispositivoVinculado[]>([]);
   const [miHwid, setMiHwid] = useState<string>("");
   const [cerebroActual, setCerebroActual] = useState<DispositivoVinculado | null>(null);
@@ -522,16 +521,15 @@ export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
               ) : (
                 <div className="w-full flex flex-col gap-2">
                   <div className="flex gap-2 w-full">
-                    <input type="text" disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={inputIpConexion} onChange={(e) => setInputIpConexion(e.target.value)} placeholder="IP (Ej: 192.168.1.75)" className="flex-1 text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-slate-900 dark:text-slate-100 min-w-0" />
+                    <input type="text" readOnly disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)} value={ipMaestro} placeholder="Buscando Cerebro..." aria-label="Dirección IP detectada del Cerebro" className="flex-1 text-center font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 outline-none disabled:opacity-50 text-slate-900 dark:text-slate-100 min-w-0" />
                   </div>
                   
-                  <button onClick={() => { 
+                  <button onClick={() => {
                       if(limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)) {
                         setAviso({titulo: "Límite alcanzado", mensaje: `Tu plan solo permite ${maxDispositivos} dispositivos.`});
                         return;
                       }
-                      setIpMaestro(inputIpConexion); 
-                      window.location.reload(); 
+                      reiniciarDescubrimientoCerebro();
                     }} 
                     disabled={limiteDispositivosAlcanzado && !dispositivos.find(d => d.hardware_id === miHwid)}
                     className="w-full py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
