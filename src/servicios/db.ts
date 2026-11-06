@@ -23,6 +23,8 @@ export interface PendienteSync {
   operacion: 'AGREGAR' | 'ACTUALIZAR' | 'ELIMINAR';
   payload: any;
   timestamp: number;
+  actualizaStock?: boolean;
+  soloLAN?: boolean;
 }
 
 // Define la interfaz de nuestro puente de Electron para TypeScript
@@ -30,6 +32,7 @@ declare global {
   interface Window {
     apiLocal?: {
       guardarDatos: (tabla: string, datos: any) => Promise<{ exito: boolean; error?: string }>;
+      guardarImagenBruta: (nombreArchivo: string, base64Data: string) => Promise<{ exito: boolean; error?: string }>;
       leerDatos: (tabla: string) => Promise<any[]>;
       obtenerHardwareId: () => Promise<string>;
       validarSuscripcionOffline: () => Promise<{ activo: boolean; error?: string }>;

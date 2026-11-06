@@ -59,7 +59,11 @@ export const crearSnapshotLAN = () => {
 
 export const aplicarAccionLANRecibida = async (accion: unknown) => {
   if (typeof accion !== "object" || accion === null || !("tipo" in accion) || typeof accion.tipo !== "string") return;
-  const payload = "payload" in accion ? (accion as any).payload : undefined;
+  let accionAplicada: { tipo: string; payload?: unknown } = {
+    tipo: accion.tipo,
+    ...("payload" in accion ? { payload: accion.payload } : {})
+  };
+  let payload = "payload" in accion ? (accion as any).payload : undefined;
   const { esMaestro } = useEstadoRed.getState();
 
   // 1. Cambio de Cerebro en tiempo real
@@ -97,6 +101,27 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
     return;
   }
 
+  // Persistir en cada equipo las fotos que acompañan cambios de productos por LAN.
+  if (
+    (accion.tipo === "AGREGAR_PRODUCTO" || accion.tipo === "ACTUALIZAR_PRODUCTO")
+    && payload
+    && typeof payload.imagen_url === "string"
+    && payload.imagen_url.startsWith("data:image/")
+    && typeof payload.imagen_archivo === "string"
+  ) {
+    try {
+      const blob = await base64ABlob(payload.imagen_url);
+      await guardarImagenLocal(payload.imagen_archivo, blob);
+      window.dispatchEvent(new CustomEvent("imagen-descargada", { detail: payload.imagen_archivo }));
+      payload = { ...payload, imagen_url: undefined };
+      accionAplicada = { tipo: accion.tipo, payload };
+    } catch (error) {
+      console.error("No se pudo guardar localmente la imagen del producto recibida por LAN:", error);
+      payload = { ...payload, imagen_archivo: undefined };
+      accionAplicada = { tipo: accion.tipo, payload };
+    }
+  }
+
   // 4. EL CEREBRO RECIBE VENTAS PENDIENTES DE UN ESCLAVO RECONECTADO
   if (accion.tipo === "LAN_SYNC_VENTAS_ESCLAVO") {
     if (esMaestro && Array.isArray(payload)) {
@@ -131,7 +156,7 @@ export const aplicarAccionLANRecibida = async (accion: unknown) => {
       console.error("No se pudo aplicar la configuración recibida por LAN:", error);
     });
   } else {
-    useEstadoInventario.getState().aplicarSincronizacionRemota(accion);
+    useEstadoInventario.getState().aplicarSincronizacionRemota(accionAplicada);
   }
 };
 

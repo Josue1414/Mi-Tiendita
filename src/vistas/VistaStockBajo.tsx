@@ -13,6 +13,8 @@ import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import CampoFecha from "../componentes/ui/CampoFecha";
 
+const PRODUCTOS_POR_PAGINA_STOCK = 5;
+
 export default function VistaStockBajo() {
   const { productos, actualizarProducto } = useEstadoInventario();
   const { trabajadorActivo } = useEstadoTrabajadores();
@@ -32,6 +34,7 @@ export default function VistaStockBajo() {
   const [lotesColapsados, setLotesColapsados] = useState<Set<string>>(() => new Set());
   // Estado para controlar qué filtro está activo
   const [filtro, setFiltro] = useState<"todas" | "por-terminar" | "agotados">("todas");
+  const [paginaStock, setPaginaStock] = useState(1);
   
   // Estado para el modal de ajustar stock
   const [promptStock, setPromptStock] = useState<{ abierto: boolean; producto: Producto | null }>({ abierto: false, producto: null });
@@ -54,6 +57,12 @@ export default function VistaStockBajo() {
     filtro === "todas" ? productosBajos : 
     filtro === "por-terminar" ? porTerminar : 
     criticos;
+  const totalPaginasStock = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA_STOCK));
+  const paginaActualStock = Math.min(paginaStock, totalPaginasStock);
+  const productosStockPagina = productosFiltrados.slice(
+    (paginaActualStock - 1) * PRODUCTOS_POR_PAGINA_STOCK,
+    paginaActualStock * PRODUCTOS_POR_PAGINA_STOCK
+  );
 
   // Lógica para procesar la entrada de ajuste de stock
   const confirmarAjusteStock = async (ajuste: number, fechaCaducidad?: string) => {
@@ -238,7 +247,10 @@ export default function VistaStockBajo() {
           <button
             key={valor}
             type="button"
-            onClick={() => setFiltro(valor)}
+            onClick={() => {
+              setFiltro(valor);
+              setPaginaStock(1);
+            }}
             className={cn(
               "flex min-w-0 flex-1 flex-col items-start rounded-xl border px-2 py-2.5 text-left transition-all sm:items-end sm:px-4 xl:flex-none",
               filtro === valor
@@ -274,7 +286,7 @@ export default function VistaStockBajo() {
                   </td>
                 </tr>
               ) : (
-                productosFiltrados.map((producto) => {
+                productosStockPagina.map((producto) => {
                   const esCritico = producto.stock_actual === 0;
                   return (
                     <tr key={producto.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors text-slate-900 dark:text-slate-100">
@@ -322,7 +334,7 @@ export default function VistaStockBajo() {
               <p className="mt-1 text-sm">No hay productos en esta categoría de alerta.</p>
             </div>
           ) : (
-            productosFiltrados.map((producto) => {
+            productosStockPagina.map((producto) => {
               const esCritico = producto.stock_actual === 0;
               return (
                 <article key={producto.id} className="rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-slate-900">
@@ -367,6 +379,37 @@ export default function VistaStockBajo() {
             })
           )}
         </div>
+        {totalPaginasStock > 1 && (
+          <div className="flex shrink-0 items-center justify-between border-t border-slate-200/70 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-slate-900/30">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Mostrando {(paginaActualStock - 1) * PRODUCTOS_POR_PAGINA_STOCK + 1}-
+              {Math.min(paginaActualStock * PRODUCTOS_POR_PAGINA_STOCK, productosFiltrados.length)} de {productosFiltrados.length}
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPaginaStock(Math.max(1, paginaActualStock - 1))}
+                disabled={paginaActualStock === 1}
+                aria-label="Página anterior de alertas de stock"
+                className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Página {paginaActualStock} de {totalPaginasStock}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPaginaStock(Math.min(totalPaginasStock, paginaActualStock + 1))}
+                disabled={paginaActualStock === totalPaginasStock}
+                aria-label="Página siguiente de alertas de stock"
+                className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       </>
       ) : (
@@ -553,13 +596,15 @@ export default function VistaStockBajo() {
                     <>
                     <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200/70 pt-3 text-xs dark:border-white/10">
                       <div><dt className="text-slate-500">Fecha de ingreso</dt><dd className="mt-0.5 font-semibold text-slate-800 dark:text-slate-200">{lote.fecha_ingreso}</dd></div>
-                      <div>
+                      <div className={loteEditando?.loteId === lote.id ? "col-span-2" : ""}>
                         <dt className="text-slate-500">Caducidad</dt>
                         {loteEditando?.loteId === lote.id ? (
-                          <div className="mt-1 flex items-center gap-1">
-                            <CampoFecha value={loteEditando.fecha} onChange={(fecha) => setLoteEditando({ ...loteEditando, fecha })} className="h-8 min-w-0 rounded-md px-1.5 text-xs" aria-label="Editar fecha de caducidad del lote" />
-                            <button type="button" onClick={() => void guardarCaducidadLote(producto, lote.id, loteEditando.fecha)} aria-label="Guardar fecha de caducidad" className="rounded-md p-1.5 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"><Check size={14} /></button>
-                            <button type="button" onClick={() => setLoteEditando(null)} aria-label="Cancelar edición de caducidad" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={14} /></button>
+                          <div className="mt-1 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                            <CampoFecha value={loteEditando.fecha} onChange={(fecha) => setLoteEditando({ ...loteEditando, fecha })} size="large" maxYear={2100} className="w-full rounded-xl sm:min-w-0 sm:flex-1" aria-label="Editar fecha de caducidad del lote" />
+                            <div className="flex justify-end gap-2">
+                              <button type="button" onClick={() => void guardarCaducidadLote(producto, lote.id, loteEditando.fecha)} aria-label="Guardar fecha de caducidad" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"><Check size={20} /></button>
+                              <button type="button" onClick={() => setLoteEditando(null)} aria-label="Cancelar edición de caducidad" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={18} /></button>
+                            </div>
                           </div>
                         ) : (
                           <dd className="mt-0.5 flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
@@ -585,7 +630,7 @@ export default function VistaStockBajo() {
                                 step="1"
                                 value={umbralEditando.dias}
                                 onChange={(evento) => setUmbralEditando({ ...umbralEditando, dias: evento.target.value })}
-                                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-slate-900"
+                                className="h-11 w-24 rounded-lg border border-slate-300 bg-white px-3 text-base dark:border-white/10 dark:bg-slate-900"
                                 aria-label="Días antes para iniciar alerta amarilla"
                               />
                               días
@@ -595,17 +640,17 @@ export default function VistaStockBajo() {
                               disabled={!Number.isInteger(Number(umbralEditando.dias)) || Number(umbralEditando.dias) < 1 || Number(umbralEditando.dias) > 365}
                               onClick={() => void guardarUmbralAlertaLote(producto, lote.id, umbralEditando.dias)}
                               aria-label="Guardar días de alerta amarilla"
-                              className="rounded-md p-1.5 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
                             >
-                              <Check size={14} />
+                              <Check size={19} />
                             </button>
                             <button
                               type="button"
                               onClick={() => setUmbralEditando(null)}
                               aria-label="Cancelar días de alerta amarilla"
-                              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"
                             >
-                              <X size={14} />
+                              <X size={18} />
                             </button>
                           </div>
                         ) : (

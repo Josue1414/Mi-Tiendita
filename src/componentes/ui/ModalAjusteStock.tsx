@@ -67,7 +67,9 @@ export default function ModalAjusteStock({ producto, alCerrar, alConfirmar }: Pr
             <CampoFecha
               value={fechaCaducidad}
               onChange={setFechaCaducidad}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              size="large"
+              maxYear={2100}
+              className="w-full rounded-xl"
               aria-label="Fecha de caducidad del nuevo lote"
             />
           </div>

@@ -1,9 +1,8 @@
 // src/vistas/secciones_configuracion/SeccionHardware.tsx
 import { useState, useEffect } from "react";
-import { CheckCircle2, Sun, Moon, Palette, Scale, ScanBarcode, Save, Plus, Printer } from "lucide-react";
+import { Scale, ScanBarcode, Save, Plus, Printer } from "lucide-react";
 import { useEstadoConfiguracion } from "../../estado/estadoConfiguracion";
 import { cn } from "../../utilidades/utils";
-import { guardarTemaVisual, obtenerTemaVisual, TEMAS_VISUALES, type TemaVisual } from "../../utilidades/temas";
 import { obtenerModelosEscaner, agregarModeloEscaner, DRIVERS_ESCANER, PUERTOS_ESCANER, TIPOS_ESCANER, type EscanerModelo, type DriverEscaner, type TipoEscaner } from "../../servicios/escaner";
 import { obtenerModelosImpresora, agregarModeloImpresora, PUERTOS_IMPRESORA, TAMANIOS_ETIQUETA, type ImpresoraModelo, type PuertoImpresora, type TamanioEtiqueta } from "../../servicios/impresoraEtiquetas";
 import { obtenerModelosBascula, agregarModeloBascula, PUERTOS_BASCULA, BAUD_RATES_BASCULA, FORMATOS_BASCULA, type BasculaModeloConfig, type PuertoBascula, type BaudRateBascula, type FormatoBascula } from "../../servicios/bascula";
@@ -18,9 +17,6 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
     actualizarDatosBascula, actualizarDatosEscaner
   } = useEstadoConfiguracion();
 
-  // Estados
-  const [temaVisual, setTemaVisual] = useState<TemaVisual>(() => obtenerTemaVisual());
-  
   const [modelosBascula, setModelosBascula] = useState<BasculaModeloConfig[]>([]);
   const [formBascula, setFormBascula] = useState({
     modelo: basculaModelo, puerto: basculaPuerto as PuertoBascula, baudRate: basculaBaudRate as BaudRateBascula,
@@ -53,12 +49,6 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
     const basculas = obtenerModelosBascula();
     setModelosBascula(basculas);
   }, []);
-
-  const cambiarTemaVisual = (tema: TemaVisual) => {
-    setTemaVisual(tema);
-    guardarTemaVisual(tema);
-    document.documentElement.classList.toggle("dark", tema === "oscuro" || tema === "grafito");
-  };
 
   // Funciones de detección REAL mediante Web API
   const detectarBascula = async () => {
@@ -139,28 +129,6 @@ export default function SeccionHardware({ setAviso }: PropsSeccionConfig) {
         alCerrar={() => setPromptConfig(prev => ({ ...prev, abierto: false }))}
         alConfirmar={procesarNuevoModelo}
       />
-
-      <section className="mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="flex items-center gap-1 text-lg font-bold text-slate-900 dark:text-slate-100"><Palette size={20} className="text-emerald-600 dark:text-emerald-400" /> Apariencia de la aplicación <AyudaContextual etiqueta="Apariencia de la aplicación" texto="Elige el tema de colores que se usará en esta aplicación. Puedes cambiarlo en cualquier momento; no modifica los datos de la tienda." /></h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Elige el mismo lenguaje visual disponible en la pantalla cliente.</p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">Tema: {temaVisual}</span>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {TEMAS_VISUALES.map((tema) => {
-            const seleccionado = temaVisual === tema.id;
-            return (
-              <button key={tema.id} type="button" onClick={() => cambiarTemaVisual(tema.id)} className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-all", seleccionado ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-900/20" : "border-slate-200 bg-white hover:border-emerald-300 dark:border-white/10 dark:bg-slate-900/60 dark:hover:border-emerald-700")}>
-                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-inner", tema.muestra)}>{tema.id === "claro" ? <Sun size={16} /> : tema.id === "verde" ? <Palette size={16} /> : <Moon size={16} />}</span>
-                <span className="min-w-0"><strong className="block text-sm text-slate-800 dark:text-slate-100">{tema.nombre}</strong><small className="block truncate text-[10px] text-slate-500 dark:text-slate-400">{tema.descripcion}</small></span>
-                {seleccionado && <CheckCircle2 size={16} className="ml-auto shrink-0 text-emerald-600 dark:text-emerald-400" />}
-              </button>
-            );
-          })}
-        </div>
-      </section>
 
       {/* SECCIÓN: BÁSCULA */}
       <section className="relative mb-6 rounded-2xl border border-slate-200/60 bg-white/50 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">

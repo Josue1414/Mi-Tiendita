@@ -75,7 +75,8 @@ export function useSincronizacion() {
 
         for (const tarea of pendientes) {
           try {
-            const { id, tabla, operacion, payload } = tarea;
+            const { id, tabla, operacion, payload, soloLAN } = tarea;
+            if (soloLAN) continue;
 
             if (tabla === 'ventas' && payload?.metodoPago === 'FIADO') {
               await eliminarPendienteSync(id);

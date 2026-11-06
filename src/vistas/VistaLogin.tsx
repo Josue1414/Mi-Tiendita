@@ -6,11 +6,12 @@ import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { restaurarPlanCacheado, useEstadoPlan } from "../estado/estadoPlan"; 
-import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, Globe, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, KeyRound, CheckCircle2 } from "lucide-react";
+import { Store, Shield, ShieldCheck, Briefcase, ArrowLeft, Lock, UserCircle, WifiOff, Eye, EyeOff, LogOut, Laptop, Crown, KeyRound, CheckCircle2 } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { supabase, registrarDispositivoActual, establecerTiendaIdActual } from "../servicios/supabase";
 import VistaRecuperacionPassword from "./VistaRecuperacionPassword";
 import ModalAviso from "../componentes/ui/ModalAviso"; 
+import logoTienda from "../../assets/icon.png";
 
 const CLAVE_EMAIL_SAAS = "mi_tienda_remember_email";
 const MOSTRAR_RECORDATORIO_HOY = true;
@@ -453,8 +454,8 @@ export default function VistaLogin() {
       )}
 
       <div className="mb-8 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 z-10">
-        <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-600/30">
-          {cuentaSaaSLogueada ? <Store size={32} /> : <Globe size={32} />}
+        <div className="h-20 w-20 overflow-hidden rounded-2xl shadow-xl shadow-emerald-600/20 ring-1 ring-black/5">
+          <img src={logoTienda} alt="Logo de Mi Tienda" className="h-full w-full object-cover" />
         </div>
         
         <div className="flex flex-col items-center gap-2">
@@ -772,7 +773,7 @@ export default function VistaLogin() {
         )}
       </div>
       <p className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-medium z-10 text-center">&copy; {new Date().getFullYear()} Mi Tienda Software. <br className="sm:hidden" /> Todos los derechos reservados.</p>
-      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.6.2</p>
+      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.6.8</p>
     </div>
   );
 }

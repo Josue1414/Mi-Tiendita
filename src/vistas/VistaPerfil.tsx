@@ -4,6 +4,7 @@ import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoAsistencias } from "../estado/estadoAsistencias";
 import { useEstadoVentas } from "../estado/estadoVentas";
 import { useEstadoRed } from "../estado/estadoRed";
+import PreferenciasVisuales from "../componentes/ui/PreferenciasVisuales";
 import { UserCircle, Calendar, Activity, ShieldCheck, CalendarDays, Network, Wifi, WifiOff, Server, Smartphone } from "lucide-react";
 import { cn } from "../utilidades/utils";
 
@@ -137,6 +138,8 @@ export default function VistaPerfil() {
         </p>
       </div>
 
+      <PreferenciasVisuales />
+
       <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-6">
         
         <div className="min-w-0 lg:col-span-1 flex flex-col gap-6">
@@ -269,12 +272,44 @@ export default function VistaPerfil() {
         </div>
 
         <div className="min-w-0 lg:col-span-2 flex flex-col gap-6">
-          <div className="efecto-cristal p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex-1">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-6">
-              <Activity size={20} className="text-emerald-600" /> Calendario de Asistencia (Últimos 14 días)
+          <div className="efecto-cristal min-w-0 p-3 sm:p-6 rounded-2xl border border-slate-200/50 dark:border-white/10 flex-1">
+            <h3 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-start sm:items-center gap-2 mb-4 sm:mb-6">
+              <Activity size={20} className="shrink-0 text-emerald-600" />
+              <span>Calendario de Asistencia (Últimos 14 días)</span>
             </h3>
-            <div className="overflow-x-auto rounded-xl border border-slate-200/50 dark:border-white/10">
-              <table className="w-full text-left text-sm whitespace-nowrap">
+            <div className="space-y-2 md:hidden">
+              {historialAsistencia.map((dia) => (
+                <article key={dia.id} className="rounded-xl border border-slate-200/50 bg-white/70 p-3 dark:border-white/10 dark:bg-slate-900/50">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{dia.dia}</span>
+                      <span className="text-xs text-slate-500">{dia.fecha}</span>
+                    </div>
+                    <span className={cn("shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wide", dia.colorEstatus)}>
+                      {dia.estatus}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-2.5 dark:border-white/5">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-semibold text-slate-500">Entrada</span>
+                      <span className="font-mono text-xs font-medium text-slate-800 dark:text-slate-200">{dia.entrada}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-semibold text-slate-500">Salida</span>
+                      <span className="font-mono text-xs text-slate-600 dark:text-slate-300">{dia.salida}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-semibold text-slate-500">Desconexiones</span>
+                      <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                        {dia.desconexiones > 0 ? dia.desconexiones : "-"}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200/50 dark:border-white/10 md:block">
+              <table className="w-full min-w-[640px] text-left text-sm whitespace-nowrap">
                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-xs">
                   <tr>
                     <th className="p-4 font-semibold">Fecha</th>

@@ -212,7 +212,7 @@ export default function SeccionInventarioProducto({
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                 <CalendarDays size={13} /> Caducidad del stock agregado (opcional)
               </label>
-              <CampoFecha value={fechaCaducidadNuevoLote} onChange={setFechaCaducidadNuevoLote} className={campo} aria-label="Fecha de caducidad" />
+              <CampoFecha value={fechaCaducidadNuevoLote} onChange={setFechaCaducidadNuevoLote} size="large" maxYear={2100} className="w-full" aria-label="Fecha de caducidad" />
             </div>
           )}
           {editando && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">El stock actual no cambia; la cantidad agregada se registra por separado.</p>}
@@ -251,10 +251,12 @@ export default function SeccionInventarioProducto({
                   {lote.editado_por && <span className="ml-2 text-purple-700 dark:text-purple-300">Editó {lote.editado_por}</span>}
                 </div>
                 {loteCaducidadEditando === lote.id ? (
-                  <div className="flex items-center gap-1.5">
-                    <CampoFecha aria-label="Corregir fecha de caducidad" value={fechaCaducidadEditada} onChange={setFechaCaducidadEditada} className={cn(campo, "w-auto")} />
-                    <button type="button" onClick={() => onGuardarCaducidadLote(lote.id)} aria-label="Guardar fecha" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"><Check size={15} /></button>
-                    <button type="button" onClick={() => setLoteCaducidadEditando(null)} aria-label="Cancelar edición" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={15} /></button>
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                    <CampoFecha aria-label="Corregir fecha de caducidad" value={fechaCaducidadEditada} onChange={setFechaCaducidadEditada} size="large" maxYear={2100} className="w-full sm:min-w-0 sm:flex-1" />
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => onGuardarCaducidadLote(lote.id)} aria-label="Guardar fecha" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"><Check size={19} /></button>
+                      <button type="button" onClick={() => setLoteCaducidadEditando(null)} aria-label="Cancelar edición" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"><X size={18} /></button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">

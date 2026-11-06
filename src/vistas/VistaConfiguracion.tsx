@@ -1,14 +1,14 @@
 // src/vistas/VistaConfiguracion.tsx
 import React, { useState } from "react";
-import { Lock, Crown, Type, CalendarClock } from "lucide-react";
+import { Lock, Crown, CalendarClock } from "lucide-react";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoPlan } from "../estado/estadoPlan"; 
 import ModalAviso from "../componentes/ui/ModalAviso";
+import PreferenciasVisuales from "../componentes/ui/PreferenciasVisuales";
 
 import SeccionHardware from "./secciones_configuracion/SeccionHardware";
 import SeccionRed from "./secciones_configuracion/SeccionRed";
 import SeccionAdministracion from "./secciones_configuracion/SeccionAdministracion";
-import AyudaContextual from "../componentes/ui/AyudaContextual";
 
 export interface PropsSeccionConfig {
   setAviso: React.Dispatch<React.SetStateAction<{ titulo: string; mensaje: string } | null>>;
@@ -21,8 +21,6 @@ export default function VistaConfiguracion() {
   const fechaVencimiento = useEstadoPlan((estado) => estado.fechaVencimiento);
   
   const [aviso, setAviso] = useState<{ titulo: string; mensaje: string } | null>(null);
-  const [escalaActual, setEscalaActual] = useState(() => localStorage.getItem("escala_ui") || "normal");
-
   const esDueño = trabajadorActivo?.rol === "DUENO";
 
   const obtenerEstiloPlan = () => {
@@ -40,12 +38,6 @@ export default function VistaConfiguracion() {
   const fechaPagoFormateada = fechaVencimiento 
     ? new Date(fechaVencimiento).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric", timeZone: 'UTC' })
     : "Fecha no disponible";
-
-  const cambiarEscala = (escala: string) => {
-    setEscalaActual(escala);
-    localStorage.setItem("escala_ui", escala);
-    window.dispatchEvent(new CustomEvent("CAMBIAR_ESCALA_UI", { detail: escala }));
-  };
 
   return (
     <div className="w-full h-full flex flex-col p-6 overflow-y-auto scrollbar-hide animate-in fade-in duration-300">
@@ -84,39 +76,8 @@ export default function VistaConfiguracion() {
         </div>
       )}
 
-      <div className="mb-6 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-xl">
-            <Type size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-1">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Tamaño de la Interfaz</h2>
-              <AyudaContextual etiqueta="Tamaño de la interfaz" texto="Cambia el tamaño global del texto y de algunos controles. La preferencia se guarda en este dispositivo y puedes volver a cambiarla cuando quieras." />
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Ajusta el tamaño global de las letras y botones de la aplicación.</p>
-          </div>
-        </div>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button 
-            onClick={() => cambiarEscala("chica")} 
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${escalaActual === "chica" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            Chica
-          </button>
-          <button 
-            onClick={() => cambiarEscala("normal")} 
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${escalaActual === "normal" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            Normal
-          </button>
-          <button 
-            onClick={() => cambiarEscala("grande")} 
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${escalaActual === "grande" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            Grande
-          </button>
-        </div>
+      <div className="mb-6">
+        <PreferenciasVisuales />
       </div>
 
       <SeccionHardware setAviso={setAviso} />

@@ -4,6 +4,13 @@ import { crearIdentificadorUnico } from "./identificador";
 
 export const DIAS_ALERTA_CADUCIDAD = 7;
 
+function fechaLocalISO(fecha: Date): string {
+  const anio = fecha.getFullYear();
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  return `${anio}-${mes}-${dia}`;
+}
+
 export function estadoCaducidad(
   fechaCaducidad?: string,
   hoy = new Date(),
@@ -48,7 +55,7 @@ export function ajustarLotes(
     const nuevoLote: LoteProducto = {
       id: crearIdentificadorUnico(),
       cantidad: Math.round(ajuste * 1000) / 1000,
-      fecha_ingreso: new Date().toISOString().slice(0, 10),
+      fecha_ingreso: fechaLocalISO(new Date()),
       agregado_por: opciones.agregadoPor,
       dias_alerta: opciones.diasAlerta ?? DIAS_ALERTA_CADUCIDAD,
       ...(opciones.fechaCaducidad ? { fecha_caducidad: opciones.fechaCaducidad } : {}),

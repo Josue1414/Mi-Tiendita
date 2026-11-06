@@ -60,6 +60,7 @@ public class AndroidLanPlugin extends Plugin {
     private static final int SOCKET_PORT = 4000;
     private static final int WEB_PORT = 4001;
     private static final int DISCOVERY_PORT = 41234;
+    private static final int MAX_MENSAJE_LAN_BYTES = 20 * 1024 * 1024;
     private static final String TIPO_CEREBRO = "CEREBRO_MITIENDA";
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ConcurrentHashMap<String, JsonNode> ultimosCarritosPorCaja = new ConcurrentHashMap<>();
@@ -286,6 +287,8 @@ public class AndroidLanPlugin extends Plugin {
                 configuration.setAllowHeaders("Content-Type, Authorization, x-requested-with");
                 configuration.setPingInterval(5000);
                 configuration.setPingTimeout(10000);
+                configuration.setMaxHttpContentLength(MAX_MENSAJE_LAN_BYTES);
+                configuration.setMaxFramePayloadLength(MAX_MENSAJE_LAN_BYTES);
                 SocketConfig socketConfig = new SocketConfig();
                 socketConfig.setReuseAddress(true);
                 configuration.setSocketConfig(socketConfig);

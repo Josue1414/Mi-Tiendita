@@ -677,6 +677,7 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     const configuracionLAN = (payload || {}) as Partial<Configuracion>;
     let actualizacion: Partial<Configuracion>;
     let payloadNube: Record<string, unknown>;
+    let propagarCambioFiados = false;
 
     if (tipo === "LAN_CONFIG_TIENDA") {
       actualizacion = {
@@ -724,13 +725,14 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     } else if (tipo === "LAN_CONFIG_FIADOS") {
       const activo = configuracionLAN.habilitarFiados ?? false;
       const modo = configuracionLAN.modoAccesoFiados ?? "TODOS";
+      const estadoAntes = get();
+      propagarCambioFiados =
+        estadoAntes.habilitarFiados !== activo || estadoAntes.modoAccesoFiados !== modo;
       
       guardarPreferenciasFiados({
         habilitarFiados: activo,
         modoAccesoFiados: modo
       });
-      
-      set({ habilitarFiados: activo, modoAccesoFiados: modo });
       
       actualizacion = {
         habilitarFiados: activo,
@@ -761,6 +763,16 @@ export const useEstadoConfiguracion = create<EstadoConfiguracion>((set, get) => 
     const nuevaConfiguracion = { ...get(), ...actualizacion };
     await guardarConfiguracionLocal(nuevaConfiguracion);
     set(actualizacion);
+
+    if (propagarCambioFiados && useEstadoRed.getState().esMaestro) {
+      enviarAccionLAN({
+        tipo: "LAN_CONFIG_FIADOS",
+        payload: {
+          habilitarFiados: actualizacion.habilitarFiados,
+          modoAccesoFiados: actualizacion.modoAccesoFiados
+        }
+      });
+    }
 
     if (debeSincronizarConNube() && navigator.onLine) {
       const tiendaId = await obtenerTiendaIdActual();

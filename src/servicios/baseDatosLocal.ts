@@ -97,10 +97,10 @@ export async function guardarImagenLocal(id: string, archivo: Blob) {
       // Extraemos solo el contenido crudo Base64 (quitamos el "data:image/jpeg;base64,")
       const base64Data = base64.split(';base64,').pop();
       if (base64Data) {
-        // Ejecutamos la función asíncrona pero no esperamos su resultado para no bloquear la UI
-        (window.apiLocal as any).guardarImagenBruta(id, base64Data).catch((e: unknown) => {
-          console.warn("Fallo secundario al guardar imagen bruta por IPC:", e);
-        });
+        const resultado = await window.apiLocal.guardarImagenBruta(id, base64Data);
+        if (!resultado.exito) {
+          console.warn("Fallo secundario al guardar imagen bruta por IPC:", resultado.error);
+        }
       }
     } catch (e) {
       console.warn("No se pudo respaldar la imagen bruta para acceso LAN de Pantalla Cliente:", e);

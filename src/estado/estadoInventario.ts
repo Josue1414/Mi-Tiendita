@@ -1,10 +1,11 @@
 // src/estado/estadoInventario.ts
 import { create } from "zustand";
 import type { Categoria, Producto } from "../tipos/producto";
-import { guardarRegistro, obtenerRegistros, eliminarRegistro, registrarPendienteSync } from "../servicios/db";
+import { guardarRegistro, obtenerRegistros, eliminarRegistro, obtenerPendientesSync, eliminarPendienteSync, registrarPendienteSync } from "../servicios/db";
 import { CATEGORIAS_INICIALES, siguienteColor } from "../utilidades/coloresCategoria";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
 import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincronizacionLAN";
+import { useEstadoRed } from "./estadoRed";
 import { descontarDeLotes } from "../utilidades/lotes";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 
@@ -55,14 +56,15 @@ const sincronizarConCola = async (
   tabla: string,
   operacion: "AGREGAR" | "ACTUALIZAR" | "ELIMINAR",
   payload: unknown,
-  enviar: () => PromiseLike<{ error: unknown | null }>
+  enviar: () => PromiseLike<{ error: unknown | null }>,
+  actualizaStock = false
 ) => {
   try {
     const { error } = await enviar();
     if (error) throw error;
   } catch (error) {
     console.error(`No se pudo sincronizar ${tabla} con Supabase; se guardará para reintentar:`, error);
-    await registrarPendienteSync({ tabla, operacion, payload });
+    await registrarPendienteSync({ tabla, operacion, payload, actualizaStock });
   }
 };
 
@@ -92,6 +94,33 @@ const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Prod
   bascula_equivalencia_litros: p.bascula_equivalencia_litros ?? false
 });
 
+const quitarImagenEnLinea = (producto: Producto): Producto => ({
+  ...producto,
+  imagen_url: producto.imagen_url?.startsWith("data:image/") && producto.imagen_archivo
+    ? undefined
+    : producto.imagen_url
+});
+
+const mismoStockYLotes = (a: Producto, b: Producto) =>
+  a.stock_actual === b.stock_actual
+  && JSON.stringify(a.lotes ?? []) === JSON.stringify(b.lotes ?? []);
+
+const limpiarPendientesStockConfirmados = async (producto: Producto) => {
+  const pendientes = await obtenerPendientesSync();
+  const pendientesProducto = pendientes.filter((pendiente) =>
+    pendiente.tabla === "productos"
+    && pendiente.operacion === "ACTUALIZAR"
+    && pendiente.actualizaStock !== false
+    && pendiente.payload?.id === producto.id
+  );
+  const ultimoPendiente = pendientesProducto[pendientesProducto.length - 1];
+  if (!ultimoPendiente || !mismoStockYLotes(ultimoPendiente.payload as Producto, producto)) return;
+
+  for (const pendiente of pendientesProducto) {
+    await eliminarPendienteSync(pendiente.id);
+  }
+};
+
 export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   productos: [],
   categorias: [],
@@ -101,7 +130,14 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     const { tipo, payload } = accion;
     switch (tipo) {
       case 'AGREGAR_PRODUCTO': get().agregarProducto(payload, true); break;
-      case 'ACTUALIZAR_PRODUCTO': get().actualizarProducto(payload, true); break;
+      case 'ACTUALIZAR_PRODUCTO':
+        get().actualizarProducto(payload, true);
+        if (payload && typeof payload.id === "string") {
+          void limpiarPendientesStockConfirmados(payload as Producto).catch((error: unknown) => {
+            console.error("No se pudieron limpiar los cambios de stock confirmados por LAN:", error);
+          });
+        }
+        break;
       case 'ELIMINAR_PRODUCTO': get().eliminarProducto(payload, true); break;
       case 'DESCONTAR_STOCK': get().descontarStock(payload, true); break;
       case 'AGREGAR_CATEGORIA': get().agregarCategoria(payload.nombre, payload.color, true, payload.id); break;
@@ -113,13 +149,38 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   hidratarEstadoLAN: async ({ productos, categorias }) => {
     const productosLocales = await obtenerRegistros("productos") as Producto[];
     const categoriasLocales = await obtenerRegistros("categorias") as Categoria[];
+    const pendientesSync = await obtenerPendientesSync();
+    const productosConCambiosPendientes = new Set(
+      pendientesSync
+        .filter((pendiente) =>
+          pendiente.tabla === "productos"
+          && pendiente.operacion === "ACTUALIZAR"
+          && pendiente.actualizaStock !== false
+        )
+        .map((pendiente) => pendiente.payload?.id)
+        .filter((id): id is string => typeof id === "string")
+    );
+    const ultimoCambioPendiente = new Map<string, Producto>();
+    for (const pendiente of pendientesSync) {
+      const producto = pendiente.payload as Producto | undefined;
+      if (
+        pendiente.tabla === "productos"
+        && pendiente.operacion === "ACTUALIZAR"
+        && pendiente.actualizaStock !== false
+        && typeof producto?.id === "string"
+      ) {
+        ultimoCambioPendiente.set(producto.id, producto);
+      }
+    }
     
     const idsProductos = new Set(productos.map((producto) => producto.id));
     const idsCategorias = new Set(categorias.map((categoria) => categoria.id));
     
     // Limpieza de eliminados
     for (const producto of productosLocales) {
-      if (!idsProductos.has(producto.id)) await eliminarRegistro("productos", producto.id);
+      if (!idsProductos.has(producto.id) && !productosConCambiosPendientes.has(producto.id)) {
+        await eliminarRegistro("productos", producto.id);
+      }
     }
     for (const categoria of categoriasLocales) {
       if (!idsCategorias.has(categoria.id)) await eliminarRegistro("categorias", categoria.id);
@@ -127,23 +188,42 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     
     for (const categoria of categorias) await guardarRegistro("categorias", categoria);
     
-    // FUSIÓN INTELIGENTE DE PRODUCTOS (Preservar el stock más bajo en caso de colisión local vs nube/lan)
+    // Solo conservar el stock local cuando existe una modificación offline pendiente.
     const productosFusionados = productos.map(productoLAN => {
       const prodLocal = productosLocales.find(p => p.id === productoLAN.id);
-      if (prodLocal && prodLocal.controla_stock && productoLAN.controla_stock) {
-        // Si el local tiene menos stock, significa que hizo ventas offline recientes que el Cerebro aún no procesa.
-        if (prodLocal.stock_actual < productoLAN.stock_actual) {
-          return { ...productoLAN, stock_actual: prodLocal.stock_actual, lotes: prodLocal.lotes };
-        }
+      const productoLocal = ultimoCambioPendiente.get(productoLAN.id) ?? prodLocal;
+      if (
+        productoLocal
+        && productosConCambiosPendientes.has(productoLAN.id)
+        && productoLocal.controla_stock
+        && productoLAN.controla_stock
+      ) {
+        return { ...productoLAN, stock_actual: productoLocal.stock_actual, lotes: productoLocal.lotes };
       }
       return productoLAN;
     });
+
+    const productosFusionadosIds = new Set(productosFusionados.map((producto) => producto.id));
+    for (const [id, productoPendiente] of ultimoCambioPendiente) {
+      if (!productosFusionadosIds.has(id) && productoPendiente.controla_stock) {
+        productosFusionados.push(productoPendiente);
+      }
+    }
 
     for (const producto of productosFusionados) {
       await guardarRegistro("productos", producto);
     }
     
     set({ productos: productosFusionados, categorias, cargando: false });
+
+    for (const [id, productoPendiente] of ultimoCambioPendiente) {
+      const productoLAN = productos.find((producto) => producto.id === id);
+      if (productoLAN && mismoStockYLotes(productoLAN, productoPendiente)) {
+        await limpiarPendientesStockConfirmados(productoLAN);
+      } else {
+        enviarAccionLAN({ tipo: "ACTUALIZAR_PRODUCTO", payload: productoPendiente });
+      }
+    }
   },
 
   cargarProductos: async () => {
@@ -242,48 +322,68 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   },
 
   agregarProducto: async (producto, propagado = false) => {
+    const productoLocal = quitarImagenEnLinea(producto);
     if (!propagado && enviarAccionLAN({ tipo: 'AGREGAR_PRODUCTO', payload: producto })) {
-      await guardarRegistro("productos", producto);
-      set((estado) => ({ productos: [...estado.productos, producto] })); 
+      await guardarRegistro("productos", productoLocal);
+      set((estado) => ({ productos: [...estado.productos, productoLocal] }));
       return;
     }
 
-    await guardarRegistro("productos", producto);
-    set((estado) => ({ productos: estado.productos.some(p => p.id === producto.id) ? estado.productos : [...estado.productos, producto] }));
+    await guardarRegistro("productos", productoLocal);
+    set((estado) => ({ productos: estado.productos.some(p => p.id === producto.id) ? estado.productos : [...estado.productos, productoLocal] }));
     
     if (navigator.onLine && debeSincronizarConNube()) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) {
-        const payload = mapearProductoASupabase(producto, tiendaId);
-        const cat = get().categorias.find(c => c.nombre === producto.categoria);
+        const payload = mapearProductoASupabase(productoLocal, tiendaId);
+        const cat = get().categorias.find(c => c.nombre === productoLocal.categoria);
         if (cat) (payload as any).categoria_id = cat.id;
-        await sincronizarConCola("productos", "AGREGAR", producto, () => supabase.from("productos").upsert(payload));
-      } else await registrarPendienteSync({ tabla: "productos", operacion: "AGREGAR", payload: producto });
+        await sincronizarConCola("productos", "AGREGAR", productoLocal, () => supabase.from("productos").upsert(payload));
+      } else await registrarPendienteSync({ tabla: "productos", operacion: "AGREGAR", payload: productoLocal });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
-      await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: producto });
+      await registrarPendienteSync({ tabla: 'productos', operacion: 'AGREGAR', payload: productoLocal });
     }
   },
 
   actualizarProducto: async (productoActualizado, propagado = false) => {
     if (!propagado && enviarAccionLAN({ tipo: 'ACTUALIZAR_PRODUCTO', payload: productoActualizado })) {
-      await guardarRegistro("productos", productoActualizado);
-      set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoActualizado.id ? productoActualizado : p)) }));
+      const productoLocal = quitarImagenEnLinea(productoActualizado);
+      await guardarRegistro("productos", productoLocal);
+      set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoLocal.id ? productoLocal : p)) }));
       return;
     }
 
-    await guardarRegistro("productos", productoActualizado);
-    set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoActualizado.id ? productoActualizado : p)) }));
+    const productoAnterior = get().productos.find((producto) => producto.id === productoActualizado.id);
+    const productoLocal = quitarImagenEnLinea(productoActualizado);
+    const actualizaStock = Boolean(
+      productoAnterior
+      && (
+        productoAnterior.stock_actual !== productoLocal.stock_actual
+        || JSON.stringify(productoAnterior.lotes ?? []) !== JSON.stringify(productoLocal.lotes ?? [])
+      )
+    );
+
+    await guardarRegistro("productos", productoLocal);
+    set((estado) => ({ productos: estado.productos.map((p) => (p.id === productoLocal.id ? productoLocal : p)) }));
 
     if (navigator.onLine && debeSincronizarConNube()) {
       const tiendaId = await obtenerTiendaIdActual();
       if (tiendaId) {
-        const payload = mapearProductoASupabase(productoActualizado, tiendaId);
-        const cat = get().categorias.find(c => c.nombre === productoActualizado.categoria);
+        const payload = mapearProductoASupabase(productoLocal, tiendaId);
+        const cat = get().categorias.find(c => c.nombre === productoLocal.categoria);
         if (cat) (payload as any).categoria_id = cat.id;
-        await sincronizarConCola("productos", "ACTUALIZAR", productoActualizado, () => supabase.from("productos").upsert(payload));
-      } else await registrarPendienteSync({ tabla: "productos", operacion: "ACTUALIZAR", payload: productoActualizado });
+        await sincronizarConCola("productos", "ACTUALIZAR", productoLocal, () => supabase.from("productos").upsert(payload), actualizaStock);
+      } else await registrarPendienteSync({ tabla: "productos", operacion: "ACTUALIZAR", payload: productoLocal, actualizaStock });
     } else if (!navigator.onLine && debeSincronizarConNube()) {
-      await registrarPendienteSync({ tabla: 'productos', operacion: 'ACTUALIZAR', payload: productoActualizado });
+      await registrarPendienteSync({ tabla: 'productos', operacion: 'ACTUALIZAR', payload: productoLocal, actualizaStock });
+    } else if (!propagado && actualizaStock && !useEstadoRed.getState().esMaestro) {
+      await registrarPendienteSync({
+        tabla: "productos",
+        operacion: "ACTUALIZAR",
+        payload: productoLocal,
+        actualizaStock: true,
+        soloLAN: true,
+      });
     }
   },
 

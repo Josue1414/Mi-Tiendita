@@ -1,6 +1,6 @@
 // src/vistas/pos/CatalogoProductosPOS.tsx
-import type { KeyboardEvent, ReactNode } from "react";
-import { Camera, ChevronDown, ChevronUp, LayoutGrid, Plus, Scale, ScanBarcode, Search } from "lucide-react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, LayoutGrid, Plus, Scale, ScanBarcode, Search } from "lucide-react";
 import type { Categoria, Producto } from "../../tipos/producto";
 import { precioVenta } from "../../tipos/producto";
 import { colorConAlpha, colorTextoSobre } from "../../utilidades/coloresCategoria";
@@ -9,6 +9,8 @@ import ImagenLocal from "../../componentes/ui/ImagenLocal";
 import PanelCamaraEscaner from "../../componentes/pos/PanelCamaraEscaner";
 import PanelEscaner from "../../componentes/pos/PanelEscaner";
 import type { ModoVistaPOS } from "./types";
+
+const PRODUCTOS_POR_PAGINA = 24;
 
 interface CatalogoProductosPOSProps {
   busqueda: string;
@@ -53,10 +55,19 @@ export default function CatalogoProductosPOS({
   alCambiarVisibilidadCamara,
   alEscanear,
 }: CatalogoProductosPOSProps) {
+  const claveFiltro = JSON.stringify([busqueda, categoriaActiva, modoVista]);
+  const [paginacion, setPaginacion] = useState({ claveFiltro, pagina: 1 });
+
   // FILTRO INTELIGENTE PARA EL MODO PESAJE (Solo muestra Granel)
   const productosMostrar = modoVista === "pesaje"
     ? productos.filter(p => ["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(p.unidad))
     : productos;
+  const totalPaginas = Math.max(1, Math.ceil(productosMostrar.length / PRODUCTOS_POR_PAGINA));
+  const paginaActual = Math.min(paginacion.claveFiltro === claveFiltro ? paginacion.pagina : 1, totalPaginas);
+  const productosPaginados = productosMostrar.slice(
+    (paginaActual - 1) * PRODUCTOS_POR_PAGINA,
+    paginaActual * PRODUCTOS_POR_PAGINA
+  );
 
   return (
     <div className="flex-1 min-w-0 min-h-[420px] flex flex-col gap-3">
@@ -169,8 +180,9 @@ export default function CatalogoProductosPOS({
             })}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1 content-start">
-            {productosMostrar.map((producto) => {
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2 pb-2 min-h-[280px] flex-1 content-start">
+            {productosPaginados.map((producto) => {
               const final = precioVenta(producto);
               const color = categorias.find((categoria) => categoria.nombre === producto.categoria)?.color;
               const seleccionado = productoEnfoque?.id === producto.id;
@@ -248,7 +260,40 @@ export default function CatalogoProductosPOS({
             {productosMostrar.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center opacity-40 text-slate-500 py-10">
                 <Scale size={48} className="mb-2" />
-                <p>No hay productos a granel para pesar.</p>
+                <p>{modoVista === "pesaje" ? "No hay productos a granel para pesar." : "No se encontraron productos."}</p>
+              </div>
+            )}
+            </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex shrink-0 items-center justify-between border-t border-slate-200/70 px-1 py-2 dark:border-white/10">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {((paginaActual - 1) * PRODUCTOS_POR_PAGINA) + 1}-
+                  {Math.min(paginaActual * PRODUCTOS_POR_PAGINA, productosMostrar.length)} de {productosMostrar.length}
+                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaginacion({ claveFiltro, pagina: Math.max(1, paginaActual - 1) })}
+                    disabled={paginaActual === 1}
+                    aria-label="Página anterior"
+                    className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Página {paginaActual} de {totalPaginas}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPaginacion({ claveFiltro, pagina: Math.min(totalPaginas, paginaActual + 1) })}
+                    disabled={paginaActual === totalPaginas}
+                    aria-label="Página siguiente"
+                    className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

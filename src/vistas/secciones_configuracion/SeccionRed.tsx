@@ -46,8 +46,8 @@ interface NavegadorExtendido {
   };
 }
 
-const URL_INSTALADOR_EXE = 'https://github.com/Josue1414/predicamap/releases/download/v1.4.0/Ahorra-Tiempo.MI.TIENDA.Setup.1.4.0.exe';
-const URL_APK_ANDROID = 'https://github.com/Josue1414/predicamap/releases/download/v1.4.0/Ahorra-Tiempo.MI.TIENDA-1.4.0.apk';
+const URL_INSTALADOR_EXE = 'https://github.com/Josue1414/predicamap/releases/download/MiTienda-v1.6.6/Ahorra-Tiempo.MI.TIENDA.Setup.1.6.6.exe';
+const URL_APK_ANDROID = 'https://github.com/Josue1414/predicamap/releases/download/MiTienda-v1.6.6/MiTienda.1.6.6.apk';
 
 export default function SeccionRed({ setAviso }: PropsSeccionConfig) {
   const { trabajadorActivo } = useEstadoTrabajadores();

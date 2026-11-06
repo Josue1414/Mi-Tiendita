@@ -26,6 +26,7 @@ const dispositivosCajaLAN = new Set();
 const ultimosMensajesPantalla = new Map();
 const PUERTO_DESCUBRIMIENTO_LAN = 41234;
 const TIPO_CEREBRO = 'CEREBRO_MITIENDA';
+const MAX_MENSAJE_LAN_BYTES = 20 * 1024 * 1024;
 
 let dispositivoCallback = null;
 
@@ -244,7 +245,8 @@ function iniciarServidorLAN(tiendaId, deviceId) {
   ioServidor = new Server(server, {
     cors: { origin: "*" },
     pingInterval: 5000,
-    pingTimeout: 10000
+    pingTimeout: 10000,
+    maxHttpBufferSize: MAX_MENSAJE_LAN_BYTES
   });
 
   ioServidor.on('connection', (socket) => {
