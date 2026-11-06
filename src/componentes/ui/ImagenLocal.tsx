@@ -1,10 +1,13 @@
 // src/componentes/ui/ImagenLocal.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Package, ImageDown } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 import { obtenerUrlImagenLocal } from "../../servicios/baseDatosLocal";
 import { enviarAccionLAN } from "../../servicios/sincronizacionLAN";
 import { useEstadoRed } from "../../estado/estadoRed";
+
+const EVENTO_SOLICITAR_IMAGEN_P2P = "solicitar-imagen-p2p";
+const EVENTO_SOLICITAR_IMAGEN_LAN = "solicitar-imagen-lan-pantalla";
 
 interface Props {
   nombreArchivo?: string;
@@ -15,6 +18,7 @@ interface Props {
 export default function ImagenLocal({ nombreArchivo, nombreProducto, className }: Props) {
   const [imagenResuelta, setImagenResuelta] = useState<{ nombreArchivo: string; url: string | null } | null>(null);
   const [descargando, setDescargando] = useState(false);
+  const temporizadorLANRef = useRef<number | null>(null);
   
   const esMaestro = useEstadoRed((estado) => estado.esMaestro);
   const conectadoLAN = useEstadoRed((estado) => estado.conectadoLAN);
@@ -34,6 +38,8 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     const params = new URLSearchParams(window.location.search);
     const lanHost = params.get("lanHost");
     const lanPort = params.get("lanPort") || "4000";
+    let temporizadorSolicitud: number | undefined;
+    let temporizadorSolicitudP2P: number | undefined;
 
     const cargarImagen = async () => {
       try {
@@ -48,6 +54,20 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
           const urlHttp = `http://${lanHost}:${lanPort}/imagenes_lan/${nombreArchivo}`;
           setImagenResuelta({ nombreArchivo, url: urlHttp });
           setDescargando(false);
+        } else if (params.has("peer")) {
+          setDescargando(true);
+          temporizadorSolicitudP2P = window.setTimeout(() => {
+            if (!cancelado) {
+              window.dispatchEvent(new CustomEvent(EVENTO_SOLICITAR_IMAGEN_P2P, { detail: nombreArchivo }));
+            }
+          }, 0);
+          if (temporizadorSolicitud) window.clearTimeout(temporizadorSolicitud);
+          temporizadorSolicitud = window.setTimeout(() => {
+            if (!cancelado) {
+              setImagenResuelta({ nombreArchivo, url: null });
+              setDescargando(false);
+            }
+          }, 15000);
         } else if (!esMaestro && conectadoLAN) {
           // Modo Esclavo LAN: Solicitar imagen al Cerebro por WebSockets
           setDescargando(true);
@@ -66,6 +86,11 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     const alDescargar = (evento: Event) => {
       const archivoDescargado = (evento as CustomEvent<string>).detail;
       if (archivoDescargado === nombreArchivo) {
+        if (temporizadorSolicitud) window.clearTimeout(temporizadorSolicitud);
+        if (temporizadorLANRef.current !== null) {
+          window.clearTimeout(temporizadorLANRef.current);
+          temporizadorLANRef.current = null;
+        }
         cargarImagen();
       }
     };
@@ -74,6 +99,12 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
 
     return () => {
       cancelado = true;
+      if (temporizadorSolicitud) window.clearTimeout(temporizadorSolicitud);
+      if (temporizadorSolicitudP2P) window.clearTimeout(temporizadorSolicitudP2P);
+      if (temporizadorLANRef.current !== null) {
+        window.clearTimeout(temporizadorLANRef.current);
+        temporizadorLANRef.current = null;
+      }
       window.removeEventListener("imagen-descargada", alDescargar);
       // ⚠️ PARCHE CRÍTICO: 
       // Eliminamos el `URL.revokeObjectURL(urlTemporal)` que destruía las fotos
@@ -104,5 +135,22 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     );
   }
 
-  return <img src={urlImagen} alt={nombreProducto} className={cn("object-cover", className)} />;
+  return (
+    <img
+      src={urlImagen}
+      alt={nombreProducto}
+      className={cn("object-cover", className)}
+      onError={() => {
+        if (!new URLSearchParams(window.location.search).has("lanHost")) return;
+        setImagenResuelta({ nombreArchivo: nombreArchivo || "", url: null });
+        setDescargando(true);
+        window.dispatchEvent(new CustomEvent(EVENTO_SOLICITAR_IMAGEN_LAN, { detail: nombreArchivo }));
+        if (temporizadorLANRef.current !== null) window.clearTimeout(temporizadorLANRef.current);
+        temporizadorLANRef.current = window.setTimeout(() => {
+          temporizadorLANRef.current = null;
+          setDescargando(false);
+        }, 15000);
+      }}
+    />
+  );
 }

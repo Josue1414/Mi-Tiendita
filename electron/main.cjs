@@ -24,6 +24,7 @@ let tiendaIdAnuncio = '';
 let deviceIdAnuncio = '';
 const dispositivosCajaLAN = new Set();
 const ultimosMensajesPantalla = new Map();
+const ultimosPagosPantalla = new Map();
 const PUERTO_DESCUBRIMIENTO_LAN = 41234;
 const TIPO_CEREBRO = 'CEREBRO_MITIENDA';
 const MAX_MENSAJE_LAN_BYTES = 20 * 1024 * 1024;
@@ -267,11 +268,18 @@ function iniciarServidorLAN(tiendaId, deviceId) {
       if (!data || typeof data.cajaId !== 'string') return;
       const ultimoMensaje = ultimosMensajesPantalla.get(data.cajaId);
       if (ultimoMensaje) socket.emit('update-pantalla-cliente', ultimoMensaje);
+      const ultimoPago = ultimosPagosPantalla.get(data.cajaId);
+      if (ultimoPago) socket.emit('update-pantalla-cliente', ultimoPago);
     });
     
     socket.on('sync-pantalla-cliente', (data) => {
       if (data?.cajaId && data?.payload?.tipo === 'ACTUALIZAR_CARRITO') {
         ultimosMensajesPantalla.set(data.cajaId, data);
+      }
+      if (data?.cajaId && data?.payload?.tipo === 'ACTUALIZAR_PAGO') {
+        ultimosPagosPantalla.set(data.cajaId, data);
+      } else if (data?.cajaId && ['COBRO_EXITOSO', 'LIMPIAR'].includes(data?.payload?.tipo)) {
+        ultimosPagosPantalla.delete(data.cajaId);
       }
       ioServidor.emit('update-pantalla-cliente', data);
     });

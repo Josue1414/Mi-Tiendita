@@ -64,6 +64,7 @@ public class AndroidLanPlugin extends Plugin {
     private static final String TIPO_CEREBRO = "CEREBRO_MITIENDA";
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ConcurrentHashMap<String, JsonNode> ultimosCarritosPorCaja = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, JsonNode> ultimosPagosPorCaja = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> direccionesPorSesionSocket = new ConcurrentHashMap<>();
     private final Set<ClienteSse> clientesPantallaSse = ConcurrentHashMap.newKeySet();
 
@@ -153,6 +154,11 @@ public class AndroidLanPlugin extends Plugin {
             JsonNode data = JSON.readTree(message.toString());
             if ("ACTUALIZAR_CARRITO".equals(payload.getString("tipo"))) {
                 ultimosCarritosPorCaja.put(cajaId, data.deepCopy());
+            }
+            if ("ACTUALIZAR_PAGO".equals(payload.getString("tipo"))) {
+                ultimosPagosPorCaja.put(cajaId, data.deepCopy());
+            } else if ("COBRO_EXITOSO".equals(payload.getString("tipo")) || "LIMPIAR".equals(payload.getString("tipo"))) {
+                ultimosPagosPorCaja.remove(cajaId);
             }
             if (server != null) server.getBroadcastOperations().sendEvent("update-pantalla-cliente", data);
             enviarMensajePantallaSse(data);
@@ -333,6 +339,12 @@ public class AndroidLanPlugin extends Plugin {
                         if ("ACTUALIZAR_CARRITO".equals(payload.path("tipo").asText())) {
                             ultimosCarritosPorCaja.put(cajaId, data.deepCopy());
                         }
+                        if ("ACTUALIZAR_PAGO".equals(payload.path("tipo").asText())) {
+                            ultimosPagosPorCaja.put(cajaId, data.deepCopy());
+                        } else if ("COBRO_EXITOSO".equals(payload.path("tipo").asText())
+                            || "LIMPIAR".equals(payload.path("tipo").asText())) {
+                            ultimosPagosPorCaja.remove(cajaId);
+                        }
                         server.getBroadcastOperations().sendEvent("update-pantalla-cliente", data);
                     }
                 });
@@ -340,6 +352,8 @@ public class AndroidLanPlugin extends Plugin {
                     if (data.hasNonNull("cajaId")) {
                         JsonNode ultimoCarrito = ultimosCarritosPorCaja.get(data.get("cajaId").asText());
                         if (ultimoCarrito != null) client.sendEvent("update-pantalla-cliente", ultimoCarrito);
+                        JsonNode ultimoPago = ultimosPagosPorCaja.get(data.get("cajaId").asText());
+                        if (ultimoPago != null) client.sendEvent("update-pantalla-cliente", ultimoPago);
                         server.getBroadcastOperations().sendEvent("pantalla-cliente-conectada", data);
                         JSObject conectado = new JSObject();
                         conectado.put("cajaId", data.get("cajaId").asText());
@@ -619,6 +633,8 @@ public class AndroidLanPlugin extends Plugin {
         emitirEstado();
         JsonNode ultimoCarrito = ultimosCarritosPorCaja.get(cajaId);
         if (ultimoCarrito != null) escribirEventoSse(cliente, ultimoCarrito);
+        JsonNode ultimoPago = ultimosPagosPorCaja.get(cajaId);
+        if (ultimoPago != null) escribirEventoSse(cliente, ultimoPago);
 
         try {
             while (webServerRunning && !socket.isClosed()) {

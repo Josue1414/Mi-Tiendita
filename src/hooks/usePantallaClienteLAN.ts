@@ -8,6 +8,7 @@ import type { ItemCarrito } from "../estado/estadoCarrito";
 import type { Producto } from "../tipos/producto";
 import { androidLan } from "../servicios/androidLan";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
+import { base64ABlob, blobABase64, guardarImagenLocal, obtenerImagenLocalBruta } from "../servicios/baseDatosLocal";
 
 export type MensajePantalla = 
   | { tipo: "ACTUALIZAR_CARRITO"; items: ItemCarrito[]; total: number; descuento: number }
@@ -25,6 +26,100 @@ export interface DatosTransferencia {
 }
 
 const CANAL = "pantalla_cliente_mi_tienda";
+const EVENTO_SOLICITAR_IMAGEN_P2P = "solicitar-imagen-p2p";
+const EVENTO_SOLICITAR_IMAGEN_LAN = "solicitar-imagen-lan-pantalla";
+
+type EstadoPantallaPersistente = {
+  carrito: Extract<MensajePantalla, { tipo: "ACTUALIZAR_CARRITO" }> | null;
+  pago: Extract<MensajePantalla, { tipo: "ACTUALIZAR_PAGO" }> | null;
+  producto: Extract<MensajePantalla, { tipo: "MOSTRAR_PRODUCTO_CLIENTE" }> | null;
+};
+
+type SolicitudImagenP2P = { tipo: "SOLICITAR_IMAGEN"; archivo: string };
+type RespuestaImagenP2P = { tipo: "IMAGEN"; archivo: string; base64: string };
+
+async function convertirImagenParaPantalla(blob: Blob): Promise<string> {
+  if (typeof createImageBitmap !== "function") return blobABase64(blob);
+
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(blob);
+    const escala = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * escala));
+    canvas.height = Math.max(1, Math.round(bitmap.height * escala));
+    const contexto = canvas.getContext("2d");
+    if (!contexto) throw new Error("No se pudo preparar el lienzo para la imagen.");
+    contexto.fillStyle = "#fff";
+    contexto.fillRect(0, 0, canvas.width, canvas.height);
+    contexto.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const imagenOptimizada = canvas.toDataURL("image/jpeg", 0.8);
+    if (imagenOptimizada.length > "data:,".length) return imagenOptimizada;
+  } catch (error) {
+    console.warn("No se pudo optimizar la imagen para la pantalla cliente; se enviará en su formato original:", error);
+  } finally {
+    bitmap?.close();
+  }
+  return blobABase64(blob);
+}
+
+type ImagenConDatos = {
+  imagen_url?: string;
+  imagen_archivo?: string;
+};
+
+async function agregarImagenAlMensaje<T extends ImagenConDatos>(
+  entidad: T,
+  obtenerImagen: (archivo: string) => Promise<string | null>,
+): Promise<T> {
+  if (entidad.imagen_url?.startsWith("data:image/")) return entidad;
+  if (entidad.imagen_url?.startsWith("http://") || entidad.imagen_url?.startsWith("https://")) return entidad;
+
+  let urlLimpia = entidad.imagen_url;
+  // No enviar blob URLs locales por red, ya que no sirven en otros dispositivos
+  if (urlLimpia?.startsWith("blob:")) {
+    urlLimpia = undefined;
+  }
+
+  for (const archivo of [entidad.imagen_archivo, urlLimpia]) {
+    if (!archivo) continue;
+    const imagen = await obtenerImagen(archivo);
+    if (imagen) return { ...entidad, imagen_url: imagen };
+  }
+  return { ...entidad, imagen_url: urlLimpia };
+}
+
+async function agregarImagenesAlMensaje(
+  mensaje: MensajePantalla,
+  obtenerImagen: (archivo: string) => Promise<string | null>,
+): Promise<MensajePantalla> {
+  if (mensaje.tipo === "ACTUALIZAR_CARRITO") {
+    return {
+      ...mensaje,
+      items: await Promise.all(mensaje.items.map((item) => agregarImagenAlMensaje(item, obtenerImagen))),
+    };
+  }
+  if (mensaje.tipo === "MOSTRAR_PRODUCTO_CLIENTE") {
+    return {
+      ...mensaje,
+      producto: await agregarImagenAlMensaje(mensaje.producto, obtenerImagen),
+    };
+  }
+  return mensaje;
+}
+
+function esSolicitudImagenP2P(mensaje: unknown): mensaje is SolicitudImagenP2P {
+  return typeof mensaje === "object" && mensaje !== null
+    && "tipo" in mensaje && mensaje.tipo === "SOLICITAR_IMAGEN"
+    && "archivo" in mensaje && typeof mensaje.archivo === "string";
+}
+
+function esRespuestaImagenP2P(mensaje: unknown): mensaje is RespuestaImagenP2P {
+  return typeof mensaje === "object" && mensaje !== null
+    && "tipo" in mensaje && mensaje.tipo === "IMAGEN"
+    && "archivo" in mensaje && typeof mensaje.archivo === "string"
+    && "base64" in mensaje && typeof mensaje.base64 === "string";
+}
 
 export const crearIdPeer = (nombreCaja: string) => {
   const tiendaId = localStorage.getItem("tienda_id_cache")
@@ -51,7 +146,14 @@ export function useEmisorPantallaCliente(
   const socketRef = useRef<Socket | null>(null);
   const peerRef = useRef<Peer | null>(null);
   const conexionesPeerRef = useRef<DataConnection[]>([]);
-  const mensajePendienteRef = useRef<MensajePantalla | null>(null);
+  const estadoPersistenteRef = useRef<EstadoPantallaPersistente>({
+    carrito: null,
+    pago: null,
+    producto: null,
+  });
+  const imagenesEnCacheRef = useRef(new Map<string, Promise<string | null>>());
+  const revisionCarritoRef = useRef(0);
+  const revisionProductoRef = useRef(0);
   const mensajePendienteSocketRef = useRef<MensajePantalla | null>(null);
   const [clientesConectados, setClientesConectados] = useState(0);
 
@@ -70,11 +172,23 @@ export function useEmisorPantallaCliente(
       conexionesPeerRef.current.push(conexion);
       conexion.on("open", () => {
         setClientesConectados((actual) => actual + 1);
-        const mensajePendiente = mensajePendienteRef.current;
-        if (mensajePendiente) {
-          conexion.send(mensajePendiente);
-          mensajePendienteRef.current = null;
-        }
+        const { carrito, pago, producto } = estadoPersistenteRef.current;
+        [carrito, pago, producto].forEach((mensaje) => {
+          if (mensaje) conexion.send(mensaje);
+        });
+      });
+      conexion.on("data", (mensaje) => {
+        if (!esSolicitudImagenP2P(mensaje)) return;
+        void (async () => {
+          try {
+            const blob = await obtenerImagenLocalBruta(mensaje.archivo);
+            if (!blob || !conexion.open) return;
+            const base64 = await blobABase64(blob);
+            conexion.send({ tipo: "IMAGEN", archivo: mensaje.archivo, base64 } satisfies RespuestaImagenP2P);
+          } catch (error) {
+            console.error("No se pudo enviar la imagen a la pantalla cliente P2P:", error);
+          }
+        })();
       });
       conexion.on("close", () => {
         conexionesPeerRef.current = conexionesPeerRef.current.filter((actual) => actual !== conexion);
@@ -132,23 +246,92 @@ export function useEmisorPantallaCliente(
   }, [esAndroid, esMaestro, ipMaestro, nombreCajaLocal]);
 
   const enviarMensaje = useCallback((mensaje: MensajePantalla) => {
-    // 1. Misma PC (Electron/Ventanas locales)
-    const bc = new BroadcastChannel(CANAL);
-    bc.postMessage({ cajaId: nombreCajaLocal, payload: mensaje });
-    bc.close();
+    const transmitirMensaje = (mensajeListo: MensajePantalla) => {
+      // 1. Misma PC (Electron/Ventanas locales)
+      const bc = new BroadcastChannel(CANAL);
+      bc.postMessage({ cajaId: nombreCajaLocal, payload: mensajeListo });
+      bc.close();
 
-    // 2. P2P QR (Internet)
-    const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
-    conexionesAbiertas.forEach((conexion) => conexion.send(mensaje));
-    mensajePendienteRef.current = conexionesAbiertas.length > 0 ? null : mensaje;
+      // 2. P2P QR (Internet)
+      const conexionesAbiertas = conexionesPeerRef.current.filter((conexion) => conexion.open);
+      conexionesAbiertas.forEach((conexion) => conexion.send(mensajeListo));
 
-    // 3. LAN (Socket.io)
-    const socket = socketRef.current;
-    if (socket?.connected) {
-      socket.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensaje });
-      mensajePendienteSocketRef.current = null;
+      // 3. LAN (Socket.io)
+      const socket = socketRef.current;
+      if (socket?.connected) {
+        socket.emit("sync-pantalla-cliente", { cajaId: nombreCajaLocal, payload: mensajeListo });
+        mensajePendienteSocketRef.current = null;
+      } else {
+        mensajePendienteSocketRef.current = mensajeListo;
+      }
+    };
+
+    const revision = mensaje.tipo === "ACTUALIZAR_CARRITO"
+      ? ++revisionCarritoRef.current
+      : mensaje.tipo === "MOSTRAR_PRODUCTO_CLIENTE" || mensaje.tipo === "QUITAR_PRODUCTO_CLIENTE"
+        ? ++revisionProductoRef.current
+        : null;
+
+    if (mensaje.tipo === "QUITAR_PRODUCTO_CLIENTE") {
+      estadoPersistenteRef.current.producto = null;
+      transmitirMensaje(mensaje);
+      return;
+    }
+
+    if (mensaje.tipo !== "ACTUALIZAR_CARRITO" && mensaje.tipo !== "MOSTRAR_PRODUCTO_CLIENTE") {
+      transmitirMensaje(mensaje);
     } else {
-      mensajePendienteSocketRef.current = mensaje;
+      const mensajeOriginal = mensaje;
+      const obtenerImagen = (archivo: string) => {
+        const cache = imagenesEnCacheRef.current;
+        const enCache = cache.get(archivo);
+        if (enCache) return enCache;
+
+        const solicitud = obtenerImagenLocalBruta(archivo)
+          .then((blob) => blob ? convertirImagenParaPantalla(blob) : null)
+          .then((imagen) => {
+            if (!imagen) cache.delete(archivo);
+            return imagen;
+          })
+          .catch((error: unknown) => {
+            cache.delete(archivo);
+            console.error(`No se pudo preparar la imagen "${archivo}" para la pantalla cliente:`, error);
+            return null;
+          });
+        cache.set(archivo, solicitud);
+        if (cache.size > 50) {
+          const archivoMasAntiguo = cache.keys().next().value;
+          if (archivoMasAntiguo) cache.delete(archivoMasAntiguo);
+        }
+        return solicitud;
+      };
+
+      void agregarImagenesAlMensaje(mensajeOriginal, obtenerImagen)
+        .then((mensajeListo) => {
+          if (
+            (mensajeOriginal.tipo === "ACTUALIZAR_CARRITO" && revision !== revisionCarritoRef.current)
+            || (mensajeOriginal.tipo === "MOSTRAR_PRODUCTO_CLIENTE" && revision !== revisionProductoRef.current)
+          ) return;
+
+          if (mensajeListo.tipo === "ACTUALIZAR_CARRITO") {
+            estadoPersistenteRef.current.carrito = mensajeListo;
+          } else if (mensajeListo.tipo === "MOSTRAR_PRODUCTO_CLIENTE") {
+            estadoPersistenteRef.current.producto = mensajeListo;
+          }
+          transmitirMensaje(mensajeListo);
+        })
+        .catch((error: unknown) => {
+          console.error("No se pudo preparar la imagen para la pantalla cliente:", error);
+        });
+      return;
+    }
+
+    // Keep the latest state for a display that connects after the message was sent.
+    const estadoPersistente = estadoPersistenteRef.current;
+    if (mensaje.tipo === "ACTUALIZAR_PAGO") estadoPersistente.pago = mensaje;
+    if (mensaje.tipo === "COBRO_EXITOSO" || mensaje.tipo === "LIMPIAR") {
+      estadoPersistente.pago = null;
+      estadoPersistente.producto = null;
     }
   }, [nombreCajaLocal]);
   
@@ -163,6 +346,7 @@ export function useReceptorPantallaCliente() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cajaObjetivo = params.get("cliente"); 
+    let cancelado = false;
 
     const procesarMensaje = (cajaId: string, msj: MensajePantalla) => {
       if (cajaObjetivo && cajaObjetivo !== "true" && cajaObjetivo !== cajaId) return;
@@ -206,22 +390,114 @@ export function useReceptorPantallaCliente() {
       || window.location.port === "4001";
       
     let peerCliente: Peer | null = null;
+    let conexionPeerCliente: DataConnection | null = null;
+    let temporizadorReconexion: number | null = null;
+    let reconectarAlVolver: (() => void) | null = null;
+    let demoraReconexion = 1000;
+    const imagenesPendientes = new Set<string>();
+
+    const solicitarImagen = (archivo: string) => {
+      if (imagenesPendientes.has(archivo)) return;
+      imagenesPendientes.add(archivo);
+      if (conexionPeerCliente?.open) {
+        conexionPeerCliente.send({ tipo: "SOLICITAR_IMAGEN", archivo } satisfies SolicitudImagenP2P);
+      }
+    };
+
+    const manejarSolicitudImagen = (evento: Event) => {
+      const archivo = (evento as CustomEvent<string>).detail;
+      if (typeof archivo === "string" && archivo) solicitarImagen(archivo);
+    };
+    window.addEventListener(EVENTO_SOLICITAR_IMAGEN_P2P, manejarSolicitudImagen);
+
+    let socket: Socket | null = null;
+    const imagenesLANPendientes = new Set<string>();
+    const solicitarImagenLAN = (archivo: string) => {
+      if (imagenesLANPendientes.has(archivo)) return;
+      imagenesLANPendientes.add(archivo);
+      if (socket?.connected) {
+        socket.emit("accion-esclavo", { tipo: "LAN_SOLICITAR_IMAGEN", payload: archivo });
+      }
+    };
+    const manejarSolicitudImagenLAN = (evento: Event) => {
+      const archivo = (evento as CustomEvent<string>).detail;
+      if (typeof archivo === "string" && archivo) solicitarImagenLAN(archivo);
+    };
+    window.addEventListener(EVENTO_SOLICITAR_IMAGEN_LAN, manejarSolicitudImagenLAN);
+
     if (peerObjetivo && !usaConexionLAN) {
+      const peerIdObjetivo = peerObjetivo;
       peerCliente = new Peer();
       peerCliente.on("error", (error) => {
         console.error("Error al conectar la pantalla cliente con el POS:", error);
+        if (!cancelado && !temporizadorReconexion) {
+          temporizadorReconexion = window.setTimeout(() => {
+            temporizadorReconexion = null;
+            conectarPeer();
+          }, demoraReconexion);
+          demoraReconexion = Math.min(demoraReconexion * 2, 10000);
+        }
       });
-      peerCliente.on("open", () => {
-        const conexion = peerCliente?.connect(peerObjetivo);
-        conexion?.on("data", (mensaje) => procesarMensaje(cajaObjetivo || "", mensaje as MensajePantalla));
-        conexion?.on("error", (error) => {
-          console.error("Error en el canal P2P de pantalla cliente:", error);
+      peerCliente.on("open", conectarPeer);
+      peerCliente.on("disconnected", () => {
+        peerCliente?.reconnect();
+      });
+
+      function conectarPeer() {
+        if (cancelado || !peerCliente?.open || conexionPeerCliente) return;
+        const conexion = peerCliente.connect(peerIdObjetivo);
+        conexionPeerCliente = conexion;
+        conexion.on("open", () => {
+          demoraReconexion = 1000;
+          imagenesPendientes.forEach((archivo) => {
+            conexion.send({ tipo: "SOLICITAR_IMAGEN", archivo } satisfies SolicitudImagenP2P);
+          });
         });
-      });
+        conexion.on("data", (mensaje) => {
+          if (esRespuestaImagenP2P(mensaje)) {
+            imagenesPendientes.delete(mensaje.archivo);
+            void (async () => {
+              try {
+                await guardarImagenLocal(mensaje.archivo, await base64ABlob(mensaje.base64));
+                window.dispatchEvent(new CustomEvent("imagen-descargada", { detail: mensaje.archivo }));
+              } catch (error) {
+                console.error("No se pudo guardar la imagen recibida por P2P:", error);
+              }
+            })();
+            return;
+          }
+          procesarMensaje(cajaObjetivo || "", mensaje as MensajePantalla);
+        });
+        conexion.on("close", () => {
+          if (conexionPeerCliente === conexion) conexionPeerCliente = null;
+          programarReconexion();
+        });
+        conexion.on("error", (error) => {
+          console.error("Error en el canal P2P de pantalla cliente:", error);
+          if (conexionPeerCliente === conexion) conexionPeerCliente = null;
+          programarReconexion();
+        });
+      }
+
+      function programarReconexion() {
+        if (cancelado || temporizadorReconexion) return;
+        temporizadorReconexion = window.setTimeout(() => {
+          temporizadorReconexion = null;
+          conectarPeer();
+        }, demoraReconexion);
+        demoraReconexion = Math.min(demoraReconexion * 2, 10000);
+      }
+
+      reconectarAlVolver = () => {
+        if (!peerCliente?.open) peerCliente?.reconnect();
+        else conectarPeer();
+      };
+      window.addEventListener("online", reconectarAlVolver);
+      window.addEventListener("focus", reconectarAlVolver);
+      window.addEventListener("pageshow", reconectarAlVolver);
     }
 
     // 2. Escuchar LAN (Tableta externa forzando WebSockets)
-    let socket: Socket | null = null;
     if (!peerObjetivo || usaConexionLAN) {
       const host = hostRelay
         || useEstadoRed.getState().ipMaestro
@@ -240,16 +516,47 @@ export function useReceptorPantallaCliente() {
 
       socket.on("connect", () => {
         if (cajaObjetivo) socket?.emit("registrar-pantalla-cliente", { cajaId: cajaObjetivo });
+        imagenesLANPendientes.forEach((archivo) => {
+          socket?.emit("accion-esclavo", { tipo: "LAN_SOLICITAR_IMAGEN", payload: archivo });
+        });
       });
       socket.on("update-pantalla-cliente", (data) => {
         if (data && data.payload && data.cajaId) procesarMensaje(data.cajaId, data.payload);
       });
+      socket.on("accion-maestro", (data: unknown) => {
+        if (
+          typeof data !== "object" || data === null
+          || !("tipo" in data) || data.tipo !== "LAN_ENVIAR_IMAGEN"
+          || !("payload" in data) || typeof data.payload !== "object" || data.payload === null
+          || !("archivo" in data.payload) || typeof data.payload.archivo !== "string"
+          || !("base64" in data.payload) || typeof data.payload.base64 !== "string"
+        ) return;
+        const { archivo, base64 } = data.payload;
+        imagenesLANPendientes.delete(archivo);
+        void (async () => {
+          try {
+            await guardarImagenLocal(archivo, await base64ABlob(base64));
+            window.dispatchEvent(new CustomEvent("imagen-descargada", { detail: archivo }));
+          } catch (error) {
+            console.error("No se pudo guardar la imagen recibida por LAN:", error);
+          }
+        })();
+      });
     }
 
     return () => {
+      cancelado = true;
       bc.close();
+      window.removeEventListener(EVENTO_SOLICITAR_IMAGEN_P2P, manejarSolicitudImagen);
+      window.removeEventListener(EVENTO_SOLICITAR_IMAGEN_LAN, manejarSolicitudImagenLAN);
+      if (reconectarAlVolver) {
+        window.removeEventListener("online", reconectarAlVolver);
+        window.removeEventListener("focus", reconectarAlVolver);
+        window.removeEventListener("pageshow", reconectarAlVolver);
+      }
       socket?.removeAllListeners();
       socket?.disconnect();
+      if (temporizadorReconexion) window.clearTimeout(temporizadorReconexion);
       peerCliente?.destroy();
     };
   }, []);
