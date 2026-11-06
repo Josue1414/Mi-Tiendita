@@ -101,9 +101,20 @@ export default function VistaLogin() {
   }, []);
 
   useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      await Promise.all([
+        cargarConfiguracion(),
+        cargarTrabajadores(),
+        cargarProductos(),
+        cargarVentas(),
+        cargarAsistencias()
+      ]);
+    };
+
     const validarSesionPrevia = async () => {
       if (esAccesoLAN) {
         setModoOfflineInfo(true);
+        await cargarDatosIniciales();
         setCuentaSaaSLogueada(true);
         return;
       }
@@ -112,8 +123,9 @@ export default function VistaLogin() {
         setModoOfflineInfo(true);
         const validacion = (await window.apiLocal.validarSuscripcionOffline()) as { activo: boolean; error?: string; fechaVencimiento?: string };
         if (validacion.activo) {
-          setCuentaSaaSLogueada(true);
           restaurarPlanCacheado(validacion.fechaVencimiento || null);
+          await cargarDatosIniciales();
+          setCuentaSaaSLogueada(true);
         } else {
           setCuentaSaaSLogueada(false);
           setAvisoSuscripcion({ 
@@ -141,8 +153,9 @@ export default function VistaLogin() {
         }
         
         if (fechaLocal) {
-          setCuentaSaaSLogueada(true);
           restaurarPlanCacheado(fechaLocal);
+          await cargarDatosIniciales();
+          setCuentaSaaSLogueada(true);
         }
         return;
       }
@@ -177,14 +190,23 @@ export default function VistaLogin() {
               const registro = await registrarDispositivoActual(tienda);
               setNombrePC(registro.dispositivo.nombre_dispositivo);
               
+              await cargarDatosIniciales();
               setCuentaSaaSLogueada(true);
-            } else if (error && evaluarEstadoSuscripcion(localStorage.getItem("fecha_vencimiento_cache")) === "VENCIDO") {
-              setCuentaSaaSLogueada(false);
-              setAvisoSuscripcion({
-                titulo: "Servicio Suspendido",
-                mensaje: "No se pudo validar la suscripción y la última fecha guardada indica que ya venció. Conéctate a internet para validar tu pago y restablecer el acceso.",
-                tipo: "bloqueo"
-              });
+            } else if (error) {
+              const fechaLocal = localStorage.getItem("fecha_vencimiento_cache");
+              if (evaluarEstadoSuscripcion(fechaLocal) === "VENCIDO") {
+                setCuentaSaaSLogueada(false);
+                setAvisoSuscripcion({
+                  titulo: "Servicio Suspendido",
+                  mensaje: "No se pudo validar la suscripción y la última fecha guardada indica que ya venció. Conéctate a internet para validar tu pago y restablecer el acceso.",
+                  tipo: "bloqueo"
+                });
+              } else if (fechaLocal) {
+                // Fallback: error temporal de red o de Supabase, pero la suscripción local sigue vigente
+                restaurarPlanCacheado(fechaLocal);
+                await cargarDatosIniciales();
+                setCuentaSaaSLogueada(true);
+              }
             }
           }
         }
@@ -772,7 +794,17 @@ export default function VistaLogin() {
           </div>
         )}
       </div>
-      <p className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-medium z-10 text-center">&copy; {new Date().getFullYear()} Mi Tienda Software. <br className="sm:hidden" /> Todos los derechos reservados.</p>
+      <p className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-medium z-10 text-center">
+        &copy; {new Date().getFullYear()} Mi Tienda Software. <br className="sm:hidden" />
+        <a
+          href="https://ahorratiempo.com.mx"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-block text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+        >
+          Conoce más en AhorraTiempo.com.mx
+        </a>
+      </p>
       <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.7.0</p>
     </div>
   );
