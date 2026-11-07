@@ -1,4 +1,5 @@
 // src/vistas/pos/ModalFiadoPOS.tsx
+import { useEffect } from "react";
 import { ArrowLeft, BookUser, Search, UserCheck } from "lucide-react";
 import type { Fiado } from "../../estado/estadoFiados";
 import { cn } from "../../utilidades/utils";
@@ -35,6 +36,32 @@ export default function ModalFiadoPOS({
   alConfirmarExistente,
   alConfirmarNuevo,
 }: ModalFiadoPOSProps) {
+
+  // SOLUCIÓN IMPLEMENTADA: Escuchador de teclado para atrapar la tecla F2
+  useEffect(() => {
+    if (!abierto) return;
+
+    const manejarTeclaFiado = (evento: KeyboardEvent) => {
+      if (evento.key === "F2") {
+        evento.preventDefault();
+        evento.stopPropagation(); // Detiene el evento para que no llegue al modal de atrás
+
+        if (modo === "seleccionar" && deudorSeleccionado) {
+          alConfirmarExistente();
+        } else if (modo === "nuevo" && nuevoDeudor.nombre.trim()) {
+          alConfirmarNuevo();
+        }
+      }
+    };
+
+    // Usamos { capture: true } para que este modal atrape el teclado ANTES que cualquier otro componente
+    window.addEventListener("keydown", manejarTeclaFiado, { capture: true });
+    
+    return () => {
+      window.removeEventListener("keydown", manejarTeclaFiado, { capture: true });
+    };
+  }, [abierto, modo, deudorSeleccionado, nuevoDeudor, alConfirmarExistente, alConfirmarNuevo]);
+
   if (!abierto) return null;
 
   return (

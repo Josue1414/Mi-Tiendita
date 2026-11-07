@@ -47,7 +47,9 @@ export default function ModalCobro({ estaAbierto, alCerrar, subtotal, descuento,
   }, [estaAbierto]);
 
   const recibidoNumerico = parseFloat(cantidadRecibida) || 0;
-  const cambio = recibidoNumerico - total;
+  
+  // SOLUCIÓN IMPLEMENTADA: Redondeamos a 2 decimales para evitar el error de precisión de JavaScript
+  const cambio = Math.round((recibidoNumerico - total) * 100) / 100;
   
   const esValido = (metodoPago !== "EFECTIVO" || recibidoNumerico >= total) && !procesando;
 
