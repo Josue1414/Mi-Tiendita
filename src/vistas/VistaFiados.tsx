@@ -11,7 +11,7 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
-  const { actualizarDeudor, eliminarDeudor } = useEstadoFiados();
+  const { deudores, actualizarDeudor, eliminarDeudor } = useEstadoFiados();
   const { ventas } = useEstadoVentas();
   const { trabajadorActivo } = useEstadoTrabajadores();
   
@@ -26,6 +26,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
   // ESTADOS DE EDICIÓN
   const [editando, setEditando] = useState(false);
   const [formEdicion, setFormEdicion] = useState({
+    nombre: deudor.nombre,
     celular: deudor.celular,
     limiteCredito: deudor.limiteCredito?.toString() || "500",
     notas: deudor.notas
@@ -78,6 +79,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
   const porcentajeDeuda = (deudor.totalDeuda / limite) * 100;
   const estaAlLimite = porcentajeDeuda >= 100;
   const estaCercaLimite = porcentajeDeuda >= 80 && !estaAlLimite;
+  const historialEdicionesNombre = deudor.historialEdicionesNombre ?? [];
 
   const colorDeuda = estaAlLimite 
     ? "text-red-700 bg-red-100 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50" 
@@ -86,11 +88,34 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
     : "text-emerald-700 bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50";
 
   const guardarEdicion = async () => {
+    const nombreNuevo = formEdicion.nombre.trim();
+    if (!nombreNuevo) {
+      setAviso({ titulo: "Nombre inválido", mensaje: "El nombre del cliente no puede quedar vacío." });
+      return;
+    }
+    if (deudores.some((actual) => actual.id !== deudor.id && actual.nombre.trim().toLocaleLowerCase() === nombreNuevo.toLocaleLowerCase())) {
+      setAviso({ titulo: "Nombre duplicado", mensaje: "Ya existe otro cliente registrado con este nombre." });
+      return;
+    }
+    const historialActualizado = nombreNuevo !== deudor.nombre
+      ? [
+        ...historialEdicionesNombre,
+        {
+          fecha: new Date().toISOString(),
+          nombreAnterior: deudor.nombre,
+          nombreNuevo,
+          trabajador: trabajadorActivo?.nombre || "Usuario no identificado",
+        },
+      ]
+      : historialEdicionesNombre;
+
     await actualizarDeudor({
       ...deudor,
+      nombre: nombreNuevo,
       celular: formEdicion.celular,
       limiteCredito: parseFloat(formEdicion.limiteCredito) || 500,
-      notas: formEdicion.notas
+      notas: formEdicion.notas,
+      historialEdicionesNombre: historialActualizado,
     });
     setEditando(false);
     setAviso({ titulo: "Datos guardados", mensaje: "La información del cliente fue actualizada." });
@@ -259,7 +284,7 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
             <button 
               onClick={() => {
                 if(editando) {
-                  setFormEdicion({celular: deudor.celular, limiteCredito: deudor.limiteCredito?.toString() || "500", notas: deudor.notas});
+                  setFormEdicion({nombre: deudor.nombre, celular: deudor.celular, limiteCredito: deudor.limiteCredito?.toString() || "500", notas: deudor.notas});
                 }
                 setEditando(!editando);
               }} 
@@ -271,6 +296,10 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
 
           {editando ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/50 dark:border-white/5 shadow-inner">
+              <div className="sm:col-span-2">
+                <label className="text-[11px] font-bold text-slate-500 block mb-1">Nombre del cliente</label>
+                <input type="text" value={formEdicion.nombre} onChange={e => setFormEdicion({...formEdicion, nombre: e.target.value})} maxLength={100} className="w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white" />
+              </div>
               <div>
                 <label className="text-[11px] font-bold text-slate-500 block mb-1">Celular</label>
                 <input type="tel" value={formEdicion.celular} onChange={e => setFormEdicion({...formEdicion, celular: e.target.value.replace(/\D/g, '')})} maxLength={10} className="w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500 dark:text-white" />
@@ -302,6 +331,24 @@ function TarjetaDeudor({ deudor, setAviso }: { deudor: Fiado, setAviso: any }) {
                 <FileText size={16} className="text-slate-400 shrink-0 mt-0.5" />
                 <span className="italic line-clamp-3">{deudor.notas || "Sin notas adicionales."}</span>
               </div>
+              {historialEdicionesNombre.length > 0 && (
+                <div className="col-span-2 rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-white/5 dark:bg-slate-900/60">
+                  <p className="mb-2 text-xs font-bold text-slate-600 dark:text-slate-300">Historial de cambios de nombre</p>
+                  <ul className="space-y-1.5">
+                    {[...historialEdicionesNombre].reverse().map((edicion, indice) => (
+                      <li key={`${edicion.fecha}-${indice}`} className="text-xs text-slate-500 dark:text-slate-400">
+                        <span className="font-semibold">{edicion.trabajador}</span>
+                        {" cambió "}
+                        <span className="font-medium">“{edicion.nombreAnterior}”</span>
+                        {" a "}
+                        <span className="font-medium">“{edicion.nombreNuevo}”</span>
+                        {" · "}
+                        {new Date(edicion.fecha).toLocaleString("es-MX")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

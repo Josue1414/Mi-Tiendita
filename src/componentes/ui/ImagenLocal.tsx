@@ -5,6 +5,7 @@ import { cn } from "../../utilidades/utils";
 import { obtenerUrlImagenLocal } from "../../servicios/baseDatosLocal";
 import { enviarAccionLAN } from "../../servicios/sincronizacionLAN";
 import { useEstadoRed } from "../../estado/estadoRed";
+import { obtenerParametrosUrlActual } from "../../utilidades/parametrosUrl";
 
 const EVENTO_SOLICITAR_IMAGEN_P2P = "solicitar-imagen-p2p";
 const EVENTO_SOLICITAR_IMAGEN_LAN = "solicitar-imagen-lan-pantalla";
@@ -35,7 +36,7 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
     let cancelado = false;
 
     // Detectar si estamos en la Pantalla Cliente por LAN
-    const params = new URLSearchParams(window.location.search);
+    const params = obtenerParametrosUrlActual();
     const lanHost = params.get("lanHost");
     const lanPort = params.get("lanPort") || "4000";
     let temporizadorSolicitud: number | undefined;
@@ -141,7 +142,7 @@ export default function ImagenLocal({ nombreArchivo, nombreProducto, className }
       alt={nombreProducto}
       className={cn("object-cover", className)}
       onError={() => {
-        if (!new URLSearchParams(window.location.search).has("lanHost")) return;
+        if (!obtenerParametrosUrlActual().has("lanHost")) return;
         setImagenResuelta({ nombreArchivo: nombreArchivo || "", url: null });
         setDescargando(true);
         window.dispatchEvent(new CustomEvent(EVENTO_SOLICITAR_IMAGEN_LAN, { detail: nombreArchivo }));

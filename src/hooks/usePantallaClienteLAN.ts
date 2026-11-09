@@ -8,6 +8,7 @@ import type { ItemCarrito } from "../estado/estadoCarrito";
 import type { Producto } from "../tipos/producto";
 import { androidLan } from "../servicios/androidLan";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
+import { obtenerParametrosUrlActual } from "../utilidades/parametrosUrl";
 import { base64ABlob, blobABase64, guardarImagenLocal, obtenerImagenLocalBruta } from "../servicios/baseDatosLocal";
 
 export type MensajePantalla = 
@@ -344,7 +345,7 @@ export function useReceptorPantallaCliente() {
   const [productoEnPantalla, setProductoEnPantalla] = useState<Producto | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = obtenerParametrosUrlActual();
     const cajaObjetivo = params.get("cliente"); 
     let cancelado = false;
 

@@ -1,6 +1,6 @@
 // src/vistas/VistaPantallaCliente.tsx
 import { useEffect, useState } from "react";
-import { CheckCircle2, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode, Maximize, Minimize } from "lucide-react";
+import { CheckCircle2, CloudSun, Heart, ShoppingCart, Settings, Sun, Moon, X, Landmark, Tag, Layers, QrCode, Maximize, Minimize, Sparkles } from "lucide-react";
 import { useReceptorPantallaCliente } from "../hooks/usePantallaCliente";
 import ImagenLocal from "../componentes/ui/ImagenLocal";
 import { abreviaturaUnidad, precioVenta, type Producto } from "../tipos/producto";
@@ -11,15 +11,27 @@ import { aplicarAccionLANRecibida, hidratarDesdeLAN } from "../servicios/appLAN"
 import { useEstadoRed } from "../estado/estadoRed";
 import { limpiarCacheImagenesLocales } from "../servicios/baseDatosLocal";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
+import { obtenerParametrosUrlActual } from "../utilidades/parametrosUrl";
+import { TEMAS_VISUALES, type TemaVisual } from "../utilidades/temas";
 
 type Densidad = "compacta" | "normal" | "amplia";
-type Tema = "verde" | "claro" | "oscuro" | "grafito";
 
-const estilosTema: Record<Tema, string> = {
+const estilosTema: Record<TemaVisual, string> = {
   verde: "bg-emerald-800 text-white",
   claro: "bg-slate-100 text-slate-900",
+  "azul-claro": "tema-azul-claro pantalla-cliente-azul-claro bg-sky-100 text-slate-900",
   oscuro: "bg-black text-white",
   grafito: "bg-zinc-900 text-zinc-100",
+  neon: "tema-neon pantalla-cliente-neon bg-[#09051b] text-violet-50",
+  "rosa-kawaii": "tema-rosa-kawaii pantalla-cliente-rosa-kawaii bg-[#fff1f7] text-slate-800",
+};
+
+const iconosTema: Partial<Record<TemaVisual, typeof Sun>> = {
+  claro: Sun,
+  "azul-claro": CloudSun,
+  neon: Sparkles,
+  "rosa-kawaii": Heart,
+  oscuro: Moon,
 };
 
 export default function VistaPantallaCliente() {
@@ -29,11 +41,11 @@ export default function VistaPantallaCliente() {
   const [hora, setHora] = useState("");
   const [opcionesAbiertas, setOpcionesAbiertas] = useState(false);
   const [densidad, setDensidad] = useState<Densidad>("compacta");
-  const [tema, setTema] = useState<Tema>("verde");
+  const [tema, setTema] = useState<TemaVisual>("verde");
   const [modalQRAbierto, setModalQRAbierto] = useState(false);
   const [esPantallaCompleta, setEsPantallaCompleta] = useState(false);
 
-  const params = new URLSearchParams(window.location.search);
+  const params = obtenerParametrosUrlActual();
   const nombreTienda = params.get("nombreTienda") || params.get("tienda") || "Mi Tienda";
 
   useEffect(() => {
@@ -99,7 +111,7 @@ export default function VistaPantallaCliente() {
   const altoFila = compacto ? "h-14" : densidad === "normal" ? "h-16" : "h-20"; 
   const textoNombre = compacto ? "text-sm" : densidad === "normal" ? "text-base" : "text-lg";
   const textoTotal = compacto ? "text-4xl" : densidad === "normal" ? "text-5xl" : "text-6xl";
-  const temaClaro = tema === "claro";
+  const temaClaro = tema === "claro" || tema === "azul-claro" || tema === "rosa-kawaii";
   
   const esCodi = datosCarrito.metodoPago === "CODI";
   const esTransferencia = datosCarrito.metodoPago === "TRANSFERENCIA";
@@ -165,7 +177,7 @@ export default function VistaPantallaCliente() {
       <ModalQRCliente 
         abierto={modalQRAbierto} 
         alCerrar={() => setModalQRAbierto(false)} 
-        nombreCaja={new URLSearchParams(window.location.search).get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"} 
+        nombreCaja={obtenerParametrosUrlActual().get("cliente") || localStorage.getItem("nombre_dispositivo_local") || "Caja Principal"}
       />
 
       <header className={`relative flex items-center justify-between px-5 py-3 border-b ${temaClaro ? "border-slate-200 bg-white" : "border-white/10 bg-black/20"}`}>
@@ -220,12 +232,16 @@ export default function VistaPantallaCliente() {
               
               <p className="mb-2 mt-3 text-[10px] font-bold uppercase tracking-wider opacity-60">Tema</p>
               <div className="grid grid-cols-2 gap-1">
-                {(["verde", "claro", "oscuro", "grafito"] as Tema[]).map((opcion) => (
-                  <button key={opcion} onClick={() => setTema(opcion)} className={`flex items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-semibold ${tema === opcion ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70 hover:opacity-100"}`}>
-                    {opcion === "claro" ? <Sun size={11} /> : opcion === "oscuro" ? <Moon size={11} /> : null}
-                    {opcion}
+                {TEMAS_VISUALES.map((opcion) => {
+                  const IconoTema = iconosTema[opcion.id];
+                  const seleccionado = tema === opcion.id;
+                  return (
+                  <button key={opcion.id} onClick={() => setTema(opcion.id)} className={`flex items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-semibold ${seleccionado ? "bg-emerald-500 text-white" : "bg-black/10 opacity-70 hover:opacity-100"}`}>
+                    {IconoTema && <IconoTema size={11} />}
+                    {opcion.nombre}
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-4 border-t pt-3 opacity-80 hover:opacity-100 transition-opacity" style={{ borderColor: 'inherit' }}>

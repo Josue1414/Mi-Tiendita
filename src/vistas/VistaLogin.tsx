@@ -805,7 +805,7 @@ export default function VistaLogin() {
           Conoce más en AhorraTiempo.com.mx
         </a>
       </p>
-      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.7.1</p>
+      <p className="mt-1 text-[10px] text-slate-400/80 dark:text-slate-500/80 z-10 text-center">Versión 1.7.2</p>
     </div>
   );
 }

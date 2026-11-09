@@ -11,6 +11,13 @@ export interface AbonoFiado {
   tipo: "ABONO" | "LIQUIDACION";
 }
 
+export interface EdicionNombreFiado {
+  fecha: string;
+  nombreAnterior: string;
+  nombreNuevo: string;
+  trabajador: string;
+}
+
 export interface Fiado {
   id: string;
   nombre: string;
@@ -21,6 +28,7 @@ export interface Fiado {
   fechaCreacion: string;
   limiteCredito?: number;          // <-- NUEVO
   historialAbonos?: AbonoFiado[];  // <-- NUEVO
+  historialEdicionesNombre?: EdicionNombreFiado[];
 }
 
 interface EstadoFiados {

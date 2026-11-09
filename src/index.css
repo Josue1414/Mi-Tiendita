@@ -53,6 +53,131 @@ body.barcode-scanner-active > #root {
   @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-lg dark:bg-black/50 dark:border-white/10;
 }
 
+.tema-claro .efecto-cristal,
+.tema-azul-claro .efecto-cristal {
+  background-color: #fff;
+  border-color: #d8e0ea;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+}
+
+.tema-azul-claro .efecto-cristal {
+  border-color: #d4e1f0;
+}
+
+.tema-claro [class*="bg-white"][class*="rounded-"]:not(button):not([class*="shadow-2xl"]),
+.tema-azul-claro [class*="bg-white"][class*="rounded-"]:not(button):not([class*="shadow-2xl"]) {
+  border-color: #d8e0ea;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 7%);
+}
+
+.tema-azul-claro [class*="bg-white"][class*="rounded-"]:not(button):not([class*="shadow-2xl"]) {
+  border-color: #d4e1f0;
+}
+
+.muestra-neon {
+  background: linear-gradient(135deg, #00d9ff 0%, #642cff 48%, #ff20d0 100%);
+}
+
+.tema-neon {
+  background-image: radial-gradient(ellipse at 85% 0%, rgb(91 33 182 / 20%), transparent 42%);
+}
+
+.tema-neon .efecto-cristal {
+  background-color: rgb(17 12 38 / 94%);
+  border-color: rgb(139 92 246 / 38%);
+  box-shadow:
+    0 0 22px rgb(124 58 237 / 24%),
+    0 0 42px rgb(0 217 255 / 9%),
+    0 8px 28px rgb(3 0 15 / 40%);
+}
+
+.tema-neon div[class*="rounded-"][class*="border"]:not(.efecto-cristal) {
+  box-shadow:
+    0 0 13px rgb(124 58 237 / 14%),
+    0 2px 10px rgb(3 0 15 / 24%);
+}
+
+.tema-neon [class*="bg-white"][class*="rounded-"]:not(button):not([class*="shadow-2xl"]) {
+  background-color: #15102b;
+  border-color: rgb(139 92 246 / 38%);
+  box-shadow:
+    0 0 16px rgb(124 58 237 / 18%),
+    0 3px 12px rgb(3 0 15 / 28%);
+}
+
+.tema-neon [class*="bg-amber-"] {
+  background-color: rgb(250 204 21 / 18%);
+}
+
+.tema-neon [class*="bg-amber-500"] {
+  background-color: #facc15;
+  color: #271b00;
+  box-shadow: 0 0 12px rgb(250 204 21 / 40%);
+}
+
+.tema-neon [class*="border-amber-"] {
+  border-color: rgb(250 204 21 / 72%);
+}
+
+.tema-neon [class*="text-amber-"] {
+  color: #fde047;
+}
+
+.tema-neon [class*="bg-amber-50/80"] {
+  box-shadow: 0 0 12px rgb(250 204 21 / 15%), inset 0 0 10px rgb(250 204 21 / 5%);
+}
+
+.tema-neon [class*="bg-slate-950"],
+.tema-neon [class*="bg-zinc-950"] {
+  background-color: #09051b;
+}
+
+.muestra-rosa-kawaii {
+  background: linear-gradient(135deg, #f9a8d4 0%, #fbcfe8 55%, #c4b5fd 100%);
+}
+
+.tema-rosa-kawaii {
+  background-image:
+    radial-gradient(ellipse at 0% 0%, rgb(249 168 212 / 24%), transparent 42%),
+    radial-gradient(ellipse at 100% 100%, rgb(196 181 253 / 18%), transparent 38%);
+}
+
+.tema-rosa-kawaii .efecto-cristal {
+  background-color: rgb(255 255 255 / 92%);
+  border-color: #fbcfe8;
+  box-shadow: 0 5px 18px rgb(219 39 119 / 9%);
+}
+
+.tema-rosa-kawaii [class*="bg-white"][class*="rounded-"]:not(button):not([class*="shadow-2xl"]) {
+  border-color: #f9c5df;
+  box-shadow: 0 3px 12px rgb(219 39 119 / 8%);
+}
+
+.pantalla-cliente-neon header,
+.pantalla-cliente-neon footer {
+  border-color: rgb(139 92 246 / 35%);
+  box-shadow: 0 0 14px rgb(124 58 237 / 12%);
+}
+
+.pantalla-cliente-neon [class*="rounded-3xl"][class*="border"],
+.pantalla-cliente-neon [class*="rounded-xl"][class*="border"] {
+  border-color: rgb(139 92 246 / 36%);
+  box-shadow: 0 0 15px rgb(124 58 237 / 15%), 0 3px 12px rgb(3 0 15 / 25%);
+}
+
+.pantalla-cliente-neon .text-emerald-300,
+.pantalla-cliente-neon .text-emerald-400 {
+  color: #67e8f9;
+}
+
+.pantalla-cliente-neon .text-emerald-500 {
+  color: #22d3ee;
+}
+
+.pantalla-cliente-neon .bg-emerald-500 {
+  background-color: #7c3aed;
+}
+
 .carrito-item-agregado {
   animation: resaltar-item-carrito 1.2s ease-out;
 }

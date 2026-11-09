@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Moon, Palette, Sun, Type } from "lucide-react";
+import { CheckCircle2, CloudSun, Heart, Moon, Palette, Sparkles, Sun, Type } from "lucide-react";
 import { cn } from "../../utilidades/utils";
 import { EVENTO_TEMA, guardarTemaVisual, obtenerTemaVisual, TEMAS_VISUALES, type TemaVisual } from "../../utilidades/temas";
 import AyudaContextual from "./AyudaContextual";
@@ -41,7 +41,7 @@ export default function PreferenciasVisuales() {
   const cambiarTema = (tema: TemaVisual) => {
     setTemaVisual(tema);
     guardarTemaVisual(tema);
-    document.documentElement.classList.toggle("dark", tema === "oscuro" || tema === "grafito");
+    document.documentElement.classList.toggle("dark", tema === "oscuro" || tema === "grafito" || tema === "neon");
   };
 
   return (
@@ -103,18 +103,34 @@ export default function PreferenciasVisuales() {
                 className={cn(
                   "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
                   seleccionado
-                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-900/20"
+                    ? tema.id === "neon"
+                      ? "border-fuchsia-500 bg-fuchsia-50 ring-2 ring-fuchsia-500/20 dark:border-fuchsia-400 dark:bg-fuchsia-900/20"
+                      : tema.id === "rosa-kawaii"
+                        ? "border-pink-400 bg-pink-50 ring-2 ring-pink-300/40"
+                        : "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-900/20"
                     : "border-slate-200 bg-white hover:border-emerald-300 dark:border-white/10 dark:bg-slate-900/60 dark:hover:border-emerald-700",
                 )}
               >
                 <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-inner", tema.muestra)}>
-                  {tema.id === "claro" ? <Sun size={16} /> : tema.id === "verde" ? <Palette size={16} /> : <Moon size={16} />}
+                  {tema.id === "claro" ? <Sun size={16} /> : tema.id === "azul-claro" ? <CloudSun size={16} /> : tema.id === "verde" ? <Palette size={16} /> : tema.id === "neon" ? <Sparkles size={16} /> : tema.id === "rosa-kawaii" ? <Heart size={16} /> : <Moon size={16} />}
                 </span>
                 <span className="min-w-0">
                   <strong className="block text-sm text-slate-800 dark:text-slate-100">{tema.nombre}</strong>
                   <small className="block truncate text-[10px] text-slate-500 dark:text-slate-400">{tema.descripcion}</small>
                 </span>
-                {seleccionado && <CheckCircle2 size={16} className="ml-auto shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                {seleccionado && (
+                  <CheckCircle2
+                    size={16}
+                    className={cn(
+                      "ml-auto shrink-0",
+                      tema.id === "rosa-kawaii"
+                        ? "text-pink-500"
+                        : tema.id === "neon"
+                          ? "text-fuchsia-500 dark:text-fuchsia-400"
+                          : "text-emerald-600 dark:text-emerald-400",
+                    )}
+                  />
+                )}
               </button>
             );
           })}

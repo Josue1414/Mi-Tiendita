@@ -86,7 +86,7 @@ export default function AppPrincipal() {
 
   useEffect(() => {
     if (esVistaCliente) return;
-    const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito";
+    const usaModoOscuro = temaVisual === "oscuro" || temaVisual === "grafito" || temaVisual === "neon";
     document.documentElement.classList.toggle("dark", usaModoOscuro);
   }, [esVistaCliente, temaVisual]);
 
@@ -123,7 +123,7 @@ export default function AppPrincipal() {
     const esDispositivoMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
 
     if (esEscritorio || !esDispositivoMovil) {
-      const rutaBase = window.location.href.split("?")[0];
+      const rutaBase = `${window.location.origin}${window.location.pathname}`;
       window.open(`${rutaBase}?cliente=${encodeURIComponent(nombreCaja)}&tienda=${encodeURIComponent(nombreTienda)}`, "PantallaCliente", "width=800,height=900,menubar=no,toolbar=no");
     }
     setModalQRAbierto(true);

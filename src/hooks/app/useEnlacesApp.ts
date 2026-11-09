@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { androidLan } from "../../servicios/androidLan";
 import { obtenerUrlLANDesdeEnlaceAndroid } from "../../utilidades/identificador";
+import { obtenerParametrosUrlActual } from "../../utilidades/parametrosUrl";
 import { useEstadoRed } from "../../estado/estadoRed";
 
 export default function useEnlacesApp() {
-  const [deepLinkSearch, setDeepLinkSearch] = useState(() => window.location.search);
+  const [deepLinkSearch, setDeepLinkSearch] = useState(() => obtenerParametrosUrlActual().toString());
   const hostLanEnlace = new URLSearchParams(deepLinkSearch).get("lanHost");
   const esVistaCliente = new URLSearchParams(deepLinkSearch).has("cliente");
   const { esMaestro, ipMaestro, setIpMaestro } = useEstadoRed();
