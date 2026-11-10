@@ -4,7 +4,7 @@ import { useEstadoInventario } from "../estado/estadoInventario";
 import { useEstadoNavegacion } from "../estado/estadoNavegacion";
 import { useEstadoTrabajadores } from "../estado/estadoTrabajadores";
 import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
-import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Package, Barcode, FolderPlus, MapPin, ArrowUp, Camera, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Scale } from "lucide-react";
 import { cn } from "../utilidades/utils";
 import { precioVenta, type Producto } from "../tipos/producto";
 import { colorConAlpha, colorTextoSobre, iconoCategoria } from "../utilidades/coloresCategoria";
@@ -20,6 +20,13 @@ import { useEmisorPantallaCliente } from "../hooks/usePantallaCliente";
 import { ajustarLotes } from "../utilidades/lotes";
 
 const PRODUCTOS_POR_PAGINA = 50;
+const CATEGORIA_PESAJE = "__pesaje__";
+
+const usaBascula = (producto: Producto) => {
+  const esMasa = ["KG", "GRAMO", "MILIGRAMO"].includes(producto.unidad);
+  const esLiquido = producto.unidad === "LITRO" || producto.unidad === "MILILITRO";
+  return esMasa || (esLiquido && producto.bascula_equivalencia_litros === true);
+};
 
 export default function VistaInventario() {
   const { productos, categorias, eliminarProducto, actualizarProducto, agregarCategoria, eliminarCategoria } = useEstadoInventario();
@@ -92,6 +99,9 @@ export default function VistaInventario() {
     return productos.filter(p => !p.categoria || p.categoria.trim() === "").length;
   }, [productos]);
 
+  const conteoPesaje = useMemo(() => productos.filter(usaBascula).length, [productos]);
+  const categoriaPesajeExistente = categorias.find((categoria) => categoria.nombre.trim().toLowerCase() === "pesaje");
+
   const productosFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase().trim();
     return productos.filter((p) => {
@@ -104,12 +114,13 @@ export default function VistaInventario() {
       
       const coincideCategoria = 
         categoriaActiva === "todas" ? true 
+        : categoriaActiva === CATEGORIA_PESAJE || categoriaActiva === categoriaPesajeExistente?.nombre ? usaBascula(p)
         : categoriaActiva === "Sin categoría" ? (!p.categoria || p.categoria.trim() === "")
         : p.categoria === categoriaActiva;
         
       return coincideTexto && coincideCategoria;
     });
-  }, [productos, busqueda, categoriaActiva]);
+  }, [productos, busqueda, categoriaActiva, categoriaPesajeExistente?.nombre]);
 
   const totalPaginas = Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA);
   const productosPaginados = useMemo(() => {
@@ -322,10 +333,26 @@ export default function VistaInventario() {
             </button>
           )}
 
+          {!categoriaPesajeExistente && (
+            <button
+              onClick={() => setCategoriaActiva(CATEGORIA_PESAJE)}
+              className={cn(
+                "h-8 shrink-0 px-3 rounded-full text-xs font-bold border transition-colors shadow-sm inline-flex items-center gap-1.5",
+                categoriaActiva === CATEGORIA_PESAJE
+                  ? "bg-teal-600 text-white border-teal-600"
+                  : "bg-white text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 dark:bg-slate-900/50 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+              )}
+            >
+              <Scale size={13} />
+              Pesaje ({conteoPesaje})
+            </button>
+          )}
+
           {categorias.map((categoria) => {
+            const esCategoriaPesaje = categoria.nombre.trim().toLowerCase() === "pesaje";
             const activa = categoriaActiva === categoria.nombre;
             const Icono = iconoCategoria(categoria.nombre);
-            const count = conteoPorCategoria.get(categoria.nombre) ?? 0;
+            const count = esCategoriaPesaje ? conteoPesaje : conteoPorCategoria.get(categoria.nombre) ?? 0;
             return (
               <div key={categoria.id} className="h-8 shrink-0 inline-flex items-center rounded-full border overflow-hidden bg-white dark:bg-slate-900/50 shadow-sm" style={{ borderColor: categoria.color }}>
                 <button
@@ -336,7 +363,7 @@ export default function VistaInventario() {
                     color: activa ? colorTextoSobre(categoria.color) : categoria.color,
                   }}
                 >
-                  <Icono size={13} />
+                  {esCategoriaPesaje ? <Scale size={13} /> : <Icono size={13} />}
                   {categoria.nombre} ({count})
                 </button>
                 {puedeEliminar && (

@@ -13,7 +13,7 @@ import ModalAviso from "../componentes/ui/ModalAviso";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
 import ModalEscanerCodigo from "../componentes/ui/ModalEscanerCodigo";
-import { ajustarLotes } from "../utilidades/lotes";
+import { ajustarLotes, descontarDeLoteMasAntiguo } from "../utilidades/lotes";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 import { guardarImagenLocal, obtenerUrlImagenLocal } from "../servicios/baseDatosLocal";
 import SeccionInformacionProducto from "./nuevo_producto/SeccionInformacionProducto";
@@ -283,13 +283,23 @@ export default function VistaNuevoProducto() {
       imagenArchivo = undefined;
     }
 
-    const cantidadAgregada = editando ? cantidadNuevoLote : stockActual;
-    const stockFinal = editando
-      ? (productoExistente?.stock_actual ?? 0) + cantidadAgregada
+    const stockOriginal = productoExistente?.stock_actual ?? 0;
+    const stockEditado = editando && puedeAjustarStock
+      ? Math.round(Math.min(stockOriginal, Math.max(0, stockActual)) * 1000) / 1000
+      : stockOriginal;
+    const cantidadDescontada = Math.max(0, Math.round((stockOriginal - stockEditado) * 1000) / 1000);
+    const cantidadAgregada = editando
+      ? (puedeAjustarStock ? Math.round(cantidadNuevoLote * 1000) / 1000 : 0)
       : stockActual;
+    const stockFinal = editando
+      ? Math.round((stockEditado + cantidadAgregada) * 1000) / 1000
+      : stockActual;
+    const lotesTrasDescuento = cantidadDescontada > 0
+      ? descontarDeLoteMasAntiguo(productoExistente?.lotes, cantidadDescontada)
+      : productoExistente?.lotes ?? [];
     const lotes = cantidadAgregada === 0
-      ? productoExistente?.lotes ?? []
-      : ajustarLotes(productoExistente?.lotes, cantidadAgregada, {
+      ? lotesTrasDescuento
+      : ajustarLotes(lotesTrasDescuento, cantidadAgregada, {
         fechaCaducidad: fechaCaducidadNuevoLote,
         agregadoPor: trabajadorActivo?.nombre ?? "Sistema",
         diasAlerta: diasAlertaCaducidad,

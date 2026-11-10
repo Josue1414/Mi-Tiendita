@@ -159,9 +159,27 @@ export default function SeccionInventarioProducto({
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">{editando ? "Cantidad actual" : "Cantidad inicial"}</label>
           {editando ? (
-            <div className={cn(campo, "font-bold")}>{productoExistente?.stock_actual ?? 0}</div>
+            <input
+              type="number"
+              min="0"
+              max={productoExistente?.stock_actual ?? 0}
+              step="any"
+              disabled={!puedeAjustarStock}
+              value={stockActual}
+              onChange={(evento) => {
+                const cantidad = Number(evento.target.value) || 0;
+                setStockActual(Math.min(productoExistente?.stock_actual ?? 0, Math.max(0, cantidad)));
+              }}
+              className={cn(campo, "font-bold")}
+            />
           ) : (
             <input type="number" min="0" disabled={!puedeEditar && !puedeAjustarStock} placeholder="0" value={stockActual === 0 ? "" : stockActual} onChange={(e) => setStockActual(e.target.value ? Number(e.target.value) : 0)} className={campo} />
+          )}
+          {editando && puedeAjustarStock && (
+            <p className="mt-1.5 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+              <Info size={13} className="mt-0.5 shrink-0" />
+              Solo puedes descontar existencias; el descuento se toma del lote más antiguo. Para agregar, registra un lote nuevo.
+            </p>
           )}
         </div>
         <div>

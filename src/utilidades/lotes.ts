@@ -46,6 +46,18 @@ export function descontarDeLotes(lotes: LoteProducto[] = [], cantidad: number): 
     });
 }
 
+export function descontarDeLoteMasAntiguo(lotes: LoteProducto[] = [], cantidad: number): LoteProducto[] {
+  let restante = Math.max(0, cantidad);
+  return [...lotes]
+    .sort((a, b) => a.fecha_ingreso.localeCompare(b.fecha_ingreso))
+    .map((lote) => {
+      if (restante <= 0 || lote.cantidad <= 0) return { ...lote };
+      const descontado = Math.min(lote.cantidad, restante);
+      restante = Math.max(0, Math.round((restante - descontado) * 1000) / 1000);
+      return { ...lote, cantidad: Math.max(0, Math.round((lote.cantidad - descontado) * 1000) / 1000) };
+    });
+}
+
 export function ajustarLotes(
   lotes: LoteProducto[] = [],
   ajuste: number,
