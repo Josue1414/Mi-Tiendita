@@ -85,7 +85,7 @@ export default function SeccionPreciosEtiqueta({
         <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Vista previa del código</h2>
         {previewCodigo ? (
           <>
-            <div className="bg-white rounded-lg p-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: previewCodigo }} />
+            <div className="overflow-x-auto rounded-lg p-2" style={{ backgroundColor: "#fff" }} dangerouslySetInnerHTML={{ __html: previewCodigo }} />
             <p className="text-[10px] text-center text-slate-400">{unidad} — {unidad.toLowerCase()}(s)</p>
             <button
               type="button"

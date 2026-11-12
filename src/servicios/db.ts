@@ -3,7 +3,7 @@ import { openDB } from "idb";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
 
 const DB_NOMBRE = "mitiendita_db";
-const DB_VERSION = 4; 
+const DB_VERSION = 5;
 const obtenerTablaLocal = (tabla: string) => {
   const tiendaId = localStorage.getItem("tienda_id");
   return tiendaId ? `${tabla}__tienda_${encodeURIComponent(tiendaId).replace(/%/g, "_")}` : `${tabla}__local`;
@@ -69,6 +69,9 @@ const initDB = async () => {
       }
       if (!db.objectStoreNames.contains("categorias")) {
         db.createObjectStore("categorias", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("unidades_medida")) {
+        db.createObjectStore("unidades_medida", { keyPath: "id" });
       }
       if (!db.objectStoreNames.contains("ventas")) {
         db.createObjectStore("ventas", { keyPath: "id" });

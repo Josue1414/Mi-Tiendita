@@ -1,6 +1,6 @@
 // src/estado/estadoInventario.ts
 import { create } from "zustand";
-import type { Categoria, Producto } from "../tipos/producto";
+import type { Categoria, Producto, UnidadMedida } from "../tipos/producto";
 import { guardarRegistro, obtenerRegistros, eliminarRegistro, obtenerPendientesSync, eliminarPendienteSync, registrarPendienteSync } from "../servicios/db";
 import { CATEGORIAS_INICIALES, siguienteColor } from "../utilidades/coloresCategoria";
 import { supabase, obtenerTiendaIdActual } from "../servicios/supabase";
@@ -8,12 +8,14 @@ import { debeSincronizarConNube, enviarAccionLAN } from "../servicios/sincroniza
 import { useEstadoRed } from "./estadoRed";
 import { descontarDeLotes } from "../utilidades/lotes";
 import { crearIdentificadorUnico } from "../utilidades/identificador";
+import { normalizarNombreUnidad, UNIDADES_MEDIDA_PREDEFINIDAS } from "../utilidades/unidadesMedida";
 
 const esEscritorio = typeof window !== 'undefined' && (window as any).apiLocal !== undefined;
 
 interface EstadoInventario {
   productos: Producto[];
   categorias: Categoria[];
+  unidadesMedida: UnidadMedida[];
   cargando: boolean;
   cargarProductos: () => Promise<void>;
   agregarProducto: (producto: Producto, propagado?: boolean) => Promise<void>;
@@ -21,11 +23,14 @@ interface EstadoInventario {
   eliminarProducto: (id: string, propagado?: boolean) => Promise<void>;
   agregarCategoria: (nombre: string, color?: string, propagado?: boolean, id?: string) => Promise<Categoria | null>;
   eliminarCategoria: (id: string, propagado?: boolean) => Promise<void>;
+  guardarUnidadMedida: (nombre: string, id?: string, propagado?: boolean) => Promise<UnidadMedida>;
+  eliminarUnidadMedida: (id: string, propagado?: boolean) => Promise<void>;
   descontarStock: (items: Array<{ producto_id: string; cantidad: number }>, propagado?: boolean) => Promise<void>;
   aplicarSincronizacionRemota: (accion: any) => void;
-  hidratarEstadoLAN: (snapshot: { productos: Producto[]; categorias: Categoria[] }) => Promise<void>;
+  hidratarEstadoLAN: (snapshot: { productos: Producto[]; categorias: Categoria[]; unidadesMedida?: UnidadMedida[] }) => Promise<void>;
   sincronizarProducto: (payload: any) => Promise<void>; 
   sincronizarCategoria: (payload: any) => Promise<void>; 
+  sincronizarUnidadMedida: (payload: any) => Promise<void>;
 }
 
 const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
@@ -45,6 +50,7 @@ const mapearProductoASupabase = (p: Producto, tiendaId: string) => ({
   descuento_porcentaje: p.descuento_porcentaje,
   activo: p.activo,
   requiere_autorizacion: p.requiere_autorizacion,
+  requiere_pin_autorizacion: p.requiere_pin_autorizacion ?? false,
   mensaje_autorizacion: p.mensaje_autorizacion || null,
   permite_foto_autorizacion: p.permite_foto_autorizacion,
   lotes: p.lotes ?? [],
@@ -85,6 +91,7 @@ const mapearProductoDesdeSupabase = (p: any, categoriaNombre: string = ""): Prod
   descuento_porcentaje: Number(p.descuento_porcentaje),
   activo: p.activo,
   requiere_autorizacion: p.requiere_autorizacion,
+  requiere_pin_autorizacion: Boolean(p.requiere_pin_autorizacion),
   mensaje_autorizacion: p.mensaje_autorizacion || "",
   permite_foto_autorizacion: p.permite_foto_autorizacion,
   lotes: Array.isArray(p.lotes) ? p.lotes : [],
@@ -105,6 +112,20 @@ const mismoStockYLotes = (a: Producto, b: Producto) =>
   a.stock_actual === b.stock_actual
   && JSON.stringify(a.lotes ?? []) === JSON.stringify(b.lotes ?? []);
 
+interface EventoUnidadMedidaNube {
+  eventType: string;
+  new: Record<string, unknown>;
+  old: Record<string, unknown>;
+}
+
+const esEventoUnidadMedidaNube = (valor: unknown): valor is EventoUnidadMedidaNube => {
+  if (typeof valor !== "object" || valor === null) return false;
+  const evento = valor as Record<string, unknown>;
+  return typeof evento.eventType === "string"
+    && typeof evento.new === "object" && evento.new !== null
+    && typeof evento.old === "object" && evento.old !== null;
+};
+
 const limpiarPendientesStockConfirmados = async (producto: Producto) => {
   const pendientes = await obtenerPendientesSync();
   const pendientesProducto = pendientes.filter((pendiente) =>
@@ -124,6 +145,7 @@ const limpiarPendientesStockConfirmados = async (producto: Producto) => {
 export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
   productos: [],
   categorias: [],
+  unidadesMedida: [],
   cargando: true,
 
   aplicarSincronizacionRemota: (accion) => {
@@ -143,12 +165,24 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       case 'AGREGAR_CATEGORIA': get().agregarCategoria(payload.nombre, payload.color, true, payload.id); break;
       case 'ACTUALIZAR_CATEGORIA': get().agregarCategoria(payload.nombre, payload.color, true, payload.id); break;
       case 'ELIMINAR_CATEGORIA': get().eliminarCategoria(payload, true); break;
+      case 'AGREGAR_UNIDAD_MEDIDA':
+      case 'ACTUALIZAR_UNIDAD_MEDIDA':
+        void get().guardarUnidadMedida(payload.nombre, payload.id, true).catch((error: unknown) => {
+          console.error("No se pudo aplicar la unidad de medida recibida por LAN:", error);
+        });
+        break;
+      case 'ELIMINAR_UNIDAD_MEDIDA':
+        void get().eliminarUnidadMedida(payload, true).catch((error: unknown) => {
+          console.error("No se pudo eliminar la unidad recibida por LAN:", error);
+        });
+        break;
     }
   },
 
-  hidratarEstadoLAN: async ({ productos, categorias }) => {
+  hidratarEstadoLAN: async ({ productos, categorias, unidadesMedida }) => {
     const productosLocales = await obtenerRegistros("productos") as Producto[];
     const categoriasLocales = await obtenerRegistros("categorias") as Categoria[];
+    const unidadesLocales = await obtenerRegistros("unidades_medida") as UnidadMedida[];
     const pendientesSync = await obtenerPendientesSync();
     const productosConCambiosPendientes = new Set(
       pendientesSync
@@ -185,6 +219,13 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     for (const categoria of categoriasLocales) {
       if (!idsCategorias.has(categoria.id)) await eliminarRegistro("categorias", categoria.id);
     }
+    if (unidadesMedida) {
+      const idsUnidades = new Set(unidadesMedida.map((unidad) => unidad.id));
+      for (const unidad of unidadesLocales) {
+        if (!idsUnidades.has(unidad.id)) await eliminarRegistro("unidades_medida", unidad.id);
+      }
+      for (const unidad of unidadesMedida) await guardarRegistro("unidades_medida", unidad);
+    }
     
     for (const categoria of categorias) await guardarRegistro("categorias", categoria);
     
@@ -214,7 +255,12 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
       await guardarRegistro("productos", producto);
     }
     
-    set({ productos: productosFusionados, categorias, cargando: false });
+    set({
+      productos: productosFusionados,
+      categorias,
+      ...(unidadesMedida ? { unidadesMedida } : {}),
+      cargando: false
+    });
 
     for (const [id, productoPendiente] of ultimoCambioPendiente) {
       const productoLAN = productos.find((producto) => producto.id === id);
@@ -231,6 +277,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     try {
       let productosEstado: Producto[] = [];
       let categoriasEstado: Categoria[] = [];
+      let unidadesMedidaEstado: UnidadMedida[] = [];
 
       const datosLocales = await obtenerRegistros("productos");
       productosEstado = (datosLocales as Producto[]).map((producto) => ({
@@ -239,6 +286,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         lotes: Array.isArray(producto.lotes) ? producto.lotes : [],
       }));
       categoriasEstado = (await obtenerRegistros("categorias")) as Categoria[];
+      unidadesMedidaEstado = (await obtenerRegistros("unidades_medida")) as UnidadMedida[];
 
       if (categoriasEstado.length === 0) {
         categoriasEstado = CATEGORIAS_INICIALES.map((categoria) => ({
@@ -249,14 +297,15 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         for (const categoria of categoriasEstado) await guardarRegistro("categorias", categoria);
       }
 
-      set({ productos: productosEstado, categorias: categoriasEstado, cargando: false });
+      set({ productos: productosEstado, categorias: categoriasEstado, unidadesMedida: unidadesMedidaEstado, cargando: false });
 
       const tiendaId = await obtenerTiendaIdActual();
 
       if (navigator.onLine && debeSincronizarConNube() && tiendaId) {
-        const [resultadoCategorias, resultadoProductos] = await Promise.all([
+        const [resultadoCategorias, resultadoProductos, resultadoUnidades] = await Promise.all([
           supabase.from('categorias').select('*').eq('tienda_id', tiendaId),
-          supabase.from('productos').select('*').eq('tienda_id', tiendaId)
+          supabase.from('productos').select('*').eq('tienda_id', tiendaId),
+          supabase.from('unidades_medida').select('id, nombre').eq('tienda_id', tiendaId)
         ]);
         if (!debeSincronizarConNube()) return;
         const catSupabase = resultadoCategorias.data;
@@ -267,6 +316,9 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
             productos: resultadoProductos.error
           });
           return;
+        }
+        if (resultadoUnidades.error) {
+          console.warn("No se pudieron cargar las unidades personalizadas desde Supabase; se conservarán las locales.", resultadoUnidades.error);
         }
 
         if (catSupabase && prodSupabase) {
@@ -282,6 +334,7 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
           }
 
           const categoriasNube = catSupabase.map(c => ({ id: c.id, nombre: c.nombre, color: c.color }));
+          const unidadesNube = resultadoUnidades.data?.map((unidad) => ({ id: unidad.id, nombre: unidad.nombre }));
           const productosLocales = await obtenerRegistros("productos") as Producto[];
           const productosLocalesPorId = new Map(productosLocales.map((producto) => [producto.id, producto]));
           const productosNube = prodSupabase.map(p => {
@@ -298,9 +351,17 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
           const idsCategoriasNube = new Set(categoriasNube.map(c => c.id));
           const idsProductosNube = new Set(productosNube.map(p => p.id));
           const categoriasLocales = await obtenerRegistros("categorias");
+          const unidadesLocales = await obtenerRegistros("unidades_medida") as UnidadMedida[];
 
           for (const categoriaLocal of categoriasLocales) {
             if (!idsCategoriasNube.has(categoriaLocal.id)) await eliminarRegistro("categorias", categoriaLocal.id);
+          }
+          if (unidadesNube) {
+            const idsUnidadesNube = new Set(unidadesNube.map((unidad) => unidad.id));
+            for (const unidadLocal of unidadesLocales) {
+              if (!idsUnidadesNube.has(unidadLocal.id)) await eliminarRegistro("unidades_medida", unidadLocal.id);
+            }
+            for (const unidad of unidadesNube) await guardarRegistro("unidades_medida", unidad);
           }
           for (const productoLocal of productosLocales) {
             if (!idsProductosNube.has(productoLocal.id)) await eliminarRegistro("productos", productoLocal.id);
@@ -309,7 +370,12 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
           for (const categoria of categoriasNube) await guardarRegistro("categorias", categoria);
           for (const producto of productosNube) await guardarRegistro("productos", producto);
 
-          set({ productos: productosNube, categorias: categoriasNube, cargando: false });
+          set({
+            productos: productosNube,
+            categorias: categoriasNube,
+            ...(unidadesNube ? { unidadesMedida: unidadesNube } : {}),
+            cargando: false
+          });
           return;
         }
       }
@@ -507,6 +573,143 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
     }
   },
 
+  guardarUnidadMedida: async (nombre, id, propagado = false) => {
+    const nombreLimpio = nombre.trim().replace(/\s+/g, " ");
+    const nombreNormalizado = normalizarNombreUnidad(nombreLimpio);
+    if (!nombreNormalizado) throw new Error("Escribe el nombre de la unidad de medida.");
+    if (nombreLimpio.length > 40) throw new Error("El nombre no puede tener más de 40 caracteres.");
+
+    const existentes = get().unidadesMedida;
+    const existente = id ? existentes.find((unidad) => unidad.id === id) : undefined;
+    if (id && !existente) throw new Error("La unidad que quieres editar ya no está disponible.");
+
+    const nombrePredefinido = UNIDADES_MEDIDA_PREDEFINIDAS.some((unidad) =>
+      normalizarNombreUnidad(unidad.nombre) === nombreNormalizado
+      || normalizarNombreUnidad(unidad.valor) === nombreNormalizado
+    );
+    if (nombrePredefinido) throw new Error("Ese nombre está reservado para una unidad predefinida.");
+    if (existentes.some((unidad) =>
+      unidad.id !== id && normalizarNombreUnidad(unidad.nombre) === nombreNormalizado
+    )) {
+      throw new Error("Ya existe una unidad de medida con ese nombre.");
+    }
+
+    if (navigator.onLine && debeSincronizarConNube()) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        const { data, error } = await supabase
+          .from("unidades_medida")
+          .select("id, nombre")
+          .eq("tienda_id", tiendaId);
+        if (error) throw new Error(`No se pudieron validar las unidades guardadas en la nube: ${error.message}`);
+        if (data.some((unidad) =>
+          unidad.id !== id && normalizarNombreUnidad(unidad.nombre) === nombreNormalizado
+        )) {
+          throw new Error("Ya existe una unidad de medida con ese nombre en la tienda.");
+        }
+      }
+    }
+
+    const guardada: UnidadMedida = existente
+      ? { ...existente, nombre: nombreLimpio }
+      : { id: crearIdentificadorUnico(), nombre: nombreLimpio };
+
+    if (!propagado && enviarAccionLAN({
+      tipo: existente ? "ACTUALIZAR_UNIDAD_MEDIDA" : "AGREGAR_UNIDAD_MEDIDA",
+      payload: guardada
+    })) {
+      await guardarRegistro("unidades_medida", guardada);
+      if (existente && existente.nombre !== guardada.nombre) {
+        for (const producto of get().productos.filter((item) =>
+          normalizarNombreUnidad(item.unidad) === normalizarNombreUnidad(existente.nombre)
+        )) {
+          await get().actualizarProducto({ ...producto, unidad: guardada.nombre }, true);
+        }
+      }
+      set((estado) => ({
+        unidadesMedida: existente
+          ? estado.unidadesMedida.map((unidad) => unidad.id === id ? guardada : unidad)
+          : [...estado.unidadesMedida, guardada]
+      }));
+      return guardada;
+    }
+
+    if (existente && existente.nombre !== guardada.nombre) {
+      for (const producto of get().productos.filter((item) =>
+        normalizarNombreUnidad(item.unidad) === normalizarNombreUnidad(existente.nombre)
+      )) {
+        await get().actualizarProducto({ ...producto, unidad: guardada.nombre }, true);
+      }
+    }
+
+    await guardarRegistro("unidades_medida", guardada);
+    set((estado) => ({
+      unidadesMedida: existente
+        ? estado.unidadesMedida.map((unidad) => unidad.id === id ? guardada : unidad)
+        : [...estado.unidadesMedida, guardada]
+    }));
+
+    if (navigator.onLine && debeSincronizarConNube()) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        await sincronizarConCola("unidades_medida", existente ? "ACTUALIZAR" : "AGREGAR", guardada, () =>
+          supabase.from("unidades_medida").upsert({ id: guardada.id, tienda_id: tiendaId, nombre: guardada.nombre })
+        );
+      } else {
+        await registrarPendienteSync({ tabla: "unidades_medida", operacion: existente ? "ACTUALIZAR" : "AGREGAR", payload: guardada });
+      }
+    } else if (!navigator.onLine && debeSincronizarConNube()) {
+      await registrarPendienteSync({ tabla: "unidades_medida", operacion: existente ? "ACTUALIZAR" : "AGREGAR", payload: guardada });
+    }
+    return guardada;
+  },
+
+  eliminarUnidadMedida: async (id, propagado = false) => {
+    const unidad = get().unidadesMedida.find((item) => item.id === id);
+    if (!unidad) return;
+    if (get().productos.some((producto) =>
+      normalizarNombreUnidad(producto.unidad) === normalizarNombreUnidad(unidad.nombre)
+    )) {
+      throw new Error("No se puede eliminar: primero cambia la unidad de los productos que la utilizan.");
+    }
+
+    if (navigator.onLine && debeSincronizarConNube()) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        const { data, error } = await supabase
+          .from("productos")
+          .select("id")
+          .eq("tienda_id", tiendaId)
+          .eq("unidad", unidad.nombre)
+          .limit(1);
+        if (error) throw new Error(`No se pudo comprobar si algún producto utiliza esta unidad: ${error.message}`);
+        if (data.length > 0) throw new Error("No se puede eliminar: primero cambia la unidad de los productos que la utilizan.");
+      }
+    }
+
+    if (!propagado && enviarAccionLAN({ tipo: "ELIMINAR_UNIDAD_MEDIDA", payload: id })) {
+      await eliminarRegistro("unidades_medida", id);
+      set((estado) => ({ unidadesMedida: estado.unidadesMedida.filter((item) => item.id !== id) }));
+      return;
+    }
+
+    await eliminarRegistro("unidades_medida", id);
+    set((estado) => ({ unidadesMedida: estado.unidadesMedida.filter((item) => item.id !== id) }));
+
+    if (navigator.onLine && debeSincronizarConNube()) {
+      const tiendaId = await obtenerTiendaIdActual();
+      if (tiendaId) {
+        await sincronizarConCola("unidades_medida", "ELIMINAR", id, () =>
+          supabase.from("unidades_medida").delete().eq("id", id).eq("tienda_id", tiendaId)
+        );
+      } else {
+        await registrarPendienteSync({ tabla: "unidades_medida", operacion: "ELIMINAR", payload: id });
+      }
+    } else if (!navigator.onLine && debeSincronizarConNube()) {
+      await registrarPendienteSync({ tabla: "unidades_medida", operacion: "ELIMINAR", payload: id });
+    }
+  },
+
   descontarStock: async (items, propagado = false) => {
     const cantidadesPorProducto = new Map<string, number>();
     for (const item of items) {
@@ -639,5 +842,54 @@ export const useEstadoInventario = create<EstadoInventario>((set, get) => ({
         payload: catMapeada
       });
     }
+  },
+
+  sincronizarUnidadMedida: async (payload: unknown) => {
+    if (!esEventoUnidadMedidaNube(payload)) return;
+    const { eventType, new: nuevo, old: viejo } = payload;
+    if (eventType === "DELETE") {
+      const id = viejo?.id;
+      if (typeof id !== "string") return;
+      const unidad = get().unidadesMedida.find((item) => item.id === id);
+      if (!unidad) return;
+      if (get().productos.some((producto) =>
+        normalizarNombreUnidad(producto.unidad) === normalizarNombreUnidad(unidad.nombre)
+      )) {
+        console.error(`Supabase eliminó la unidad "${unidad.nombre}" aunque todavía está asignada a productos.`);
+        return;
+      }
+      if (esEscritorio) await eliminarRegistro("unidades_medida", id);
+      set((estado) => ({ unidadesMedida: estado.unidadesMedida.filter((item) => item.id !== id) }));
+      enviarAccionLAN({ tipo: "ELIMINAR_UNIDAD_MEDIDA", payload: id });
+      return;
+    }
+    if (typeof nuevo?.id !== "string" || typeof nuevo?.nombre !== "string") return;
+    const unidadNube: UnidadMedida = { id: nuevo.id, nombre: nuevo.nombre };
+    const anterior = get().unidadesMedida.find((item) => item.id === unidadNube.id);
+    const productosActualizados = anterior && anterior.nombre !== unidadNube.nombre
+      ? get().productos.map((producto) =>
+        normalizarNombreUnidad(producto.unidad) === normalizarNombreUnidad(anterior.nombre)
+          ? { ...producto, unidad: unidadNube.nombre }
+          : producto
+      )
+      : get().productos;
+    if (esEscritorio) {
+      await guardarRegistro("unidades_medida", unidadNube);
+      for (const producto of productosActualizados) {
+        if (get().productos.find((actual) => actual.id === producto.id)?.unidad !== producto.unidad) {
+          await guardarRegistro("productos", producto);
+        }
+      }
+    }
+    set((estado) => ({
+      unidadesMedida: anterior
+        ? estado.unidadesMedida.map((item) => item.id === unidadNube.id ? unidadNube : item)
+        : [...estado.unidadesMedida, unidadNube],
+      productos: productosActualizados
+    }));
+    enviarAccionLAN({
+      tipo: eventType === "INSERT" ? "AGREGAR_UNIDAD_MEDIDA" : "ACTUALIZAR_UNIDAD_MEDIDA",
+      payload: unidadNube
+    });
   }
 }));

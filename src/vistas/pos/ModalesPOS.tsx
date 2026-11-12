@@ -12,6 +12,7 @@ type EnviarMensajePantalla = ComponentProps<typeof ModalDescripcionProducto>["en
 
 interface ModalesPOSProps {
   modalPinCancelacion: boolean;
+  modalPinAutorizacion: boolean;
   modalPesoAbierto: boolean;
   productoParaPesar: Producto | null;
   modalCobroAbierto: boolean;
@@ -33,6 +34,8 @@ interface ModalesPOSProps {
   enviarMensaje: EnviarMensajePantalla;
   alConfirmarPin: () => void;
   alCerrarPin: () => void;
+  alConfirmarPinAutorizacion: () => void;
+  alCerrarPinAutorizacion: () => void;
   alCerrarPeso: () => void;
   alConfirmarPeso: (peso: number) => void;
   alCerrarAviso: () => void;
@@ -46,6 +49,7 @@ interface ModalesPOSProps {
 
 export default function ModalesPOS({
   modalPinCancelacion,
+  modalPinAutorizacion,
   modalPesoAbierto,
   productoParaPesar,
   modalCobroAbierto,
@@ -67,6 +71,8 @@ export default function ModalesPOS({
   enviarMensaje,
   alConfirmarPin,
   alCerrarPin,
+  alConfirmarPinAutorizacion,
+  alCerrarPinAutorizacion,
   alCerrarPeso,
   alConfirmarPeso,
   alCerrarAviso,
@@ -87,6 +93,16 @@ export default function ModalesPOS({
         validarAutorizacion={true}
         alConfirmar={alConfirmarPin}
         alCerrar={alCerrarPin}
+      />
+
+      <ModalConfirmacionPin
+        abierto={modalPinAutorizacion}
+        titulo="Autorización de producto"
+        mensaje="Ingresa el PIN de un Dueño o Supervisor para continuar con la venta."
+        labelPin="PIN de Autorización"
+        validarAutorizacion={true}
+        alConfirmar={alConfirmarPinAutorizacion}
+        alCerrar={alCerrarPinAutorizacion}
       />
 
       <ModalPeso
@@ -113,7 +129,6 @@ export default function ModalesPOS({
       <ModalAutorizacion
         abierto={Boolean(productoAutorizacion)}
         mensaje={productoAutorizacion?.mensaje_autorizacion ?? "Este producto requiere autorización para venderse."}
-        permiteFoto={Boolean(productoAutorizacion?.permite_foto_autorizacion)}
         alCerrar={alCerrarAutorizacion}
         alConfirmar={alConfirmarAutorizacion}
       />

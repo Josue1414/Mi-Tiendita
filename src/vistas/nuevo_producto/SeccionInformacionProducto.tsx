@@ -27,10 +27,10 @@ interface PropsSeccionInformacionProducto {
   campo: string;
   requiereAutorizacion: boolean;
   setRequiereAutorizacion: (requiere: boolean) => void;
+  requierePinAutorizacion: boolean;
+  setRequierePinAutorizacion: (requiere: boolean) => void;
   mensajeAutorizacion: string;
   setMensajeAutorizacion: (mensaje: string) => void;
-  permiteFotoAutorizacion: boolean;
-  setPermiteFotoAutorizacion: (permite: boolean) => void;
 }
 
 export default function SeccionInformacionProducto({
@@ -55,10 +55,10 @@ export default function SeccionInformacionProducto({
   campo,
   requiereAutorizacion,
   setRequiereAutorizacion,
+  requierePinAutorizacion,
+  setRequierePinAutorizacion,
   mensajeAutorizacion,
   setMensajeAutorizacion,
-  permiteFotoAutorizacion,
-  setPermiteFotoAutorizacion,
 }: PropsSeccionInformacionProducto) {
   return (
     <>
@@ -138,7 +138,7 @@ export default function SeccionInformacionProducto({
             </label>
             <AyudaContextual
               etiqueta="Requiere autorización"
-              texto="Activa esta opción para que, antes de vender el producto, el personal tenga que solicitar autorización de un supervisor o dueño. Puedes indicar el motivo o requisito y permitir que se adjunte una foto como evidencia."
+              texto="Al venderlo, se mostrará una alerta para que el trabajador verifique la receta o autorización. La foto de evidencia será opcional."
             />
           </div>
         </div>
@@ -146,8 +146,8 @@ export default function SeccionInformacionProducto({
           <>
             <input disabled={!puedeEditar} value={mensajeAutorizacion} onChange={(evento) => setMensajeAutorizacion(evento.target.value)} className={campo} placeholder="Ej: Requiere receta médica" />
             <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-              <input type="checkbox" disabled={!puedeEditar} checked={permiteFotoAutorizacion} onChange={(evento) => setPermiteFotoAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
-              Permitir foto de receta o evidencia
+              <input type="checkbox" disabled={!puedeEditar} checked={requierePinAutorizacion} onChange={(evento) => setRequierePinAutorizacion(evento.target.checked)} className="h-4 w-4 accent-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" />
+              Solicitar PIN de Supervisor o Dueño
             </label>
           </>
         )}

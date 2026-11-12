@@ -21,7 +21,7 @@ export interface Producto {
   stock_actual: number;
   stock_minimo: number;
   controla_stock: boolean;
-  unidad: "PIEZA" | "KG" | "GRAMO" | "LITRO" | "MILILITRO" | "MILIGRAMO" | "PAQUETE" | "SOBRE" | "DOCENA";
+  unidad: string;
   precio: number;
   costo: number;
   descuento_porcentaje: number;
@@ -29,6 +29,7 @@ export interface Producto {
   imagen_url?: string;
   imagen_archivo?: string;
   requiere_autorizacion?: boolean;
+  requiere_pin_autorizacion?: boolean;
   mensaje_autorizacion?: string;
   permite_foto_autorizacion?: boolean;
   lotes?: LoteProducto[];
@@ -41,13 +42,18 @@ export interface Categoria {
   color: string;
 }
 
+export interface UnidadMedida {
+  id: string;
+  nombre: string;
+}
+
 export function precioVenta(producto: Pick<Producto, "precio" | "descuento_porcentaje">): number {
   const descuento = Math.max(0, Math.min(100, producto.descuento_porcentaje || 0));
   return Math.round(producto.precio * (1 - descuento / 100) * 100) / 100;
 }
 
 export function abreviaturaUnidad(unidad: Producto["unidad"]): string {
-  const abreviaturas: Record<Producto["unidad"], string> = {
+  const abreviaturas: Record<string, string> = {
     PIEZA: "pza",
     KG: "kg",
     GRAMO: "g",
@@ -58,5 +64,5 @@ export function abreviaturaUnidad(unidad: Producto["unidad"]): string {
     SOBRE: "sob",
     DOCENA: "doc",
   };
-  return abreviaturas[unidad];
+  return abreviaturas[unidad] || unidad;
 }

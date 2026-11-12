@@ -114,6 +114,7 @@ export function useSincronizacion() {
                   descuento_porcentaje: payload.descuento_porcentaje,
                   activo: payload.activo,
                   requiere_autorizacion: payload.requiere_autorizacion,
+                  requiere_pin_autorizacion: payload.requiere_pin_autorizacion ?? false,
                   mensaje_autorizacion: payload.mensaje_autorizacion || null,
                   permite_foto_autorizacion: payload.permite_foto_autorizacion,
                   lotes: payload.lotes ?? [],
@@ -121,6 +122,8 @@ export function useSincronizacion() {
                 };
               } else if (tabla === 'categorias') {
                 dataUpsert = { id: payload.id, tienda_id: tiendaId, nombre: payload.nombre, color: payload.color };
+              } else if (tabla === 'unidades_medida') {
+                dataUpsert = { id: payload.id, tienda_id: tiendaId, nombre: payload.nombre };
               } else if (tabla === 'miembros_tienda') {
                 const permisosNube = payload.permisos ? { ...payload.permisos } : payload.permisos;
                 if (permisosNube) delete permisosNube.permisoFiados;
@@ -258,6 +261,11 @@ export function useSincronizacion() {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoInventario.getState().sincronizarCategoria(payload);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'unidades_medida', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
+          void useEstadoInventario.getState().sincronizarUnidadMedida(payload).catch((error: unknown) => {
+            console.error("No se pudo sincronizar la unidad recibida desde Supabase:", error);
+          });
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas', filter: `tienda_id=eq.${tiendaId}` }, (payload) => {
           useEstadoVentas.getState().sincronizarVenta(payload);

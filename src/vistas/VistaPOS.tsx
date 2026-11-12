@@ -102,6 +102,8 @@ export default function VistaPOS() {
   const [camaraVisible, setCamaraVisible] = useState(true);
   const [modalPinCancelacion, setModalPinCancelacion] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
+  const [modalPinAutorizacion, setModalPinAutorizacion] = useState(false);
+  const [accionAutorizacionPendiente, setAccionAutorizacionPendiente] = useState<(() => void) | null>(null);
   
   const [productoPesajeActivo, setProductoPesajeActivo] = useState<Producto | null>(null);
 
@@ -187,6 +189,7 @@ export default function VistaPOS() {
     !modalCobroAbierto &&
     !modalFiadoAbierto &&
     !modalPinCancelacion &&
+    !modalPinAutorizacion &&
     !aviso &&
     !productoAutorizacion &&
     !productoDescripcion;
@@ -281,6 +284,17 @@ export default function VistaPOS() {
     }
     continuarAgregado(producto);
   }, [continuarAgregado, soloEstacionPesaje]);
+
+  const solicitarPinAutorizacion = useCallback((producto: Producto, evidencia?: string) => {
+    const esAutorizador = trabajadorActivo?.rol === "DUENO" || trabajadorActivo?.rol === "SUPERVISOR";
+    if (!producto.requiere_pin_autorizacion || esAutorizador) {
+      continuarAgregado(producto, evidencia);
+      return;
+    }
+
+    setAccionAutorizacionPendiente(() => () => continuarAgregado(producto, evidencia));
+    setModalPinAutorizacion(true);
+  }, [continuarAgregado, trabajadorActivo?.rol]);
 
   const alEscanear = useCallback(
     (codigoStr: string) => {
@@ -502,6 +516,7 @@ export default function VistaPOS() {
 
       <ModalesPOS
         modalPinCancelacion={modalPinCancelacion}
+        modalPinAutorizacion={modalPinAutorizacion}
         modalPesoAbierto={modalPesoAbierto}
         productoParaPesar={productoParaPesar}
         modalCobroAbierto={!soloEstacionPesaje && modalCobroAbierto}
@@ -530,6 +545,15 @@ export default function VistaPOS() {
           setModalPinCancelacion(false);
           setAccionPendiente(null);
         }}
+        alConfirmarPinAutorizacion={() => {
+          if (accionAutorizacionPendiente) accionAutorizacionPendiente();
+          setModalPinAutorizacion(false);
+          setAccionAutorizacionPendiente(null);
+        }}
+        alCerrarPinAutorizacion={() => {
+          setModalPinAutorizacion(false);
+          setAccionAutorizacionPendiente(null);
+        }}
         alCerrarPeso={() => setModalPesoAbierto(false)}
         alConfirmarPeso={(peso) => {
           if (!productoParaPesar) return;
@@ -550,7 +574,7 @@ export default function VistaPOS() {
         alCerrarDescripcion={() => setProductoDescripcion(null)}
         alCerrarAutorizacion={() => setProductoAutorizacion(null)}
         alConfirmarAutorizacion={(evidencia) => {
-          if (productoAutorizacion) continuarAgregado(productoAutorizacion, evidencia);
+          if (productoAutorizacion) solicitarPinAutorizacion(productoAutorizacion, evidencia);
           setProductoAutorizacion(null);
         }}
         alCerrarCobro={() => setModalCobroAbierto(false)}

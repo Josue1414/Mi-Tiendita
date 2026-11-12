@@ -1,9 +1,10 @@
 // src/vistas/nuevo_producto/SeccionInventarioProducto.tsx
-import { CalendarDays, Check, CircleHelp, Info, Lock, Pencil, X } from "lucide-react";
+import { CalendarDays, Check, CircleHelp, Info, Lock, Pencil, Ruler, X } from "lucide-react";
 import CampoFecha from "../../componentes/ui/CampoFecha";
-import type { LoteProducto, Producto } from "../../tipos/producto";
+import type { LoteProducto, Producto, UnidadMedida } from "../../tipos/producto";
 import { cn } from "../../utilidades/utils";
 import { estadoCaducidad } from "../../utilidades/lotes";
+import { UNIDADES_GRANEL, UNIDADES_MEDIDA_PREDEFINIDAS } from "../../utilidades/unidadesMedida";
 
 interface PropsSeccionInventarioProducto {
   modoVenta: "PIEZA" | "GRANEL";
@@ -30,6 +31,8 @@ interface PropsSeccionInventarioProducto {
   setFechaCaducidadNuevoLote: (fecha: string) => void;
   unidad: Producto["unidad"];
   setUnidad: (unidad: Producto["unidad"]) => void;
+  unidadesPersonalizadas: UnidadMedida[];
+  onAdministrarUnidades: () => void;
   lotesRecientes: LoteProducto[];
   loteCaducidadEditando: string | null;
   setLoteCaducidadEditando: (loteId: string | null) => void;
@@ -65,6 +68,8 @@ export default function SeccionInventarioProducto({
   setFechaCaducidadNuevoLote,
   unidad,
   setUnidad,
+  unidadesPersonalizadas,
+  onAdministrarUnidades,
   lotesRecientes,
   loteCaducidadEditando,
   setLoteCaducidadEditando,
@@ -114,22 +119,24 @@ export default function SeccionInventarioProducto({
       </div>
 
       <div className="mb-2 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-100 dark:border-white/5">
-        <label className="block text-xs font-medium text-slate-600 mb-2">Unidad de medida {!puedeEditar && <Lock size={10} className="inline text-slate-400" />}</label>
-        <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value as Producto["unidad"])} className={campo}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <label className="text-xs font-medium text-slate-600"> Presentación {!puedeEditar && <Lock size={10} className="inline text-slate-400" />}</label>
+          <button type="button" disabled={!puedeEditar} onClick={onAdministrarUnidades} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">
+            <Ruler size={13} /> Administrar Presentaciones
+          </button>
+        </div>
+        <select disabled={!puedeEditar} value={unidad} onChange={(e) => setUnidad(e.target.value)} className={campo}>
           {modoVenta === "PIEZA" ? (
             <>
-              <option value="PIEZA">Pieza</option>
-              <option value="PAQUETE">Paquete</option>
-              <option value="SOBRE">Sobre</option>
-              <option value="DOCENA">Docena</option>
+              {UNIDADES_MEDIDA_PREDEFINIDAS.filter((item) => !UNIDADES_GRANEL.includes(item.valor)).map((item) => (
+                <option key={item.valor} value={item.valor}>{item.nombre}</option>
+              ))}
+              {unidadesPersonalizadas.map((item) => <option key={item.id} value={item.nombre}>{item.nombre}</option>)}
             </>
           ) : (
-            <>
-              <option value="KG">Kilogramos (KG)</option>
-              <option value="GRAMO">Gramos (G)</option>
-              <option value="LITRO">Litros (L)</option>
-              <option value="MILILITRO">Mililitros (ML)</option>
-            </>
+            UNIDADES_MEDIDA_PREDEFINIDAS.filter((item) => UNIDADES_GRANEL.includes(item.valor)).map((item) => (
+              <option key={item.valor} value={item.valor}>{item.nombre}</option>
+            ))
           )}
         </select>
 

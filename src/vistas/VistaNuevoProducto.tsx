@@ -9,6 +9,7 @@ import { useEstadoConfiguracion } from "../estado/estadoConfiguracion";
 import { precioVenta, type Producto } from "../tipos/producto";
 import { generarCodigoCorto, generarCodigoEAN13, generarCodigoNumerico, svgCodigoBarras } from "../utilidades/codigoBarras";
 import ModalCategoria from "../componentes/ui/ModalCategoria";
+import ModalUnidadesMedida from "../componentes/ui/ModalUnidadesMedida";
 import ModalAviso from "../componentes/ui/ModalAviso";
 import ModalConfirmacion from "../componentes/ui/ModalConfirmacion";
 import { useEscanerCodigoBarras } from "../hooks/useEscanerCodigoBarras";
@@ -22,7 +23,7 @@ import SeccionImagenProducto from "./nuevo_producto/SeccionImagenProducto";
 import SeccionPreciosEtiqueta from "./nuevo_producto/SeccionPreciosEtiqueta";
 
 export default function VistaNuevoProducto() {
-  const { productos, categorias, agregarProducto, actualizarProducto, agregarCategoria } = useEstadoInventario();
+  const { productos, categorias, unidadesMedida, agregarProducto, actualizarProducto, agregarCategoria, guardarUnidadMedida, eliminarUnidadMedida } = useEstadoInventario();
   const { setSeccionActual, productoEditandoId, abrirLoteCaducidad } = useEstadoNavegacion();
   const { trabajadorActivo } = useEstadoTrabajadores();
   const diasAlertaCaducidad = useEstadoConfiguracion((estado) => estado.diasAlertaCaducidad);
@@ -80,9 +81,10 @@ export default function VistaNuevoProducto() {
   const [costo, setCosto] = useState(0);
   const [descuento, setDescuento] = useState(0);
   const [requiereAutorizacion, setRequiereAutorizacion] = useState(false);
+  const [requierePinAutorizacion, setRequierePinAutorizacion] = useState(false);
   const [mensajeAutorizacion, setMensajeAutorizacion] = useState("Se requiere receta o autorización para vender este producto.");
-  const [permiteFotoAutorizacion, setPermiteFotoAutorizacion] = useState(false);
   const [modalCategoria, setModalCategoria] = useState(false);
+  const [modalUnidadesMedida, setModalUnidadesMedida] = useState(false);
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previewImagen, setPreviewImagen] = useState<string | null>(null);
   const [imagenEliminada, setImagenEliminada] = useState(false);
@@ -117,8 +119,8 @@ export default function VistaNuevoProducto() {
     setCosto(productoExistente.costo);
     setDescuento(productoExistente.descuento_porcentaje || 0);
     setRequiereAutorizacion(productoExistente.requiere_autorizacion ?? false);
+    setRequierePinAutorizacion(productoExistente.requiere_pin_autorizacion ?? false);
     setMensajeAutorizacion(productoExistente.mensaje_autorizacion || "Se requiere receta o autorización para vender este producto.");
-    setPermiteFotoAutorizacion(productoExistente.permite_foto_autorizacion ?? false);
 
     setModoVenta(["KG", "GRAMO", "LITRO", "MILILITRO", "MILIGRAMO"].includes(productoExistente.unidad) ? "GRANEL" : "PIEZA");
     setEquivalenciaLitros(productoExistente.bascula_equivalencia_litros ?? false);
@@ -325,8 +327,9 @@ export default function VistaNuevoProducto() {
       imagen_url: imagenBase64,
       imagen_archivo: imagenArchivo,
       requiere_autorizacion: puedeEditar ? requiereAutorizacion : (productoExistente?.requiere_autorizacion ?? false),
+      requiere_pin_autorizacion: puedeEditar ? (requiereAutorizacion && requierePinAutorizacion) : (productoExistente?.requiere_pin_autorizacion ?? false),
       mensaje_autorizacion: puedeEditar ? mensajeAutorizacion.trim() : (productoExistente?.mensaje_autorizacion || ""),
-      permite_foto_autorizacion: puedeEditar ? (requiereAutorizacion && permiteFotoAutorizacion) : (productoExistente?.permite_foto_autorizacion ?? false),
+      permite_foto_autorizacion: puedeEditar ? requiereAutorizacion : (productoExistente?.permite_foto_autorizacion ?? false),
       bascula_equivalencia_litros: puedeEditar ? (modoVenta === "GRANEL" && (unidad === "LITRO" || unidad === "MILILITRO") ? equivalenciaLitros : false) : (productoExistente?.bascula_equivalencia_litros ?? false),
     };
 
@@ -348,6 +351,16 @@ export default function VistaNuevoProducto() {
         mensaje={avisoGenerico?.mensaje ?? ""}
         tipo="advertencia"
         alCerrar={() => setAvisoGenerico(null)}
+      />
+      <ModalUnidadesMedida
+        abierto={modalUnidadesMedida}
+        unidades={unidadesMedida}
+        productos={productos}
+        unidadSeleccionada={unidad}
+        alCerrar={() => setModalUnidadesMedida(false)}
+        alGuardar={(nombreUnidad, id) => guardarUnidadMedida(nombreUnidad, id)}
+        alEliminar={eliminarUnidadMedida}
+        alSeleccionar={(nombreUnidad) => { if (modoVenta === "PIEZA") setUnidad(nombreUnidad); }}
       />
 
       <ModalConfirmacion
@@ -419,10 +432,10 @@ export default function VistaNuevoProducto() {
             campo={campo}
             requiereAutorizacion={requiereAutorizacion}
             setRequiereAutorizacion={setRequiereAutorizacion}
+            requierePinAutorizacion={requierePinAutorizacion}
+            setRequierePinAutorizacion={setRequierePinAutorizacion}
             mensajeAutorizacion={mensajeAutorizacion}
             setMensajeAutorizacion={setMensajeAutorizacion}
-            permiteFotoAutorizacion={permiteFotoAutorizacion}
-            setPermiteFotoAutorizacion={setPermiteFotoAutorizacion}
           />
           <SeccionInventarioProducto
             modoVenta={modoVenta}
@@ -449,6 +462,8 @@ export default function VistaNuevoProducto() {
             setFechaCaducidadNuevoLote={setFechaCaducidadNuevoLote}
             unidad={unidad}
             setUnidad={setUnidad}
+            unidadesPersonalizadas={unidadesMedida}
+            onAdministrarUnidades={() => setModalUnidadesMedida(true)}
             lotesRecientes={lotesRecientes}
             loteCaducidadEditando={loteCaducidadEditando}
             setLoteCaducidadEditando={setLoteCaducidadEditando}

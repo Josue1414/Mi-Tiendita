@@ -12,7 +12,11 @@ dist
 dist-ssr
 *.local
 .env
-supabase
+supabase/*
+!supabase/migrations/
+supabase/migrations/*
+!supabase/migrations/20261112145000_unidades_medida_personalizadas.sql
+!supabase/migrations/20261112153000_pin_autorizacion_productos.sql
 docsSQL
 
 # Editor directories and files

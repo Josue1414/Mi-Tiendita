@@ -23,7 +23,7 @@ export default function ContenidoPrincipal({
   dispositivosLANConectados,
 }: PropsContenidoPrincipal) {
   return (
-    <main className="flex-1 h-full min-w-0 overflow-hidden flex flex-col p-3 pb-24 sm:p-6 sm:pb-24 lg:pb-6 bg-transparent">
+    <main className="flex-1 h-full min-w-0 overflow-hidden flex flex-col px-3 pt-1 pb-20 sm:px-6 sm:pt-2 sm:pb-20 lg:pb-2 bg-transparent">
       <div className="efecto-cristal w-full h-full rounded-3xl overflow-hidden relative shadow-sm border border-slate-200/50 dark:border-white/10 flex flex-col">
         {seccionActual === "panel" ? (
           <VistaPanel

@@ -17,6 +17,7 @@ export const crearSnapshotLAN = () => {
   return {
     productos: useEstadoInventario.getState().productos,
     categorias: useEstadoInventario.getState().categorias,
+    unidadesMedida: useEstadoInventario.getState().unidadesMedida,
     ventas: useEstadoVentas.getState().ventas,
     trabajadores: useEstadoTrabajadores.getState().trabajadores,
     asistencias: useEstadoAsistencias.getState().asistencias,
